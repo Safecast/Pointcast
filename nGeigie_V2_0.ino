@@ -2,12 +2,11 @@
   nGeigie.ino
 
 V2.5.6  sending dual ok, pulse count only
-
+V2.5.8  chksum added to sd sensor 2..
+V2.5.9  display messages changed 
  */
  
  
-
-
 #include <SPI.h>         // needed for Arduino versions later than 0018
 #include <Ethernet.h>
 #include <limits.h>
@@ -47,7 +46,7 @@ static char buf[LINE_SZ];
 static char buf2[LINE_SZ];
 static char lat_buf[16];
 static char lon_buf[16];
-static char VERSION[] = "V2.3.8";
+static char VERSION[] = "V2.3.9";
 const char *server = "107.161.164.163";
 const int port = 80;
 const int interruptMode = RISING;
@@ -464,7 +463,6 @@ void SendDataToServer(float CPM,float CPM2){
     float uSv = CPM * conversionCoefficient;                   // convert CPM to Micro Sieverts Per Hour
     char CPM_string[16];
     dtostrf(CPM, 0, 0, CPM_string);
-     Serial.print("CPM1=");
      Serial.println(CPM_string);
     float uSv2 = CPM2 * conversionCoefficient2;                   // convert CPM to Micro Sieverts Per Hour
     char CPM2_string[16];
@@ -475,11 +473,15 @@ void SendDataToServer(float CPM,float CPM2){
       lcd.setCursor(0, 0);
       lcd.print("S1:");
       lcd.print(uSv);
-      lcd.print("uSv/H");
+      lcd.print("uSv/h");     
+      lcd.print("   CPM");
+      lcd.print(CPM_string);      
       lcd.setCursor(0,1);
       lcd.print("S2:");
       lcd.print(uSv2);
-      lcd.print("uSv/H");
+      lcd.print("uSv/h");
+      lcd.print("   CPM");
+      lcd.print(CPM2_string); 
   
 	if (client.connected())
 	{
@@ -663,7 +665,7 @@ client.stop();
           
           
           lcd.setCursor(0, 3);
-	  lcd.print(F("Send OK"));
+	  //lcd.print(F("Sent OK"));
 	  client.stop();
 
       lastConnectionTime = millis();
