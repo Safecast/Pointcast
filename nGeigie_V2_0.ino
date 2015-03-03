@@ -1,9 +1,10 @@
 /*
   nGeigie.ino
 
-V2.5.6  sending dual ok, pulse count only
-V2.5.8  chksum added to sd sensor 2..
-V2.5.9  display messages changed 
+V2.3.6  sending dual ok, pulse count only
+V2.3.8  chksum added to sd sensor 2..
+V2.3.9  display messages changed 
+V2.4.0  fixed cpm display
  */
  
  
@@ -46,7 +47,7 @@ static char buf[LINE_SZ];
 static char buf2[LINE_SZ];
 static char lat_buf[16];
 static char lon_buf[16];
-static char VERSION[] = "V2.3.9";
+static char VERSION[] = "V2.4.0";
 const char *server = "107.161.164.163";
 const int port = 80;
 const int interruptMode = RISING;
@@ -276,7 +277,7 @@ void setup() {
           Serial.println(day());
                 
    
-    //Gateways setup
+    //Gateways setup to be done
     //read for SDcard gateways 
     //store value in array
     //select randomly for total sserver
@@ -471,16 +472,16 @@ void SendDataToServer(float CPM,float CPM2){
     //display geiger info
       lcd.clear();
       lcd.setCursor(0, 0);
-      lcd.print("S1:");
+      lcd.print("1:");
       lcd.print(uSv);
       lcd.print("uSv/h");     
-      lcd.print("   CPM");
+      lcd.print(" CPM");
       lcd.print(CPM_string);      
       lcd.setCursor(0,1);
-      lcd.print("S2:");
+      lcd.print("2:");
       lcd.print(uSv2);
       lcd.print("uSv/h");
-      lcd.print("   CPM");
+      lcd.print(" CPM");
       lcd.print(CPM2_string); 
   
 	if (client.connected())
