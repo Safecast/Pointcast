@@ -26,7 +26,7 @@ typedef struct {
   unsigned long marker;     // set at first run
   char user_name[16];       // nm 
   unsigned int user_id;     // uid
-  unsigned int user_id2;     //uid
+  unsigned int user_id2;     // uid
   char api_key[24];         // api
   char latitude[16];        // lat
   char longitude[16];       // lon
@@ -34,10 +34,8 @@ typedef struct {
   float sensor1_cpm_factor; // s1f
   byte sensor2_enabled;     // s2e
   float sensor2_cpm_factor; // s2f
-  byte g3_enabled;          // 3g
   char gw1[16];             // gw1
   char gw2[16];             // gw1
-
 } ConfigType;
 
 // Write a template value into EEPROM address [ee]

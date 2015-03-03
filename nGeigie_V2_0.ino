@@ -47,7 +47,7 @@ static char buf[LINE_SZ];
 static char buf2[LINE_SZ];
 static char lat_buf[16];
 static char lon_buf[16];
-static char VERSION[] = "V2.3.6";
+static char VERSION[] = "V2.3.7";
 const char *server = "107.161.164.163";
 const int port = 80;
 const int interruptMode = RISING;
@@ -359,8 +359,8 @@ void setup() {
         Serial.println(config.longitude);
            
 
-    //updateIntervalInMillis = updateIntervalInMinutes * 300000;                  // update time in ms
-    updateIntervalInMillis = updateIntervalInMinutes * 6000;                  // update time in ms
+    updateIntervalInMillis = updateIntervalInMinutes * 300000;                  // update time in ms
+    //updateIntervalInMillis = updateIntervalInMinutes * 6000;                  // update time in ms
     unsigned long now1 = millis();
     nextExecuteMillis = now1 + updateIntervalInMillis;
 

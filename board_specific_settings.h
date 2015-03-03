@@ -25,7 +25,7 @@ IPAddress serverIP(107, 161, 164, 163 );    // Safecast's proxy server with time
 int pinSpkr = 1;	// pin number of piezo speaker
 int pinLED = 0;		// pin number of event LED
 int resetPin = A1;   //
-int ethernet_powerdonwPin = 16;
+int ethernet_powerdonwPin = 7;
 
 // Update interval in minutes
 //const int updateIntervalInMinutes = 1;

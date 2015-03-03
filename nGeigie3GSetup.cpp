@@ -189,14 +189,7 @@ void nGeigieSetup::loadFromFile(char * setupFile) {
         DEBUG_PRINTLN("   - Update longitude");
       }
     }
-    else if(strcmp(key, "3g") == 0) {
-      if (mConfig.g3_enabled != atoi(value)) {
-        mConfig.g3_enabled = atoi(value);
-        config_changed = true;
-        DEBUG_PRINTLN("   - Update 3Genabled flag");
-      }
-    }
-    else if(strcmp(key, "gw1") == 0) {
+        else if(strcmp(key, "gw1") == 0) {
       if (strcmp(mConfig.gw1, value) != 0 ) {
         strcpy(mConfig.gw1, value);
         config_changed = true;
@@ -210,7 +203,6 @@ void nGeigieSetup::loadFromFile(char * setupFile) {
         DEBUG_PRINTLN("   - Update Gateway2");
       }
      }
-    
   }
   DEBUG_PRINTLN("   - Done.");
 
