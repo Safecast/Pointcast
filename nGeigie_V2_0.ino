@@ -36,28 +36,28 @@ LiquidCrystal_I2C	lcd(I2C_ADDR,En_pin,Rw_pin,Rs_pin,D4_pin,D5_pin,D6_pin,D7_pin)
 
 #define ENABLE_DEBUG 
 #define LINE_SZ 80
+#define SENT_SZ 120
 #define OLINE_SZ 250
 
 
-static char json_buf[LINE_SZ];
-static char json_buf2[LINE_SZ];
+static char json_buf[SENT_SZ];
+static char json_buf2[SENT_SZ];
 static devctrl_t ctrl;
 static char obuf[OLINE_SZ];
 static char buf[LINE_SZ];
 static char buf2[LINE_SZ];
 static char lat_buf[16];
 static char lon_buf[16];
-static char VERSION[] = "V2.4.0";
+static char VERSION[] = "V2.4.3";
 const char *server = "107.161.164.163";
 const int port = 80;
-const int interruptMode = RISING;
+const int interruptMode = FALLING;
 const int updateIntervalInMinutes = 1;
 //char res[a3gsMAX_RESULT_LENGTH+1];
 int MAX_FAILED_CONNS = 3;
 int len;
 int len2;
 unsigned long elapsedTime(unsigned long startTime);
-unsigned long int uSv;
 char timestamp[19];
 char lat[8];
 char lon[9];
@@ -66,8 +66,8 @@ unsigned char state;
 int conn_fail_cnt;
 int NORMAL = 0;
 int RESET = 1;
-boolean pluse1_sign;
-boolean pluse2_sign;
+//boolean pluse1_sign;
+//boolean pluse2_sign;
 
 //WDT etup init
 
@@ -305,7 +305,7 @@ void setup() {
         //Pulse1 comes in at D4
         lcd.clear();
         lcd.setCursor(0, 0);
-        pinMode(14, INPUT);
+        pinMode(14, INPUT_PULLUP);
         attachInterrupt(14, onPulse, interruptMode);
         lcd.print("CMPF1=");
         lcd.print(config.sensor1_cpm_factor);
@@ -320,7 +320,7 @@ void setup() {
         // LND 7317 conversionCoefficient = 0.0029;
         conversionCoefficient2 = 1/config.sensor2_cpm_factor; // 0.0029;
         //Pulse2 comes in at D15
-        pinMode(15, INPUT);
+        pinMode(15,INPUT_PULLUP);
         attachInterrupt(15, onPulse2, interruptMode);
         lcd.setCursor(0, 1);
         lcd.print("CMPF2=");
@@ -393,13 +393,16 @@ void setup() {
         Serial.print("Local IP:");
         Serial.println(Ethernet.localIP());	
         
-	delay(5000);
+	//delay(5000);
 	Serial.println(F("setup OK."));	
 	lcd.setCursor(0, 2);
 	lcd.print("setup finished");
 	lcd.setCursor(0, 3);
 	lcd.print("no errors");
 	delay(5000);
+
+      counts_per_sample = 0;
+      counts_per_sample2 = 0;
 	
 }
 /**************************************************************************/
@@ -457,16 +460,15 @@ void printDigitsSerial(int digits){
 /**************************************************************************/
 
 
-void SendDataToServer(float CPM,float CPM2){ 
+void SendDataToServer(unsigned long  CPM,unsigned long CPM2){ 
 
 // Convert from cpm to µSv/h with the pre-defined coefficient
 
     float uSv = CPM * conversionCoefficient;                   // convert CPM to Micro Sieverts Per Hour
     char CPM_string[16];
     dtostrf(CPM, 0, 0, CPM_string);
-     Serial.println(CPM_string);
     float uSv2 = CPM2 * conversionCoefficient2;                   // convert CPM to Micro Sieverts Per Hour
-    char CPM2_string[16];
+     char CPM2_string[16];
     dtostrf(CPM2, 0, 0, CPM2_string);
 
     //display geiger info
@@ -474,31 +476,36 @@ void SendDataToServer(float CPM,float CPM2){
       lcd.setCursor(0, 0);
       lcd.print("1:");
       lcd.print(uSv);
-      lcd.print("uSv/h");     
-      lcd.print(" CPM");
-      lcd.print(CPM_string);      
-      lcd.setCursor(0,1);
+      lcd.print("uSv/h"); 
+      lcd.setCursor(0,1);    
+      lcd.print(CPM_string); 
+      lcd.print(" CPM");     
+      lcd.setCursor(0,2);
       lcd.print("2:");
       lcd.print(uSv2);
       lcd.print("uSv/h");
-      lcd.print(" CPM");
+      lcd.setCursor(0,3);
       lcd.print(CPM2_string); 
-  
+      lcd.print(" CPM");
+      
+      
+	
+ //send first sensor  
 	if (client.connected())
 	{
-		Serial.println(F("Disconnecting"));
+		Serial.println("Disconnecting");
 		client.stop();
 	}
 
 	// Try to connect to the server
-	Serial.println(F("Connecting"));
+	Serial.println("Connecting");
 	if (client.connect(serverIP, 80))
 	{
-		Serial.println(F("Connected"));
+		Serial.println("Connected");
 		lastConnectionTime = millis();
 
 		// clear the connection fail count if we have at least one successful connection
-		//ctrl.conn_fail_cnt = 0;
+		ctrl.conn_fail_cnt = 0;
 	}
 	else
 	{
@@ -517,7 +524,7 @@ void SendDataToServer(float CPM,float CPM2){
 
     // prepare the log entry
 
-//	memset(json_buf, 0, LINE_SZ);
+	memset(json_buf, 0, SENT_SZ);
 	sprintf_P(json_buf, PSTR("{\"longitude\":\"%s\",\"latitude\":\"%s\",\"device_id\":\"%d\",\"value\":\"%s\",\"unit\":\"cpm\"}"),  \
 	              config.latitude, \
 	              config.longitude, \
@@ -530,26 +537,35 @@ void SendDataToServer(float CPM,float CPM2){
 
 	client.print("POST /scripts/indextest.php?api_key=");
 	client.print(config.api_key);
-	client.println(F(" HTTP/1.1"));
-	client.println(F("Accept: application/json"));
-	client.println(F("Host: 107.161.164.163"));
-	client.print(F("Content-Length: "));
+	client.println(" HTTP/1.1");
+	client.println("Accept: application/json");
+	client.println("Host: 107.161.164.163");
+	client.print("Content-Length: ");
 	client.println(strlen(json_buf));
-	client.println(F("Content-Type: application/json"));
+	client.println("Content-Type: application/json");
 	client.println();
 	client.println(json_buf);
-	Serial.println(F("Disconnecting"));
-client.stop();
+	Serial.println("Disconnecting");
+   client.stop();
+   
 
-//send second sensor
-      Serial.println(F("Connecting"));
+      
+  //send second sensor  
+	if (client.connected())
+	{
+		Serial.println("Disconnecting");
+		client.stop();
+	}
+
+	// Try to connect to the server
+	Serial.println("Connecting");
 	if (client.connect(serverIP, 80))
 	{
-		Serial.println("connected");
+		Serial.println("Connected");
 		lastConnectionTime = millis();
 
 		// clear the connection fail count if we have at least one successful connection
-		//ctrl.conn_fail_cnt = 0;
+		ctrl.conn_fail_cnt = 0;
 	}
 	else
 	{
@@ -565,12 +581,12 @@ client.stop();
 		return;
 	}
 
-    // prepare the log entry for sensor 2
 
-	memset(json_buf2, 0, LINE_SZ);
+    // prepare the log entry
+	memset(json_buf2, 0, SENT_SZ);
 	sprintf_P(json_buf2, PSTR("{\"longitude\":\"%s\",\"latitude\":\"%s\",\"device_id\":\"%d\",\"value\":\"%s\",\"unit\":\"cpm\"}"),  \
-	              config.longitude, \
 	              config.latitude, \
+	              config.longitude, \
 	              config.user_id2,  \
 	              CPM2_string);
 
@@ -580,19 +596,21 @@ client.stop();
 
 	client.print("POST /scripts/indextest.php?api_key=");
 	client.print(config.api_key);
-	client.println(F(" HTTP/1.1"));
-	client.println(F("Accept: application/json"));
-	client.println(F("Host: 107.161.164.163"));
-	client.print(F("Content-Length: "));
+	client.println(" HTTP/1.1");
+	client.println("Accept: application/json");
+	client.println("Host: 107.161.164.163");
+	client.print("Content-Length: ");
 	client.println(strlen(json_buf2));
-	client.println(F("Content-Type: application/json"));
+	client.println("Content-Type: application/json");
 	client.println();
 	client.println(json_buf2);
-	Serial.println(F("Disconnecting"));
-client.stop();
-	
+	Serial.println("Disconnecting");
+   client.stop();
+
+
+
 //convert time in correct format
-      //memset(timestamp, 0, LINE_SZ);
+        memset(timestamp, 0, LINE_SZ);
         sprintf_P(timestamp, PSTR("%02d-%02d-%02dT%02d:%02d:%02dZ"),  \
 					year(), month(), day(),  \
                     hour(), minute(), second());
@@ -654,22 +672,15 @@ client.stop();
     
     // report to LCD 
     
-    lcd.setCursor(0, 2);
-          lcd.print(month());
-          lcd.print("-");
-          lcd.print(day());
-          lcd.print("   ");
+    lcd.setCursor(15, 4);
+//          lcd.print(month());
+//          lcd.print("-");
+//          lcd.print(day());
+//          lcd.print("   ");
           printDigits(hour());
           lcd.print(":");
        	  printDigits(minute());
 
-          
-          
-          lcd.setCursor(0, 3);
-	  //lcd.print(F("Sent OK"));
-	  client.stop();
-
-      lastConnectionTime = millis();
 }
 
 
@@ -685,9 +696,9 @@ void loop() {
           return;
       }
   
-      float CPM = (float)counts_per_sample / (float)updateIntervalInMinutes/5;
+      unsigned long CPM = (unsigned long)counts_per_sample / (unsigned long)updateIntervalInMinutes/5;
       counts_per_sample = 0;
-      float CPM2 = (float)counts_per_sample2 / (float)updateIntervalInMinutes/5;
+      unsigned long CPM2 = (unsigned long)counts_per_sample2 / (unsigned long)updateIntervalInMinutes/5;
       counts_per_sample2 = 0;
       
       SendDataToServer(CPM,CPM2);
@@ -807,7 +818,7 @@ void createFile(char *fileName) {
 /**************************************************************************/
 
     void KickDog() {
-      Serial.println("Patting the dog!");
+      //Serial.println("Patting the dog!");
       //digitalWrite(LED_BUILTIN, !digitalRead(LED_BUILTIN));
       noInterrupts();
       WDOG_REFRESH = 0xA602;
