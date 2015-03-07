@@ -227,6 +227,7 @@ void setup() {
       lcd.print("No SD card.. ");
       Serial.println();
       Serial.println("No SD card.. ");
+      delay(3000);
     }
     
     
@@ -460,7 +461,7 @@ void printDigitsSerial(int digits){
 /**************************************************************************/
 
 
-void SendDataToServer(unsigned long  CPM,unsigned long CPM2){ 
+void SendDataToServer(float CPM,float CPM2){ 
 
 // Convert from cpm to µSv/h with the pre-defined coefficient
 
@@ -696,9 +697,9 @@ void loop() {
           return;
       }
   
-      unsigned long CPM = (unsigned long)counts_per_sample / (unsigned long)updateIntervalInMinutes/5;
+      float CPM = (float)counts_per_sample / (float)updateIntervalInMinutes/5;
       counts_per_sample = 0;
-      unsigned long CPM2 = (unsigned long)counts_per_sample2 / (unsigned long)updateIntervalInMinutes/5;
+      float CPM2 = (float)counts_per_sample2 / (float)updateIntervalInMinutes/5;
       counts_per_sample2 = 0;
       
       SendDataToServer(CPM,CPM2);
