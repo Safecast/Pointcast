@@ -10,17 +10,18 @@ V2.4.0  fixed cpm display
  
 #include <SPI.h>         // needed for Arduino versions later than 0018
 #include <Ethernet.h>
-#include <limits.h>
-#include "board_specific_settings.h"
 #include <EEPROM.h>
+#include <limits.h>
 #include <SoftwareSerial.h>
-#include "nGeigie3GSetup.h"
-#include "nGeigie3GDebug.h"
 #include <Time.h>
-//#include <Wire.h> needed for not i2ct3
 #include <i2c_t3.h>
 #include <LiquidCrystal_I2C.h>
+#include "a3gim.h"
+#include "board_specific_settings.h"
+#include "nGeigie3GSetup.h"
+#include "nGeigie3GDebug.h"
 
+//setup LCD I2C
 #define I2C_ADDR    0x27  // Define I2C Address where the PCF8574A is for LCD2004 form http://www.sainsmart.com
 #define BACKLIGHT_PIN     3
 #define En_pin  2
@@ -35,42 +36,49 @@ int n = 1;
 
 LiquidCrystal_I2C	lcd(I2C_ADDR,En_pin,Rw_pin,Rs_pin,D4_pin,D5_pin,D6_pin,D7_pin);
 
+
+
 #define ENABLE_DEBUG 
 #define LINE_SZ 80
+// SENT_SZ is used for sending data for 3G
 #define SENT_SZ 120
+//OLINE_SZ is used for OpenLog buffers
 #define OLINE_SZ 250
 
-
+//static
 static char json_buf[SENT_SZ];
 static char json_buf2[SENT_SZ];
-static devctrl_t ctrl;
 static char obuf[OLINE_SZ];
 static char buf[LINE_SZ];
 static char buf2[LINE_SZ];
 static char lat_buf[16];
 static char lon_buf[16];
-static char VERSION[] = "V2.4.4";
+static char VERSION[] = "V2.4.5";
+static devctrl_t ctrl;
+//const
 const char *server = "107.161.164.163";
 const int port = 80;
 const int interruptMode = FALLING;
 const int updateIntervalInMinutes = 1;
-//char res[a3gsMAX_RESULT_LENGTH+1];
+
+//int
 int MAX_FAILED_CONNS = 3;
 int len;
 int len2;
+int conn_fail_cnt;
+int NORMAL = 0;
+int RESET = 1;
+//long
 unsigned long elapsedTime(unsigned long startTime);
+
 char timestamp[19];
 char lat[8];
 char lon[9];
 char lat_lon_nmea[25];
 unsigned char state;
-int conn_fail_cnt;
-int NORMAL = 0;
-int RESET = 1;
-//boolean pluse1_sign;
-//boolean pluse2_sign;
+char res[a3gsMAX_RESULT_LENGTH+1];
 
-//WDT etup init
+//WDT setup init
 
 #define RCM_SRS0_WAKEUP                     0x01
 #define RCM_SRS0_LVD                        0x02
@@ -98,7 +106,7 @@ void onReset()
 }
 
 // OpenLog Settings --------------------------------------------------------------
-//Setup sdcard from openlog for serial2
+//Setup sdcard from openlog for serial2 on Teensy
 SoftwareSerial OpenLog =  SoftwareSerial(0, 1);
 static const int resetOpenLog = 3;
 #define OPENLOG_RETRY 500
@@ -111,7 +119,7 @@ static bool loadConfig(char *fileName);
 //static void createFile(char *fileName);
 
 
-// generate checksum for log format
+// generate checksums for log format
 byte len1, chk;
 byte len3, chk2;
 char checksum(char *s, int N)
@@ -143,7 +151,7 @@ unsigned long updateIntervalInMillis = 0;
 unsigned long nextExecuteMillis = 0;
 
 // Event flag signals when a geiger event has occurred
-volatile unsigned char eventFlag = 0;       // FIXME: Can we get rid of eventFlag and use counts>0?
+//volatile unsigned char eventFlag = 0;       // FIXME: Can we get rid of eventFlag and use counts>0?
 unsigned long int counts_per_sample;
 unsigned long int counts_per_sample2;
 
@@ -175,61 +183,59 @@ void onPulse2()
 /**************************************************************************/
 
 void setup() {  
-	
-  //print last reset message and setup the patting of the dog
-   // delay(100);
-   // printResetType();
-   wdTimer.begin(KickDog, 10000000); // patt the dog every 10sec  
+  
+    //print last reset message and setup the patting of the dog
+         delay(100);
+         printResetType();
+   //start WDT	
+         wdTimer.begin(KickDog, 10000000); // patt the dog every 10sec  
     
     //button reset
-
-        pinMode(20, INPUT_PULLUP);
-        attachInterrupt(20, onReset, interruptMode);
+          pinMode(20, INPUT_PULLUP);
+          attachInterrupt(20, onReset, interruptMode);
        
     // openlog setup 
-    Serial.begin(9600);
-    OpenLog.begin(9600);
-
-	// init command line parser
-      Serial.begin(9600);
-
+          Serial.begin(9600);
+          OpenLog.begin(9600);
+ 
   
-        // set brightnes
-              lcd.setBacklightPin(BACKLIGHT_PIN,POSITIVE);
-              lcd.setBacklight(125);
-	//set up the LCD's number of columns and rows: 
-		  lcd.begin(20, 4);
+    // set brightnes
+          lcd.setBacklightPin(BACKLIGHT_PIN,POSITIVE);
+          lcd.setBacklight(125);
+          
+    //set up the LCD's number of columns and rows: 
+          lcd.begin(20, 4);
 	
-	// Print a message to the LCD.
-		  lcd.clear();
-		  lcd.print(F("nGeigie"));
-		  delay(3000);
-		  lcd.setCursor(0, 1);
-		  lcd.print(VERSION);
+    // Print a message to the LCD.
+	   lcd.clear();
+	   lcd.print(F("nGeigie"));
+	   delay(3000);
+           lcd.setCursor(0, 1);
+           lcd.print(VERSION);
 
 
     // Load EEPROM settings
-    ngeigieSetup.initialize();
+          ngeigieSetup.initialize();
 
    
-  //Openlog setup
-    OpenLog.begin(9600);
-    setupOpenLog();
-    if (openlog_ready) {
-        ngeigieSetup.loadFromFile("NGEIGIE.TXT");
-        lcd.clear();
-        lcd.setCursor(0, 0);
-        lcd.print ("loading setup");
-        Serial.println();
-        Serial.println("loading setup");
-    }
-    if (!openlog_ready) {
-      lcd.setCursor(0, 3);
-      lcd.print("No SD card.. ");
-      Serial.println();
-      Serial.println("No SD card.. ");
-      delay(3000);
-    }
+    //Openlog setup
+        OpenLog.begin(9600);
+        setupOpenLog();
+          if (openlog_ready) {
+              ngeigieSetup.loadFromFile("NGEIGIE.TXT");
+              lcd.clear();
+              lcd.setCursor(0, 0);
+              lcd.print ("loading setup");
+              Serial.println();
+              Serial.println("loading setup");
+          }
+          if (!openlog_ready) {
+              lcd.setCursor(0, 3);
+              lcd.print("No SD card.. ");
+              Serial.println();
+              Serial.println("No SD card.. ");
+              delay(3000);
+          }
     
     
   //Check if Time is setup
@@ -360,14 +366,14 @@ void setup() {
         Serial.print("LON:");
         Serial.println(config.longitude);
            
+    //setup update time in msec
+        updateIntervalInMillis = updateIntervalInMinutes * 300000;                  // update time in ms
+        //updateIntervalInMillis = updateIntervalInMinutes * 6000;                  // update time in ms
+        unsigned long now1 = millis();
+        nextExecuteMillis = now1 + updateIntervalInMillis;
 
-    updateIntervalInMillis = updateIntervalInMinutes * 300000;                  // update time in ms
-    //updateIntervalInMillis = updateIntervalInMinutes * 6000;                  // update time in ms
-    unsigned long now1 = millis();
-    nextExecuteMillis = now1 + updateIntervalInMillis;
 
-    //get time
-  
+    // create logfile name 
     if (openlog_ready) {
         logfile_ready = true;
         createFile(logfile_name);
@@ -380,7 +386,6 @@ void setup() {
 /**************************************************************************/
 
 	// Initiate a DHCP session
-	//Serial.println(F("Getting an IP address..."));
         if (Ethernet.begin(macAddress) == 0)
 	{
        		Serial.println(F("Failed DHCP"));
@@ -548,7 +553,7 @@ void SendDataToServer(float CPM,float CPM2){
 	client.println();
 	client.println(json_buf);
 	Serial.println("Disconnecting");
-   client.stop();
+        client.stop();
    
 
       
@@ -607,18 +612,18 @@ void SendDataToServer(float CPM,float CPM2){
 	client.println();
 	client.println(json_buf2);
 	Serial.println("Disconnecting");
-   client.stop();
+        client.stop();
 
 
 
-//convert time in correct format
+      //convert time in correct format
         memset(timestamp, 0, LINE_SZ);
         sprintf_P(timestamp, PSTR("%02d-%02d-%02dT%02d:%02d:%02dZ"),  \
 					year(), month(), day(),  \
                     hour(), minute(), second());
 
 
-// convert degree to NMAE
+      // convert degree to NMAE
 		deg2nmae (config.latitude,config.longitude, lat_lon_nmea);
 
      //sensor 1 sd card string setup
@@ -675,10 +680,6 @@ void SendDataToServer(float CPM,float CPM2){
     // report to LCD 
     
     lcd.setCursor(15, 4);
-//          lcd.print(month());
-//          lcd.print("-");
-//          lcd.print(day());
-//          lcd.print("   ");
           printDigits(hour());
           lcd.print(":");
        	  printDigits(minute());
@@ -725,10 +726,6 @@ unsigned long elapsedTime(unsigned long startTime)
 }
 
 
-void GetFirmwareVersion()
-{
-	printf_P(PSTR("Firmware_ver:\t%s\n"), VERSION);
-}
 
 /**************************************************************************/
 // OpenLog code
