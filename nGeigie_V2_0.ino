@@ -17,7 +17,8 @@ V2.4.0  fixed cpm display
 #include "nGeigie3GSetup.h"
 #include "nGeigie3GDebug.h"
 #include <Time.h>
-#include <Wire.h>
+//#include <Wire.h> needed for not i2ct3
+#include <i2c_t3.h>
 #include <LiquidCrystal_I2C.h>
 
 #define I2C_ADDR    0x27  // Define I2C Address where the PCF8574A is for LCD2004 form http://www.sainsmart.com
