@@ -49,7 +49,7 @@ static char buf[LINE_SZ];
 static char buf2[LINE_SZ];
 static char lat_buf[16];
 static char lon_buf[16];
-static char VERSION[] = "V2.4.3";
+static char VERSION[] = "V2.4.4";
 const char *server = "107.161.164.163";
 const int port = 80;
 const int interruptMode = FALLING;
