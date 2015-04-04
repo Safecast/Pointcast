@@ -5,6 +5,10 @@ V2.3.6  sending dual ok, pulse count only
 V2.3.8  chksum added to sd sensor 2..
 V2.3.9  display messages changed 
 V2.4.0  fixed cpm display
+V2.4.5  removed boar setting file.
+V2.4.6  multiple gateway setup started.
+V2.4.7  reset pin moved to A14
+
  */
  
  
@@ -17,7 +21,6 @@ V2.4.0  fixed cpm display
 #include <i2c_t3.h>
 #include <LiquidCrystal_I2C.h>
 #include "a3gim.h"
-#include "board_specific_settings.h"
 #include "nGeigie3GSetup.h"
 #include "nGeigie3GDebug.h"
 
@@ -36,6 +39,12 @@ int n = 1;
 
 LiquidCrystal_I2C	lcd(I2C_ADDR,En_pin,Rw_pin,Rs_pin,D4_pin,D5_pin,D6_pin,D7_pin);
 
+typedef struct
+{
+    unsigned char state;
+    unsigned char conn_fail_cnt;
+} devctrl_t;
+
 
 
 #define ENABLE_DEBUG 
@@ -44,6 +53,8 @@ LiquidCrystal_I2C	lcd(I2C_ADDR,En_pin,Rw_pin,Rs_pin,D4_pin,D5_pin,D6_pin,D7_pin)
 #define SENT_SZ 120
 //OLINE_SZ is used for OpenLog buffers
 #define OLINE_SZ 250
+//GATEWAY_sz is array for gateways
+#define GATEWAY_SZ 2
 
 //static
 static char json_buf[SENT_SZ];
@@ -53,13 +64,22 @@ static char buf[LINE_SZ];
 static char buf2[LINE_SZ];
 static char lat_buf[16];
 static char lon_buf[16];
-static char VERSION[] = "V2.4.5";
+static char VERSION[] = "V2.4.6";
+
 static devctrl_t ctrl;
 //const
 const char *server = "107.161.164.163";
 const int port = 80;
 const int interruptMode = FALLING;
 const int updateIntervalInMinutes = 1;
+
+//ethetnet
+byte macAddress[] = { 0x90, 0xA2, 0xDA, 0x0E, 0xE0, 0x5C };
+EthernetClient client;
+IPAddress localIP (192, 168, 100, 40);	
+IPAddress serverIP(107, 161, 164, 163 ); 
+int resetPin = A1;   //
+int ethernet_powerdonwPin = 7;
 
 //int
 int MAX_FAILED_CONNS = 3;
@@ -71,6 +91,7 @@ int RESET = 1;
 //long
 unsigned long elapsedTime(unsigned long startTime);
 
+//char
 char timestamp[19];
 char lat[8];
 char lon[9];
@@ -104,6 +125,8 @@ void onReset()
 {
  CPU_RESTART;
 }
+
+
 
 // OpenLog Settings --------------------------------------------------------------
 //Setup sdcard from openlog for serial2 on Teensy
@@ -191,8 +214,8 @@ void setup() {
          wdTimer.begin(KickDog, 10000000); // patt the dog every 10sec  
     
     //button reset
-          pinMode(20, INPUT_PULLUP);
-          attachInterrupt(20, onReset, interruptMode);
+          pinMode(A14, INPUT_PULLUP);
+          attachInterrupt(A14, onReset, interruptMode);
        
     // openlog setup 
           Serial.begin(9600);
@@ -288,6 +311,10 @@ void setup() {
     //Gateways setup to be done
     //read for SDcard gateways 
     //store value in array
+    
+       //gatewaynumber=random(2);
+       //Serial.print(gatewaynumber);
+    
     //select randomly for total sserver
        delay(5000);
        lcd.clear();
@@ -546,7 +573,8 @@ void SendDataToServer(float CPM,float CPM2){
 	client.print(config.api_key);
 	client.println(" HTTP/1.1");
 	client.println("Accept: application/json");
-	client.println("Host: 107.161.164.163");
+	client.print("Host:");
+        client.println(serverIP);
 	client.print("Content-Length: ");
 	client.println(strlen(json_buf));
 	client.println("Content-Type: application/json");
@@ -584,8 +612,8 @@ void SendDataToServer(float CPM,float CPM2){
 		{
                 CPU_RESTART;
 		}
-		lastConnectionTime = millis();
-		return;
+	    lastConnectionTime = millis();
+	    return;
 	}
 
 
@@ -605,7 +633,8 @@ void SendDataToServer(float CPM,float CPM2){
 	client.print(config.api_key);
 	client.println(" HTTP/1.1");
 	client.println("Accept: application/json");
-	client.println("Host: 107.161.164.163");
+	client.print("Host:");
+        client.println(serverIP);
 	client.print("Content-Length: ");
 	client.println(strlen(json_buf2));
 	client.println("Content-Type: application/json");
