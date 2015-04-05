@@ -7,7 +7,9 @@ V2.3.9  display messages changed
 V2.4.0  fixed cpm display
 V2.4.5  removed boar setting file.
 V2.4.6  multiple gateway setup started.
-V2.4.7  reset pin moved to A14
+V2.4.7  reset pin moved to D27 (D8 on arduino shield to A3 jumper)
+V2.4.8  red and green LED on for test.. 
+V2.4.9  delay for switching off LEDs
 
  */
  
@@ -36,16 +38,7 @@ V2.4.7  reset pin moved to A14
 #define D7_pin  7
 
 int n = 1;
-
 LiquidCrystal_I2C	lcd(I2C_ADDR,En_pin,Rw_pin,Rs_pin,D4_pin,D5_pin,D6_pin,D7_pin);
-
-typedef struct
-{
-    unsigned char state;
-    unsigned char conn_fail_cnt;
-} devctrl_t;
-
-
 
 #define ENABLE_DEBUG 
 #define LINE_SZ 80
@@ -57,6 +50,7 @@ typedef struct
 #define GATEWAY_SZ 2
 
 //static
+static char VERSION[] = "V2.4.9";
 static char json_buf[SENT_SZ];
 static char json_buf2[SENT_SZ];
 static char obuf[OLINE_SZ];
@@ -64,9 +58,14 @@ static char buf[LINE_SZ];
 static char buf2[LINE_SZ];
 static char lat_buf[16];
 static char lon_buf[16];
-static char VERSION[] = "V2.4.6";
 
+typedef struct
+{
+    unsigned char state;
+    unsigned char conn_fail_cnt;
+} devctrl_t;
 static devctrl_t ctrl;
+
 //const
 const char *server = "107.161.164.163";
 const int port = 80;
@@ -213,9 +212,13 @@ void setup() {
    //start WDT	
          wdTimer.begin(KickDog, 10000000); // patt the dog every 10sec  
     
-    //button reset
-          pinMode(A14, INPUT_PULLUP);
-          attachInterrupt(A14, onReset, interruptMode);
+    //beep     
+    analogWrite(A10, 50);
+    tone(A10, 1000, 2000);
+    
+    //button reset make jumper on upper from A3 to D8 (27)
+          pinMode(27, INPUT_PULLUP);
+          attachInterrupt(27, onReset, interruptMode);
        
     // openlog setup 
           Serial.begin(9600);
@@ -232,10 +235,10 @@ void setup() {
     // Print a message to the LCD.
 	   lcd.clear();
 	   lcd.print(F("nGeigie"));
-	   delay(3000);
+	   //delay(3000);
            lcd.setCursor(0, 1);
            lcd.print(VERSION);
-
+           
 
     // Load EEPROM settings
           ngeigieSetup.initialize();
@@ -260,6 +263,48 @@ void setup() {
               delay(3000);
           }
     
+    
+   //LED1(green) setup
+      pinMode(31, OUTPUT);
+      digitalWrite(31, HIGH);
+      
+      //LED2(red) setup
+     pinMode(26, OUTPUT);
+     digitalWrite(26, HIGH);
+
+    //
+    // SENSOR 1 setup
+    if (config.sensor1_enabled) {
+        //LND_712 conversionCoefficient = 0.0083;
+        //LND 7317 conversionCoefficient = 0.0029;
+        conversionCoefficient = 1/config.sensor1_cpm_factor; // 0.0029;
+        //Pulse1 comes in at D4
+        lcd.clear();
+        lcd.setCursor(0, 0);
+        pinMode(14, INPUT_PULLUP);
+        attachInterrupt(14, onPulse, interruptMode);
+        lcd.print("CMPF1=");
+        lcd.print(config.sensor1_cpm_factor);
+        Serial.print("CMPF1=");
+        Serial.println(config.sensor1_cpm_factor); 
+    }
+    
+    // SENSOR 2 setup
+    
+     if (config.sensor2_enabled) {
+        // LND_712 conversionCoefficient = 0.0083;
+        // LND 7317 conversionCoefficient = 0.0029;
+        conversionCoefficient2 = 1/config.sensor2_cpm_factor; // 0.0029;
+        //Pulse2 comes in at D15
+        pinMode(15,INPUT_PULLUP);
+        attachInterrupt(15, onPulse2, interruptMode);
+        lcd.setCursor(0, 1);
+        lcd.print("CMPF2=");
+        lcd.print(config.sensor2_cpm_factor);
+        Serial.print("CMPF2=");
+        Serial.println(config.sensor2_cpm_factor);
+        
+    }
     
   //Check if Time is setup
     setSyncProvider(getTeensy3Time);
@@ -307,6 +352,7 @@ void setup() {
           Serial.print("-");
           Serial.println(day());
                 
+
    
     //Gateways setup to be done
     //read for SDcard gateways 
@@ -316,7 +362,7 @@ void setup() {
        //Serial.print(gatewaynumber);
     
     //select randomly for total sserver
-       delay(5000);
+       delay(3000);
        lcd.clear();
        lcd.setCursor(0, 0);
        lcd.print("G1=");
@@ -331,44 +377,12 @@ void setup() {
        Serial.print("APIkey=");
        Serial.println(config.api_key);    
     
-    //
-    // SENSOR 1 setup
-    if (config.sensor1_enabled) {
-        //LND_712 conversionCoefficient = 0.0083;
-        //LND 7317 conversionCoefficient = 0.0029;
-        conversionCoefficient = 1/config.sensor1_cpm_factor; // 0.0029;
-        //Pulse1 comes in at D4
-        lcd.clear();
-        lcd.setCursor(0, 0);
-        pinMode(14, INPUT_PULLUP);
-        attachInterrupt(14, onPulse, interruptMode);
-        lcd.print("CMPF1=");
-        lcd.print(config.sensor1_cpm_factor);
-        Serial.print("CMPF1=");
-        Serial.println(config.sensor1_cpm_factor); 
-    }
-    
-    // SENSOR 2 setup
-    
-     if (config.sensor2_enabled) {
-        // LND_712 conversionCoefficient = 0.0083;
-        // LND 7317 conversionCoefficient = 0.0029;
-        conversionCoefficient2 = 1/config.sensor2_cpm_factor; // 0.0029;
-        //Pulse2 comes in at D15
-        pinMode(15,INPUT_PULLUP);
-        attachInterrupt(15, onPulse2, interruptMode);
-        lcd.setCursor(0, 1);
-        lcd.print("CMPF2=");
-        lcd.print(config.sensor2_cpm_factor);
-        Serial.print("CMPF2=");
-        Serial.println(config.sensor2_cpm_factor);
-        
-    }
-    
-
+    //LED off
+      digitalWrite(26, LOW);
+      digitalWrite(31, LOW);
 
     //Display User IDs
-        delay(5000);
+        delay(3000);
         lcd.clear();
         lcd.setCursor(0, 0);
         lcd.print("ID:");
@@ -399,11 +413,14 @@ void setup() {
         unsigned long now1 = millis();
         nextExecuteMillis = now1 + updateIntervalInMillis;
 
+    // say setup finished
 
     // create logfile name 
     if (openlog_ready) {
         logfile_ready = true;
         createFile(logfile_name);
+        
+
     }
 
 
