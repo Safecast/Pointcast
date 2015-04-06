@@ -1,16 +1,9 @@
 /*
   nGeigie.ino
 
-V2.3.6  sending dual ok, pulse count only
-V2.3.8  chksum added to sd sensor 2..
-V2.3.9  display messages changed 
-V2.4.0  fixed cpm display
-V2.4.5  removed boar setting file.
-V2.4.6  multiple gateway setup started.
-V2.4.7  reset pin moved to D27 (D8 on arduino shield to A3 jumper)
-V2.4.8  red and green LED on for test.. 
-V2.4.9  delay for switching off LEDs
+2015-04-05 V2.4.9  delay for switching off LEDs
 
+contact rob@yr-design.biz
  */
  
  
@@ -212,7 +205,7 @@ void setup() {
    //start WDT	
          wdTimer.begin(KickDog, 10000000); // patt the dog every 10sec  
     
-    //beep     
+    //beep not implemented yet..   
     analogWrite(A10, 50);
     tone(A10, 1000, 2000);
     
@@ -268,7 +261,7 @@ void setup() {
       pinMode(31, OUTPUT);
       digitalWrite(31, HIGH);
       
-      //LED2(red) setup
+   //LED2(red) setup
      pinMode(26, OUTPUT);
      digitalWrite(26, HIGH);
 
