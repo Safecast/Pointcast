@@ -17,6 +17,9 @@
 #define BMRDD_EEPROM_SETUP 500
 #define BMRDD_EEPROM_MARKER 0x5afeF00d
 
+#define ENABLE_3G             0
+#define ENABLE_ETHERNET       1
+
 typedef enum {
   SENSOR_ENABLED_FALSE = 0,
   SENSOR_ENABLED_TRUE,
@@ -34,8 +37,10 @@ typedef struct {
   float sensor1_cpm_factor; // s1f
   byte sensor2_enabled;     // s2e
   float sensor2_cpm_factor; // s2f
+  byte g3_enabled;          // 3g
   char gw1[16];             // gw1
   char gw2[16];             // gw1
+  
 } ConfigType;
 
 // Write a template value into EEPROM address [ee]
