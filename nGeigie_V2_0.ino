@@ -75,10 +75,8 @@ static ConfigType config;
 nGeigieSetup ngeigieSetup(OpenLog, config, obuf, OLINE_SZ);
 
 
-
-
 //static
-static char VERSION[] = "V2.6.1";
+static char VERSION[] = "V2.6.2";
 
 #if ENABLE_3G
 static char path[LINE_SZ];
@@ -457,8 +455,8 @@ void setup() {
         Serial.println(config.longitude);
            
     //setup update time in msec
-        //updateIntervalInMillis = updateIntervalInMinutes * 300000;                  // update time in ms
-        updateIntervalInMillis = updateIntervalInMinutes * 6000;                  // update time in ms
+        updateIntervalInMillis = updateIntervalInMinutes * 300000;                  // update time in ms
+        //updateIntervalInMillis = updateIntervalInMinutes * 6000;                  // update time in ms
         unsigned long now1 = millis();
         nextExecuteMillis = now1 + updateIntervalInMillis;
 
