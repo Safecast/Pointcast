@@ -19,6 +19,8 @@
 
 #define ENABLE_3G             1
 #define ENABLE_ETHERNET       0
+#define ENABLE_DEV            1
+#define ENABLE_API            0
 
 typedef enum {
   SENSOR_ENABLED_FALSE = 0,

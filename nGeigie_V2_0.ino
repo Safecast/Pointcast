@@ -3,7 +3,11 @@
 
 2015-04-05 V2.4.9  delay for switching off LEDs
 2015-04-07 V2.6.0 merged code with 3G
-2015-04-07 V2.6.1 beeper setup and code cleaning
+2015-04-07 V2.6.1 beeper setup and code cleaning　(need jumper from D10 in arduino shield (is pin D27)to A3)
+2015-04-08 V2.6.3 setup for measurung voltage on A13
+2015-04-08 V2.6.4 made switch for sending to dev or API
+
+
 
 contact rob@yr-design.biz
  */
@@ -76,7 +80,7 @@ nGeigieSetup ngeigieSetup(OpenLog, config, obuf, OLINE_SZ);
 
 
 //static
-static char VERSION[] = "V2.6.2";
+static char VERSION[] = "V2.6.4";
 
 #if ENABLE_3G
 static char path[LINE_SZ];
@@ -453,7 +457,9 @@ void setup() {
         lcd.setCursor(0, 3);
         Serial.print("LON:");
         Serial.println(config.longitude);
-           
+        delay(3000);  
+    
+    
     //setup update time in msec
         updateIntervalInMillis = updateIntervalInMinutes * 300000;                  // update time in ms
         //updateIntervalInMillis = updateIntervalInMinutes * 6000;                  // update time in ms
@@ -651,7 +657,13 @@ void SendDataToServer(float CPM,float CPM2){
 	json_buf[len] = '\0';
 	Serial.println(json_buf);
 
-	client.print("POST /scripts/indextest.php?api_key=");
+        #if ENABLE_DEV
+        	client.print("POST /scripts/indextest.php?api_key=");
+        #endif
+        
+        #if ENABLE_API
+                client.print("POST /scripts/index.php?api_key=");
+        #endif        
 	client.print(config.api_key);
 	client.println(" HTTP/1.1");
 	client.println("Accept: application/json");
@@ -711,7 +723,14 @@ void SendDataToServer(float CPM,float CPM2){
 	json_buf2[len2] = '\0';
 	Serial.println(json_buf2);
 
-	client.print("POST /scripts/indextest.php?api_key=");
+
+        #if ENABLE_DEV
+        	client.print("POST /scripts/indextest.php?api_key=");
+        #endif
+        
+        #if ENABLE_API
+                client.print("POST /scripts/index.php?api_key=");
+        #endif 
 	client.print(config.api_key);
 	client.println(" HTTP/1.1");
 	client.println("Accept: application/json");
@@ -818,10 +837,22 @@ void SendDataToServer(float CPM,float CPM2){
       lcd.print(uSv2);
       lcd.print("uSv/h");
 
+
+
+
+
+
         // Create data string for sensor 1
         len = sizeof(res);
 		lastConnectionTime = millis();
-        sprintf_P(path, PSTR("/scripts/shorttest.php?api_key=%s&lat=%s&lon=%s&cpm=%s&id=%d"),
+                  #if ENABLE_DEV
+                          sprintf_P(path, PSTR("/scripts/shorttest.php?api_key=%s&lat=%s&lon=%s&cpm=%s&id=%d"),
+                  #endif
+                  
+                  #if ENABLE_API
+                          sprintf_P(path, PSTR("/scripts/short.php?api_key=%s&lat=%s&lon=%s&cpm=%s&id=%d"),
+                  #endif 
+
                   config.api_key, \
                   config.latitude, \
                   config.longitude, \
@@ -830,7 +861,13 @@ void SendDataToServer(float CPM,float CPM2){
                   
                   
        // Create data string for sensor 2
-         sprintf_P(path2, PSTR("/scripts/shorttest.php?api_key=%s&lat=%s&lon=%s&cpm=%s&id=%d"),
+                  #if ENABLE_DEV
+                          sprintf_P(path2, PSTR("/scripts/shorttest.php?api_key=%s&lat=%s&lon=%s&cpm=%s&id=%d"),
+                  #endif
+                  
+                  #if ENABLE_API
+                          sprintf_P(path2, PSTR("/scripts/short.php?api_key=%s&lat=%s&lon=%s&cpm=%s&id=%d"),
+                  #endif 
                   config.api_key, \
                   config.latitude, \
                   config.longitude, \
@@ -933,7 +970,11 @@ void SendDataToServer(float CPM,float CPM2){
             conn_fail_cnt++;
 		if (conn_fail_cnt >= MAX_FAILED_CONNS)
 		{
-				CPU_RESTART;
+                      //first shut down 3G before reset
+                      a3gs.end();
+                      a3gs.shutdown();
+		      
+                      CPU_RESTART;
 		}
                   lcd.setCursor(0, 2);
                   lcd.print("Retries left:");
