@@ -1127,6 +1127,8 @@ void createFile(char *fileName) {
     void KickDog() {
       Serial.println("Patting the dog!");
       //digitalWrite(LED_BUILTIN, !digitalRead(LED_BUILTIN));
+      pinMode(31, OUTPUT);
+      digitalWrite(31, !digitalRead(31));
       noInterrupts();
       WDOG_REFRESH = 0xA602;
       WDOG_REFRESH = 0xB480;
