@@ -6,8 +6,7 @@
 2015-04-07 V2.6.1 beeper setup and code cleaning　(need jumper from D10 in arduino shield (is pin D27)to A3)
 2015-04-08 V2.6.3 setup for measurung voltage on A13
 2015-04-08 V2.6.4 made switch for sending to dev or API
-
-
+2015-04-13 V2.6.5 added switch for switching from Ethernet and other options to switch in the coding without recompile.
 
 contact rob@yr-design.biz
  */
@@ -78,23 +77,14 @@ static bool loadConfig(char *fileName);
 static ConfigType config;
 nGeigieSetup ngeigieSetup(OpenLog, config, obuf, OLINE_SZ);
 
-
 //static
-static char VERSION[] = "V2.6.4";
-
-#if ENABLE_3G
+static char VERSION[] = "V2.6.5";
 static char path[LINE_SZ];
 static char path2[LINE_SZ];
 char datedisplay[8];
 char coordinate[16];
-#endif
-
-#if ENABLE_ETHERNET
 static char json_buf[SENT_SZ];
 static char json_buf2[SENT_SZ];
-#endif
-
-
 typedef struct
 {
     unsigned char state;
@@ -108,8 +98,6 @@ const int port = 80;
 const int interruptMode = FALLING;
 const int updateIntervalInMinutes = 1;
 
-#if ENABLE_ETHERNET
-//ethetnet
 byte macAddress[] = { 0x90, 0xA2, 0xDA, 0x0E, 0xE0, 0x5C };
 EthernetClient client;
 IPAddress localIP (192, 168, 100, 40);	
@@ -117,7 +105,6 @@ IPAddress serverIP(107, 161, 164, 163 );
 int resetPin = A1;   //
 int ethernet_powerdonwPin = 7;
 
-#endif
 
 //int
 int MAX_FAILED_CONNS = 3;
@@ -126,6 +113,7 @@ int len2;
 int conn_fail_cnt;
 int NORMAL = 0;
 int RESET = 1;
+
 //long
 unsigned long elapsedTime(unsigned long startTime);
 
@@ -135,10 +123,7 @@ char lat[8];
 char lon[9];
 char lat_lon_nmea[25];
 unsigned char state;
-
-#if ENABLE_3G
 char res[a3gsMAX_RESULT_LENGTH+1];
-#endif
 
 
 //WDT setup init
@@ -167,12 +152,6 @@ void onReset()
 {
  CPU_RESTART;
 }
-
-
-
-// OpenLog Settings --------------------------------------------------------------
-//Setup sdcard from openlog for serial2 on Teensy
-
 
 
 // generate checksums for log format
@@ -238,6 +217,10 @@ void onPulse2()
 
 void setup() {  
   
+     // Load EEPROM settings
+         ngeigieSetup.initialize();
+                
+                
     //print last reset message and setup the patting of the dog
          delay(100);
          printResetType();
@@ -254,7 +237,6 @@ void setup() {
     // openlog setup 
           Serial.begin(9600);
           OpenLog.begin(9600);
- 
   
     // set brightnes
           lcd.setBacklightPin(BACKLIGHT_PIN,POSITIVE);
@@ -262,32 +244,38 @@ void setup() {
           
     //set up the LCD's number of columns and rows: 
           lcd.begin(20, 4);
-
-#if ENABLE_3G	
-    // Print a message to the LCD.
-	   lcd.clear();
-	   lcd.print(F("nGeigie 3G"));
-	   //delay(3000);
-           lcd.setCursor(0, 1);
-           lcd.print(VERSION);
-#endif
-
-#if ENABLE_ETHERNET	
+             
+            
+if (strcmp(config.intf, "EN") == 0) {
     // Print a message to the LCD.
 	   lcd.clear();
 	   lcd.print(F("nGeigie Ethernet"));
+           Serial.print("Interface = Ethernet");
 	   //delay(3000);
            lcd.setCursor(0, 1);
            lcd.print(VERSION);
-#endif
-
-
-
-
-    // Load EEPROM settings
-          ngeigieSetup.initialize();
-
-   
+      }
+      
+ if (strcmp(config.intf, "3G") == 0) {
+    // Print a message to the LCD.
+	   lcd.clear();
+	   lcd.print(F("nGeigie 3G"));
+           Serial.print("Interface = 3G");
+	   //delay(3000);
+           lcd.setCursor(0, 1);
+           lcd.print(VERSION);
+      }
+  
+  if (strcmp(config.intf, "BL") == 0) {
+    // Print a message to the LCD.
+	   lcd.clear();
+	   lcd.print(F("nGeigie BLE"));
+           Serial.print("Interface = BLE");
+	   //delay(3000);
+           lcd.setCursor(0, 1);
+           lcd.print(VERSION);
+      }
+ 
     //LED1(green) setup
       pinMode(31, OUTPUT);
       digitalWrite(31, HIGH);
@@ -298,22 +286,33 @@ void setup() {
      
     // LED on delay
       delay (3000); 
-     
+       
     //LED off
       digitalWrite(26, LOW);
       digitalWrite(31, LOW); 
-    
+ 
      
     //Openlog setup
         OpenLog.begin(9600);
         setupOpenLog();
           if (openlog_ready) {
-              ngeigieSetup.loadFromFile("NGEIGIE.TXT");
               lcd.clear();
               lcd.setCursor(0, 0);
               lcd.print ("loading setup");
               Serial.println();
               Serial.println("loading setup");
+              ngeigieSetup.loadFromFile("NGEIGIE.TXT");
+              lcd.setCursor(0, 1);
+              lcd.print ("network setup");
+              Serial.println();
+              Serial.println("loading Network setup");
+              ngeigieSetup.loadFromFile("NETWORKS.TXT");
+              lcd.setCursor(0, 2);
+              lcd.print ("sensor setup");
+              Serial.println();
+              Serial.println("loading sensors setup");
+              ngeigieSetup.loadFromFile("SENSORS.TXT");
+              delay(3000);
           }
           if (!openlog_ready) {
               lcd.setCursor(0, 3);
@@ -322,8 +321,7 @@ void setup() {
               Serial.println("No SD card.. ");
               delay(3000);
           }
-    
-    
+      
 
     //
     // SENSOR 1 setup
@@ -429,8 +427,6 @@ void setup() {
        Serial.println(config.gw2);
        Serial.print("APIkey=");
        Serial.println(config.api_key);    
-    
-
 
     //Display User IDs
         delay(3000);
@@ -468,7 +464,7 @@ void setup() {
 
     // say setup finished
 
-#if ENABLE_3G
+ if (strcmp(config.intf, "3G") == 0) {
     lcd.clear();
     lcd.print("Starting up 3Gshield");
     lcd.setCursor(0, 1);
@@ -480,9 +476,7 @@ void setup() {
            lcd.setCursor(0, 0);
            lcd.print("no 3G connection ..");
        }
-       
-       
-#endif       
+    }      
     // create logfile name 
     if (openlog_ready) {
         logfile_ready = true;
@@ -496,7 +490,7 @@ void setup() {
 /**************************************************************************/
 // Print out the current device ID
 /**************************************************************************/
-#if ENABLE_ETHERNET
+ if (strcmp(config.intf, "EN") == 0) {
 	// Initiate a DHCP session
         if (Ethernet.begin(macAddress) == 0)
 	{
@@ -519,7 +513,7 @@ void setup() {
 	lcd.setCursor(0, 3);
 	lcd.print("no errors");
 	delay(5000);
-#endif
+ }
 //      counts_per_sample = 0;
 //      counts_per_sample2 = 0;
 	
@@ -580,8 +574,9 @@ void printDigitsSerial(int digits){
 
 
 void SendDataToServer(float CPM,float CPM2){ 
-
-  #if ENABLE_ETHERNET
+  
+ // check if Ethetnet is selected
+ if (strcmp(config.intf, "EN") == 0) {
 
 
 // Convert from cpm to µSv/h with the pre-defined coefficient
@@ -657,13 +652,13 @@ void SendDataToServer(float CPM,float CPM2){
 	json_buf[len] = '\0';
 	Serial.println(json_buf);
 
-        #if ENABLE_DEV
+        if (config.dev) {
         	client.print("POST /scripts/indextest.php?api_key=");
-        #endif
+        }
         
-        #if ENABLE_API
+        if (!config.sensor1_enabled) {
                 client.print("POST /scripts/index.php?api_key=");
-        #endif        
+        }     
 	client.print(config.api_key);
 	client.println(" HTTP/1.1");
 	client.println("Accept: application/json");
@@ -724,13 +719,13 @@ void SendDataToServer(float CPM,float CPM2){
 	Serial.println(json_buf2);
 
 
-        #if ENABLE_DEV
+        if (config.dev) {
         	client.print("POST /scripts/indextest.php?api_key=");
-        #endif
+        }
         
-        #if ENABLE_API
+        if (!config.sensor1_enabled) {
                 client.print("POST /scripts/index.php?api_key=");
-        #endif 
+        }
 	client.print(config.api_key);
 	client.println(" HTTP/1.1");
 	client.println("Accept: application/json");
@@ -813,10 +808,10 @@ void SendDataToServer(float CPM,float CPM2){
           printDigits(hour());
           lcd.print(":");
        	  printDigits(minute());
-#endif
+ }
 
 
-#if ENABLE_3G
+ if (strcmp(config.intf, "3G") == 0) {
 // Convert from cpm to µSv/h with the pre-defined coefficient
 
     float uSv = CPM * conversionCoefficient;                   // convert CPM to Micro Sieverts Per Hour
@@ -837,42 +832,48 @@ void SendDataToServer(float CPM,float CPM2){
       lcd.print(uSv2);
       lcd.print("uSv/h");
 
-
-
-
-
-
         // Create data string for sensor 1
         len = sizeof(res);
 		lastConnectionTime = millis();
-                  #if ENABLE_DEV
+                  if (config.dev) {
                           sprintf_P(path, PSTR("/scripts/shorttest.php?api_key=%s&lat=%s&lon=%s&cpm=%s&id=%d"),
-                  #endif
+                          config.api_key, \
+                          config.latitude, \
+                          config.longitude, \
+                          CPM_string, \
+                          config.user_id);
+                    }
                   
-                  #if ENABLE_API
+                  if (!config.dev) {
                           sprintf_P(path, PSTR("/scripts/short.php?api_key=%s&lat=%s&lon=%s&cpm=%s&id=%d"),
-                  #endif 
+                          config.api_key, \
+                          config.latitude, \
+                          config.longitude, \
+                          CPM_string, \
+                          config.user_id);
+                  }
 
-                  config.api_key, \
-                  config.latitude, \
-                  config.longitude, \
-                  CPM_string, \
-                  config.user_id);
+
                   
                   
        // Create data string for sensor 2
-                  #if ENABLE_DEV
+                  if (config.dev) {
                           sprintf_P(path2, PSTR("/scripts/shorttest.php?api_key=%s&lat=%s&lon=%s&cpm=%s&id=%d"),
-                  #endif
+                          config.api_key, \
+                          config.latitude, \
+                          config.longitude, \
+                          CPM2_string, \
+                          config.user_id2);   
+                  }
                   
-                  #if ENABLE_API
+                  if (!config.sensor1_enabled) {
                           sprintf_P(path2, PSTR("/scripts/short.php?api_key=%s&lat=%s&lon=%s&cpm=%s&id=%d"),
-                  #endif 
-                  config.api_key, \
-                  config.latitude, \
-                  config.longitude, \
-                  CPM2_string, \
-                  config.user_id2);          
+                          config.api_key, \
+                          config.latitude, \
+                          config.longitude, \
+                          CPM2_string, \
+                          config.user_id2);  
+                   }        
                   
 
         //convert time in correct format
@@ -991,7 +992,7 @@ void SendDataToServer(float CPM,float CPM2){
     lastConnectionTime = millis();
 
 
-#endif
+}
 }
 
 

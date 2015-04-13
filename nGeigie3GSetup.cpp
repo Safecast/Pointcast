@@ -140,7 +140,7 @@ void nGeigieSetup::loadFromFile(char * setupFile) {
         DEBUG_PRINTLN("   - Update user_name");
       }
     }
-    else if(strcmp(key, "uid") == 0) {
+    else if(strcmp(key, "uid1") == 0) {
       if (mConfig.user_id != (unsigned int)atoi(value)) {
         mConfig.user_id = atoi(value);
         config_changed = true;
@@ -159,6 +159,13 @@ void nGeigieSetup::loadFromFile(char * setupFile) {
         strcpy(mConfig.api_key, value);
         config_changed = true;
         DEBUG_PRINTLN("   - Update api_key");
+      }
+    }
+    else if(strcmp(key, "intf") == 0) {
+      if (strcmp(mConfig.intf, value) != 0 ) {
+        strcpy(mConfig.intf, value);
+        config_changed = true;
+        DEBUG_PRINTLN("   - Update Interface");
       }
     }
     else if(strcmp(key, "s1e") == 0) {
@@ -189,14 +196,7 @@ void nGeigieSetup::loadFromFile(char * setupFile) {
         DEBUG_PRINTLN("   - Update longitude");
       }
     }
-    else if(strcmp(key, "3g") == 0) {
-      if (mConfig.g3_enabled != atoi(value)) {
-        mConfig.g3_enabled = atoi(value);
-        config_changed = true;
-        DEBUG_PRINTLN("   - Update 3Genabled flag");
-      }
-    }
-        else if(strcmp(key, "gw1") == 0) {
+    else if(strcmp(key, "gw1") == 0) {
       if (strcmp(mConfig.gw1, value) != 0 ) {
         strcpy(mConfig.gw1, value);
         config_changed = true;
@@ -210,6 +210,13 @@ void nGeigieSetup::loadFromFile(char * setupFile) {
         DEBUG_PRINTLN("   - Update Gateway2");
       }
      }
+     else if(strcmp(key, "dev") == 0) {
+      if (mConfig.dev != atoi(value)) {
+        mConfig.dev = atoi(value);
+        config_changed = true;
+        DEBUG_PRINTLN("   - Update API for development");
+      }
+    }
   }
   DEBUG_PRINTLN("   - Done.");
 
