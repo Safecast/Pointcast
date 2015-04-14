@@ -1,3 +1,10 @@
 lat=35.646107
 lon=139.703774
-api= EU3vu4CjWgLp7Zhub9Py
+api=q1LKu7RQ8s5pmyxunnDW
+tws=300
+alt=100
+ups=300
+autow=1
+rst=0
+alm=150
+tz=-9

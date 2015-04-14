@@ -33,7 +33,7 @@ void nGeigieSetup::initialize() {
 void nGeigieSetup::loadFromFile(char * setupFile) {
   bool config_changed = false;
   char *config_buffer, *key, *value;
-  byte pos, line_lenght;
+  int pos, line_lenght;
   byte i, buffer_lenght;
 
   mOpenlog.listen();
@@ -161,13 +161,6 @@ void nGeigieSetup::loadFromFile(char * setupFile) {
         DEBUG_PRINTLN("   - Update api_key");
       }
     }
-    else if(strcmp(key, "intf") == 0) {
-      if (strcmp(mConfig.intf, value) != 0 ) {
-        strcpy(mConfig.intf, value);
-        config_changed = true;
-        DEBUG_PRINTLN("   - Update Interface");
-      }
-    }
     else if(strcmp(key, "s1e") == 0) {
       if (mConfig.sensor1_enabled != atoi(value)) {
         mConfig.sensor1_enabled = atoi(value);
@@ -196,7 +189,14 @@ void nGeigieSetup::loadFromFile(char * setupFile) {
         DEBUG_PRINTLN("   - Update longitude");
       }
     }
-    else if(strcmp(key, "gw1") == 0) {
+    else if(strcmp(key, "dev") == 0) {
+      if (mConfig.dev != atoi(value)) {
+        mConfig.dev = atoi(value);
+        config_changed = true;
+        DEBUG_PRINTLN("   - Update API for development");
+      }
+    }
+     else if(strcmp(key, "gw1") == 0) {
       if (strcmp(mConfig.gw1, value) != 0 ) {
         strcpy(mConfig.gw1, value);
         config_changed = true;
@@ -210,13 +210,91 @@ void nGeigieSetup::loadFromFile(char * setupFile) {
         DEBUG_PRINTLN("   - Update Gateway2");
       }
      }
-     else if(strcmp(key, "dev") == 0) {
-      if (mConfig.dev != atoi(value)) {
-        mConfig.dev = atoi(value);
+     else if(strcmp(key, "intf") == 0) {
+      if (strcmp(mConfig.intf, value) != 0 ) {
+        strcpy(mConfig.intf, value);
         config_changed = true;
-        DEBUG_PRINTLN("   - Update API for development");
+        DEBUG_PRINTLN("   - Update Interface");
       }
     }
+    else if(strcmp(key, "tws") == 0) {
+      if (mConfig.tws != (unsigned int)atoi(value)) {
+        mConfig.tws = atoi(value);
+        config_changed = true;
+        DEBUG_PRINTLN("   - Update Time measuring window");
+      }
+    }
+     else if(strcmp(key, "alt") == 0) {
+      if (mConfig.alt != (unsigned int)atoi(value)) {
+        mConfig.alt = atoi(value);
+        config_changed = true;
+        DEBUG_PRINTLN("   - Update altitude");
+      }
+    }
+    else if(strcmp(key, "autow") == 0) {
+      if (mConfig.autow != atoi(value)) {
+        mConfig.autow = atoi(value);
+        config_changed = true;
+        DEBUG_PRINTLN("   - Update auto adaptive window");
+      }
+    }
+    else if(strcmp(key, "alm") == 0) {
+      if (mConfig.alm != atoi(value)) {
+        mConfig.alm = atoi(value);
+        config_changed = true;
+        DEBUG_PRINTLN("   - Update Alarm");
+      }
+    }  
+      else if(strcmp(key, "tz") == 0) {
+      if (strcmp(mConfig.tz, value) != 0 ) {
+        strcpy(mConfig.tz, value);
+        config_changed = true;
+        DEBUG_PRINTLN("   - Update timezone in EEPROM");
+      }
+    } 
+     else if(strcmp(key, "ssid") == 0) {
+      if (strcmp(mConfig.ssid, value) != 0 ) {
+        strcpy(mConfig.ssid, value);
+        config_changed = true;
+        DEBUG_PRINTLN("   - Update SSID for WiFi");
+      }
+    }
+     else if(strcmp(key, "pwd") == 0) {
+      if (strcmp(mConfig.pwd, value) != 0 ) {
+        strcpy(mConfig.pwd, value);
+        config_changed = true;
+        DEBUG_PRINTLN("   - Update password for WiFi");
+      }
+    }
+     else if(strcmp(key, "gwn") == 0) {
+      if (strcmp(mConfig.gwn, value) != 0 ) {
+        strcpy(mConfig.gwn, value);
+        config_changed = true;
+        DEBUG_PRINTLN("   - Update password for WiFi");
+      }
+    }
+     else if(strcmp(key, "s1i") == 0) {
+      if (strcmp(mConfig.s1i, value) != 0 ) {
+        strcpy(mConfig.s1i, value);
+        config_changed = true;
+        DEBUG_PRINTLN("   - Update Sensor 1 Isotope");
+      }
+    }
+     else if(strcmp(key, "s2i") == 0) {
+      if (strcmp(mConfig.s2i, value) != 0 ) {
+        strcpy(mConfig.s2i, value);
+        config_changed = true;
+        DEBUG_PRINTLN("   - Update Sensor 2 Isotope");
+      }
+    }
+     else if(strcmp(key, "aux") == 0) {
+      if (mConfig.aux != atoi(value)) {
+        mConfig.aux = atoi(value);
+        config_changed = true;
+        DEBUG_PRINTLN("   - Update aux input is active");
+      }
+    }
+    
   }
   DEBUG_PRINTLN("   - Done.");
 

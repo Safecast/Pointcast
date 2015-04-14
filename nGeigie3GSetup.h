@@ -17,6 +17,11 @@
 #define BMRDD_EEPROM_SETUP 500
 #define BMRDD_EEPROM_MARKER 0x5afeF00d
 
+#define ENABLE_3G             0
+#define ENABLE_ETHERNET       1
+#define ENABLE_DEV            1
+#define ENABLE_API            0
+
 typedef enum {
   SENSOR_ENABLED_FALSE = 0,
   SENSOR_ENABLED_TRUE,
@@ -34,10 +39,21 @@ typedef struct {
   float sensor1_cpm_factor; // s1f
   byte sensor2_enabled;     // s2e
   float sensor2_cpm_factor; // s2f
+  byte dev;                 // dev
   char gw1[16];             // gw1
   char gw2[16];             // gw1
-  byte dev;                 // dev
-  char intf[2];             //intf
+  char intf[2];             // intf
+  unsigned int tws;         // tws
+  unsigned int alt;         //alt
+  byte autow;               //auto
+  unsigned int alm;         //alm
+  char tz[3];                // in hours
+  char ssid[16];            //SSID of WiFi
+  char pwd[16];             //password of WiFi
+  char gwn[16];             //password of WiFi
+  char s1i[8];              //Sensor 1 Isotope
+  char s2i[8];              //Sensor 2 Isotope
+  byte aux;                 //auto
 
   
 } ConfigType;
