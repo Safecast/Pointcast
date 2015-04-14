@@ -1,0 +1,9 @@
+uid1=94
+uid2=95
+intf=EN
+gw2=107.161.164.166
+gw1=107.161.164.163
+ssid=mywifi
+pwd=12345678
+gwnn=	
+dev=0
