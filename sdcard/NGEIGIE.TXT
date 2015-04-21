@@ -1,3 +1,4 @@
+devid=1000
 lat=35.646107
 lon=139.703774
 api=q1LKu7RQ8s5pmyxunnDW

@@ -1,13 +1,14 @@
 /*
   nGeigie.ino
 
-2015-04-05 V2.4.9  delay for switching off LEDs
+2015-04-05 V2.4.9 delay for switching off LEDs
 2015-04-07 V2.6.0 merged code with 3G
 2015-04-07 V2.6.1 beeper setup and code cleaning　(need jumper from D10 in arduino shield (is pin D27)to A3)
 2015-04-08 V2.6.3 setup for measurung voltage on A13
 2015-04-08 V2.6.4 made switch for sending to dev or API
 2015-04-14 V2.6.6 added heart beat on green LED and reading setup for files
 2015-04-14 V2.6.7 added setup files now 1024 byte possible . added setup variables 
+2015-04-14 V2.6.8 added device ID, startup screen change, header for file format changed to NGRDD
 
 contact rob@yr-design.biz
  */
@@ -84,7 +85,7 @@ nGeigieSetup ngeigieSetup(OpenLog, config, obuf, OLINE_SZ);
 
 
 //static
-static char VERSION[] = "V2.6.7";
+static char VERSION[] = "V2.6.8";
 
 #if ENABLE_3G
 static char path[LINE_SZ];
@@ -272,23 +273,19 @@ void setup() {
     //set up the LCD's number of columns and rows: 
           lcd.begin(20, 4);
 
-#if ENABLE_3G	
+	
     // Print a message to the LCD.
 	   lcd.clear();
-	   lcd.print(F("nGeigie 3G"));
-	   //delay(3000);
+	   lcd.print(F("Safecast nGeigieV2.0"));
            lcd.setCursor(0, 1);
+           lcd.print("Firmware :");
            lcd.print(VERSION);
-#endif
+           lcd.setCursor(0, 2);
+           lcd.print("Device ID:");
+           lcd.print(config.devid);
+           lcd.setCursor(0, 3);
+           lcd.print("http://safecast.org");         
 
-#if ENABLE_ETHERNET	
-    // Print a message to the LCD.
-	   lcd.clear();
-	   lcd.print(F("nGeigie Ethernet"));
-	   //delay(3000);
-           lcd.setCursor(0, 1);
-           lcd.print(VERSION);
-#endif
 
     //LED1(green) setup
       pinMode(31, OUTPUT);
@@ -344,6 +341,8 @@ void setup() {
        Serial.println(battery);
        
      // printout selected interface
+         Serial.print("Device ID =");
+        Serial.println(config.devid);
         Serial.print("Interface =");
         Serial.println(config.intf);
         Serial.print("dev =");
@@ -510,8 +509,8 @@ void setup() {
     
     
     //setup update time in msec
-        //updateIntervalInMillis = updateIntervalInMinutes * 300000;                  // update time in ms
-        updateIntervalInMillis = updateIntervalInMinutes * 6000;                  // update time in ms
+        updateIntervalInMillis = updateIntervalInMinutes * 300000;                  // update time in ms
+        //updateIntervalInMillis = updateIntervalInMinutes * 6000;                  // update time in ms
         unsigned long now1 = millis();
         nextExecuteMillis = now1 + updateIntervalInMillis;
 
@@ -807,7 +806,7 @@ void SendDataToServer(float CPM,float CPM2){
 
      //sensor 1 sd card string setup
           memset(buf, 0, LINE_SZ);
-          sprintf_P(buf, PSTR("$BMRDD,%d,%s,,,%s,A,%s,1,A,,"),  \
+          sprintf_P(buf, PSTR("$NGRDD,%d,%s,,,%s,A,%s,1,A,,"),  \
                     config.user_id, \
                     timestamp, \
                     CPM_string, \
@@ -828,7 +827,7 @@ void SendDataToServer(float CPM,float CPM2){
        
      //sensor 2 sd card string setup
           memset(buf2, 0, LINE_SZ);     
-          sprintf_P(buf2, PSTR("$BMRDD,%d,%s,,,%s,A,%s,1,A,,"),  \
+          sprintf_P(buf2, PSTR("$NGRDD,%d,%s,,,%s,A,%s,1,A,,"),  \
                     config.user_id2, \
                     timestamp, \
                     CPM2_string, \

@@ -29,7 +29,7 @@ typedef enum {
 
 typedef struct {
   unsigned long marker;     // set at first run
-  char user_name[16];       // nm 
+  unsigned int devid;     // did
   unsigned int user_id;     // uid
   unsigned int user_id2;     // uid
   char api_key[24];         // api
@@ -50,7 +50,7 @@ typedef struct {
   char tz[3];                // in hours
   char ssid[16];            //SSID of WiFi
   char pwd[16];             //password of WiFi
-  char gwn[16];             //password of WiFi
+  char gwn[16];             //name of gateway
   char s1i[8];              //Sensor 1 Isotope
   char s2i[8];              //Sensor 2 Isotope
   byte aux;                 //auto

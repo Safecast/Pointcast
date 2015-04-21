@@ -5,5 +5,5 @@ gw2=107.161.164.166
 gw1=107.161.164.163
 ssid=mywifi
 pwd=12345678
-gwnn=	
+gwn=test	
 dev=0

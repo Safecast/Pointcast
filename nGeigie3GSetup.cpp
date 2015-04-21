@@ -133,11 +133,11 @@ void nGeigieSetup::loadFromFile(char * setupFile) {
         DEBUG_PRINTLN("   - Update sensor2_cpm_factor");
       }
     }
-    else if(strcmp(key, "nm") == 0) {
-      if (strcmp(mConfig.user_name, value) != 0 ) {
-        strcpy(mConfig.user_name, value);
+    else if(strcmp(key, "devid") == 0) {
+      if (mConfig.devid != (unsigned int)atoi(value)) {
+        mConfig.devid = atoi(value);
         config_changed = true;
-        DEBUG_PRINTLN("   - Update user_name");
+        DEBUG_PRINTLN("   - Update user_id");
       }
     }
     else if(strcmp(key, "uid1") == 0) {
@@ -270,7 +270,7 @@ void nGeigieSetup::loadFromFile(char * setupFile) {
       if (strcmp(mConfig.gwn, value) != 0 ) {
         strcpy(mConfig.gwn, value);
         config_changed = true;
-        DEBUG_PRINTLN("   - Update password for WiFi");
+        DEBUG_PRINTLN("   - Update name for GateWay");
       }
     }
      else if(strcmp(key, "s1i") == 0) {
