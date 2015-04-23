@@ -7,8 +7,9 @@
 2015-04-08 V2.6.3 setup for measurung voltage on A13
 2015-04-08 V2.6.4 made switch for sending to dev or API
 2015-04-14 V2.6.6 added heart beat on green LED and reading setup for files
-2015-04-14 V2.6.7 added setup files now 1024 byte possible . added setup variables 
-2015-04-14 V2.6.8 added device ID, startup screen change, header for file format changed to NGRDD
+2015-04-19 V2.6.7 added setup files now 1024 byte possible . added setup variables 
+2015-04-20 V2.6.8 added device ID, startup screen change, header for file format changed to NGRDD
+2015-04-23 V2.6.9 added second line to SDcard logging for added status NNXSTS, added menus 
 
 contact rob@yr-design.biz
  */
@@ -48,6 +49,10 @@ contact rob@yr-design.biz
 #define VOLTAGE_R1 150000
 #define VOLTAGE_R2 10000
 
+//setup Onewire for temp sensor
+#include <OneWire.h>
+OneWire  ds(A12);  // on pin 10 (a 4.7K resistor is necessary)
+
 int n = 1;
 LiquidCrystal_I2C	lcd(I2C_ADDR,En_pin,Rw_pin,Rs_pin,D4_pin,D5_pin,D6_pin,D7_pin);
 int backlightPin = 2;
@@ -85,7 +90,7 @@ nGeigieSetup ngeigieSetup(OpenLog, config, obuf, OLINE_SZ);
 
 
 //static
-static char VERSION[] = "V2.6.8";
+static char VERSION[] = "V2.6.9";
 
 #if ENABLE_3G
 static char path[LINE_SZ];
@@ -261,10 +266,9 @@ void setup() {
    //beep 
        tone(28, 600, 200);
     
-    //button reset make jumper on upper from A3 to D8 (27)
+    //button reset
           pinMode(27, INPUT_PULLUP);
           attachInterrupt(27, onReset, interruptMode);
-
   
     // set brightnes
           lcd.setBacklightPin(BACKLIGHT_PIN,POSITIVE);
@@ -274,9 +278,9 @@ void setup() {
           lcd.begin(20, 4);
 
 	
-    // Print a message to the LCD.
+    // Print startup message to the LCD.
 	   lcd.clear();
-	   lcd.print(F("Safecast nGeigieV2.0"));
+	   lcd.print("Safecast nGeigie V2");
            lcd.setCursor(0, 1);
            lcd.print("Firmware :");
            lcd.print(VERSION);
@@ -301,29 +305,48 @@ void setup() {
     //LED off
       digitalWrite(26, LOW);
       digitalWrite(31, LOW); 
-    
+      
+            
+     // read battery     
+       int battery =((read_voltage(VOLTAGE_PIN)));
+       Serial.print("Battery Voltage =");
+       Serial.println(battery);
+      
+      
+    // Print system message to the LCD.
+	   lcd.clear();
+	   lcd.print("System");
+           lcd.setCursor(0, 1);
+           lcd.print("Power:");
+           lcd.print("USB/EXT/BAT");
+           lcd.setCursor(0, 2);
+           lcd.print("Battery:");
+           lcd.print(battery);
+           lcd.setCursor(0, 3);
+           lcd.print("Tempearture: 18 C");         
+
      
     //Openlog setup
         OpenLog.begin(9600);
         setupOpenLog();
           if (openlog_ready) {
-              lcd.clear();
-              lcd.setCursor(0, 0);
-              lcd.print ("loading setup");
+//              lcd.clear();
+//              lcd.setCursor(0, 0);
+//              lcd.print ("loading setup");
               Serial.println();
               Serial.println("loading setup");
               ngeigieSetup.loadFromFile("NGEIGIE.TXT");
-              lcd.setCursor(0, 1);
-              lcd.print ("network setup");
+//              lcd.setCursor(0, 1);
+//              lcd.print ("network setup");
               Serial.println();
               Serial.println("loading Network setup");
               ngeigieSetup.loadFromFile("NETWORKS.TXT");
-              lcd.setCursor(0, 2);
-              lcd.print ("sensor setup");
+//              lcd.setCursor(0, 2);
+//              lcd.print ("sensor setup");
               Serial.println();
               Serial.println("loading sensors setup");
               ngeigieSetup.loadFromFile("SENSORS.TXT");
-
+              delay(3000);
           }
           if (!openlog_ready) {
               lcd.setCursor(0, 3);
@@ -334,11 +357,7 @@ void setup() {
           }
       
       
-      
-      // read battery     
-       int battery =((read_voltage(VOLTAGE_PIN)));
-       Serial.print("Battery Voltage =");
-       Serial.println(battery);
+
        
      // printout selected interface
          Serial.print("Device ID =");
@@ -823,7 +842,21 @@ void SendDataToServer(float CPM,float CPM2){
               sprintf_P(buf + len, PSTR("*0%X"), (int)chk);
           else
               sprintf_P(buf + len, PSTR("*%X"), (int)chk);
-          Serial.println(buf);
+
+ 
+ 
+      int battery =((read_voltage(VOLTAGE_PIN)));
+ 
+ 
+     //add second line for addtional info
+       sprintf_P(buf + len, PSTR("*%X%s$%s,%d"), 
+              (int)chk, \
+              "\n", \
+              HEADER_SENSOR,  \
+              battery);
+ 
+      Serial.println(buf);
+ 
        
      //sensor 2 sd card string setup
           memset(buf2, 0, LINE_SZ);     
@@ -846,7 +879,17 @@ void SendDataToServer(float CPM,float CPM2){
           else
               sprintf_P(buf2 + len2, PSTR("*%X"), (int)chk2);
               
-          Serial.println(buf2);    
+  
+         
+        //add second line for addtional info
+            sprintf_P(buf2 + len, PSTR("*%X%s$%s,%d"), 
+              (int)chk, \
+              "\n", \
+              HEADER_SENSOR,  \
+              battery);
+              
+              
+         Serial.println(buf2); 
 
         //write to sd card sensor 1 info
           OpenLog.println(buf);
@@ -936,7 +979,7 @@ void SendDataToServer(float CPM,float CPM2){
      
        //sensor 1 sd card string setup
         memset(buf, 0, LINE_SZ);
-        sprintf_P(buf, PSTR("$BMRDD,%d,%s,,,%s,A,%s,1,A,,"),  \
+        sprintf_P(buf, PSTR("$NGRDD,%d,%s,,,%s,A,%s,1,A,,"),  \
                   config.user_id, \
                   timestamp, \
                   CPM_string, \
@@ -957,7 +1000,7 @@ void SendDataToServer(float CPM,float CPM2){
        
        //sensor 2 sd card string setup
         memset(buf2, 0, LINE_SZ);     
-        sprintf_P(buf2, PSTR("$BMRDD,%d,%s,,,%s,A,%s,1,A,,"),  \
+        sprintf_P(buf2, PSTR("$NGRDD,%d,%s,,,%s,A,%s,1,A,,"),  \
                   config.user_id2, \
                   timestamp, \
                   CPM2_string, \

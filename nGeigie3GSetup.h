@@ -22,6 +22,8 @@
 #define ENABLE_DEV            1
 #define ENABLE_API            0
 
+#define HEADER_SENSOR  "NNXSTS"
+
 typedef enum {
   SENSOR_ENABLED_FALSE = 0,
   SENSOR_ENABLED_TRUE,
