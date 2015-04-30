@@ -10,6 +10,9 @@
 2015-04-19 V2.6.7 added setup files now 1024 byte possible . added setup variables 
 2015-04-20 V2.6.8 added device ID, startup screen change, header for file format changed to NGRDD
 2015-04-23 V2.6.9 added second line to SDcard logging for added status NNXSTS, added menus 
+2015-04-23 V2.7.0 renamed Pointcast
+2015-04-28 V2.7.1 moved  startup 3G into send string, battery voltage report corrected for Teensy.
+2015-04-30 V2.7.2 Added temperature setup for DS18B20 (disabled at the moment) setup screens
 
 contact rob@yr-design.biz
  */
@@ -30,6 +33,7 @@ contact rob@yr-design.biz
 #include <math.h>
 #include <i2c_t3.h>
 #include <LiquidCrystal_I2C.h>
+#include <OneWire.h>
 #include "a3gim.h"
 #include "PointcastSetup.h"
 #include "PointcastDebug.h"
@@ -58,7 +62,7 @@ LiquidCrystal_I2C	lcd(I2C_ADDR,En_pin,Rw_pin,Rs_pin,D4_pin,D5_pin,D6_pin,D7_pin)
 int backlightPin = 2;
 
 #define ENABLE_DEBUG 
-#define LINE_SZ 128
+#define LINE_SZ 120
 // SENT_SZ is used for sending data for 3G
 #define SENT_SZ 120
 //OLINE_SZ is used for OpenLog buffers
@@ -90,7 +94,7 @@ PointcastSetup PointcastSetup(OpenLog, config, obuf, OLINE_SZ);
 
 
 //static
-static char VERSION[] = "V2.6.9";
+static char VERSION[] = "V2.7.2";
 
 #if ENABLE_3G
 static char path[LINE_SZ];
@@ -119,7 +123,7 @@ const int interruptMode = FALLING;
 const int updateIntervalInMinutes = 1;
 
 #if ENABLE_ETHERNET
-//ethetnet
+//ethernet
 byte macAddress[] = { 0x90, 0xA2, 0xDA, 0x0E, 0xE0, 0x5C };
 EthernetClient client;
 IPAddress localIP (192, 168, 100, 40);	
@@ -242,11 +246,15 @@ void onPulse2()
 
 }
 
+
+
+
 /**************************************************************************/
 // Setup
 /**************************************************************************/
 
 void setup() {  
+
   
    // openlog setup 
           Serial.begin(9600);
@@ -279,9 +287,14 @@ void setup() {
           lcd.begin(20, 4);
 
 	
+/**************************************************************************/
+// Start screen
+/**************************************************************************/
+
+
     // Print startup message to the LCD.
 	   lcd.clear();
-	   lcd.print("Safecast pointcast V2");
+	   lcd.print("Pointcast V1.0");
            lcd.setCursor(0, 1);
            lcd.print("Firmware :");
            lcd.print(VERSION);
@@ -306,12 +319,24 @@ void setup() {
     //LED off
       digitalWrite(26, LOW);
       digitalWrite(31, LOW); 
-      
+
+
+/**************************************************************************/
+// System Screen
+/**************************************************************************/
             
      // read battery     
-       int battery =((read_voltage(VOLTAGE_PIN)));
+       float battery =((read_voltage(VOLTAGE_PIN)));
        Serial.print("Battery Voltage =");
-       Serial.println(battery);
+       Serial.print(battery);
+       Serial.print("V");
+       
+      //get temperature 
+        //float temperature = getTemp();
+        Serial.print("Temperature =");
+        //Serial.println(temperature);
+        Serial.print("Celsius");
+       
       
       
     // Print system message to the LCD.
@@ -319,14 +344,78 @@ void setup() {
 	   lcd.print("System");
            lcd.setCursor(0, 1);
            lcd.print("Power:");
-           lcd.print("USB/EXT/BAT");
+           if (battery < 4.5) {
+                lcd.print("BAT");;
+              } else {
+                lcd.print("EXT");
+              }
+                       
            lcd.setCursor(0, 2);
-           lcd.print("Battery:");
+           lcd.print("Bat:");
            lcd.print(battery);
+           lcd.print("V");
            lcd.setCursor(0, 3);
-           lcd.print("Tempearture: 18 C");         
+           lcd.print("Tmp:"); 
+           //lcd.println(temperature);
+           lcd.print("C");
 
-     
+           
+           
+
+    
+    
+/**************************************************************************/
+// Time Screen
+/**************************************************************************/  
+
+    
+  //Check if Time is setup
+    setSyncProvider(getTeensy3Time);
+    if (timeStatus()!= timeSet) {
+        Serial.println("Unable to sync with the RTC");
+        sprintf_P(logfile_name, PSTR("%04d1234.log"),config.user_id);
+
+      } else {
+        Serial.println("RTC has set the system time for GMT");
+	sprintf_P(logfile_name, PSTR("%04d%02d%02d.log"),config.user_id, month(), day());
+      }  
+      
+      //display time
+          delay (3000); 
+          lcd.clear();
+          lcd.setCursor(0, 0);
+          lcd.print("TIME (PRESS TO SET)");
+          lcd.setCursor(0, 1);
+          lcd.print("Date:");
+          lcd.print(month());
+          lcd.print("-");
+          lcd.print(day());
+          lcd.setCursor(0, 2);
+          lcd.print("Time:");          
+          printDigits(hour());
+          lcd.print(":");
+       	  printDigits(minute());
+          lcd.setCursor(0, 3);
+          lcd.print("Zone:");
+          lcd.print(config.tz);  
+
+
+          //serial info print
+              Serial.print("Time (GMT):");
+              printDigitsSerial(hour());
+              Serial.print(F(":"));
+              printDigitsSerial(minute());
+              Serial.println("");
+              Serial.print("Date:");
+              Serial.print(month());
+              Serial.print("-");
+              Serial.println(day());
+          
+          
+/**************************************************************************/
+// SDcard Screen
+/**************************************************************************/  
+        
     //Openlog setup
         OpenLog.begin(9600);
         setupOpenLog();
@@ -340,14 +429,12 @@ void setup() {
               Serial.println();
               Serial.println("loading sensors setup");
               PointcastSetup.loadFromFile("SENSORS.TXT");
-              delay(3000);
           }
           if (!openlog_ready) {
-              lcd.setCursor(0, 3);
-              lcd.print("No SD card.. ");
+//              lcd.setCursor(0, 3);
+//              lcd.print("No SD card.. ");
               Serial.println();
               Serial.println("No SD card.. ");
-              delay(3000);
           }
       
       
@@ -380,23 +467,141 @@ void setup() {
         Serial.println(config.s2i);
         Serial.print("aux =");
         Serial.println(config.aux);
-        delay(3000);
 
-    
+        //display information
+          delay (3000); 
+          lcd.clear();
+          lcd.setCursor(0, 0);
+          lcd.print("SDCARD");
+          lcd.setCursor(0, 1);
+          lcd.print("POINTCAST:");
+          lcd.setCursor(0, 2);
+          lcd.print("SENSORS:");
+          lcd.setCursor(0, 3);
+          lcd.print("NETWORK:");
+         
 
-    //
-    // SENSOR 1 setup
-    if (config.sensor1_enabled) {
-        //LND_712 conversionCoefficient = 0.0083;
-        //LND 7317 conversionCoefficient = 0.0029;
-        conversionCoefficient = 1/config.sensor1_cpm_factor; // 0.0029;
-        //Pulse1 comes in at D4
+/**************************************************************************/
+// POINTCAST Screen
+/**************************************************************************/  
+        //display information
+          delay (3000); 
+          lcd.clear();
+          lcd.setCursor(0, 0);
+          lcd.print("POINTCAST SETUP");
+          lcd.setCursor(0, 1);
+          lcd.print("DeviceID:");
+          lcd.print(config.devid);
+          lcd.setCursor(0, 2);
+          lcd.print("TIMEZONE:");
+          lcd.print(config.tz);          
+          lcd.setCursor(0, 3);
+          lcd.print("ALARM-S1:");
+          lcd.print(config.alm);
+          lcd.print("CPM");    
+
+          delay (3000); 
+          lcd.clear();
+          lcd.setCursor(0, 0);
+          lcd.print("UPLOAD MODE");
+          lcd.setCursor(0, 1);
+          lcd.print("Adaptive: OFF");
+          lcd.setCursor(0, 2);
+          lcd.print("Integr Win: 300sec");         
+          lcd.setCursor(0, 3);
+          lcd.print("Upload Win: 300sec");   
+  
+/**************************************************************************/
+// GPS Screen
+/**************************************************************************/  
+  
+        delay (3000); 
         lcd.clear();
         lcd.setCursor(0, 0);
+        lcd.print("GPS LOCATION");
+        lcd.setCursor(0, 1);
+        lcd.print("Lon:");
+        lcd.print(config.longitude);
+        lcd.setCursor(0, 2);        
+        lcd.print("Lat:");
+        lcd.print(config.latitude);
+        lcd.setCursor(0, 3);
+        lcd.print("Alt:");
+        lcd.print(config.alt);
+        lcd.print("m");
+     
+     //serial print 
+        Serial.print("Lon:");
+        Serial.println(config.longitude);   
+        Serial.print("Lat:");
+        Serial.println(config.latitude);
+        Serial.print("Alt:");
+        Serial.println(config.alt);  
+
+
+/**************************************************************************/
+// Sensors Screen
+/**************************************************************************/    
+        delay (3000); 
+        lcd.clear();
+        lcd.setCursor(0, 0);
+        lcd.print("SENSORS ");
+        if (config.sensor1_enabled & config.sensor2_enabled ) {
+                lcd.print("DUAL");;
+              } else {
+                lcd.print("SINGLE");
+              }
+        lcd.setCursor(0, 1);
+        lcd.print("S1=");
+        lcd.print(int(config.sensor1_cpm_factor));
+        lcd.print(" CPM/uSv ");
+        lcd.print(config.s1i);
+        lcd.setCursor(0, 2);        
+        lcd.print("S2=");
+        lcd.print(int(config.sensor2_cpm_factor));
+        lcd.print(" CPM/uSv ");
+        lcd.print(config.s2i);
+        lcd.setCursor(0, 3);
+        lcd.print("AUX=NC");
+        
+/**************************************************************************/
+// Sensors Test Screen
+/**************************************************************************/  
+        delay (3000); 
+        lcd.clear();
+        lcd.setCursor(0, 0);
+        lcd.print("SENSOR TEST");
+        lcd.setCursor(0, 1);
+        lcd.print("S1=");
+        lcd.setCursor(0, 2);        
+        lcd.print("S2=");
+        lcd.setCursor(0, 3);
+        lcd.print("AUX=NC");
+
+/**************************************************************************/
+// API Screen
+/**************************************************************************/  
+        delay (3000); 
+        lcd.clear();
+        lcd.setCursor(0, 0);
+        lcd.print("API");
+        lcd.setCursor(0, 1);
+        lcd.print("S1-ID=");
+        lcd.print(config.user_id); 
+        lcd.setCursor(0, 2);        
+        lcd.print("S1-ID=");
+        lcd.print(config.user_id2);
+        lcd.setCursor(0, 3);
+        lcd.print("API-KEY=");
+//        lcd.print(config.api_key);        
+
+
+
+    // SENSOR 1 setup
+    if (config.sensor1_enabled) {
+        conversionCoefficient = 1/config.sensor1_cpm_factor; // 0.0029;
         pinMode(14, INPUT_PULLUP);
         attachInterrupt(14, onPulse, interruptMode);
-        lcd.print("CMPF1=");
-        lcd.print(config.sensor1_cpm_factor);
         Serial.print("CMPF1=");
         Serial.println(config.sensor1_cpm_factor); 
     }
@@ -404,66 +609,72 @@ void setup() {
     // SENSOR 2 setup
     
      if (config.sensor2_enabled) {
-        // LND_712 conversionCoefficient = 0.0083;
-        // LND 7317 conversionCoefficient = 0.0029;
         conversionCoefficient2 = 1/config.sensor2_cpm_factor; // 0.0029;
-        //Pulse2 comes in at D15
         pinMode(15,INPUT_PULLUP);
         attachInterrupt(15, onPulse2, interruptMode);
-        lcd.setCursor(0, 1);
-        lcd.print("CMPF2=");
-        lcd.print(config.sensor2_cpm_factor);
         Serial.print("CMPF2=");
         Serial.println(config.sensor2_cpm_factor);
         
     }
     
-  //Check if Time is setup
-    setSyncProvider(getTeensy3Time);
-    if (timeStatus()!= timeSet) {
-        Serial.println("Unable to sync with the RTC");
-        lcd.setCursor(0, 3);
-        lcd.print ("Please setup time");
-        sprintf_P(logfile_name, PSTR("%04d1234.log"),config.user_id);
-        if (openlog_ready) {
-            lcd.clear();
-            lcd.setCursor(0, 1);
-  	    lcd.print("Log=");
-            lcd.println(logfile_name);
-  	    lcd.println("Local logging only");
-        }
-      } else {
-          Serial.println("RTC has set the system time for GMT");
-	       sprintf_P(logfile_name, PSTR("%04d%02d%02d.log"),config.user_id, month(), day());
-  		if (openlog_ready) {
-                    lcd.print("Log=");
-      		    lcd.println(logfile_name);
-          }
-      }  
-      
-      //display time
-          lcd.clear();
-          lcd.setCursor(0, 0);
-          lcd.print("Time (GMT):");
-          printDigits(hour());
-          lcd.print(":");
-       	  printDigits(minute());
-          lcd.setCursor(0, 1);
-          lcd.print("Date:");
-          lcd.print(month());
-          lcd.print("-");
-          lcd.print(day());
-          
-          Serial.print("Time (GMT):");
-          printDigitsSerial(hour());
-          Serial.print(F(":"));
-       	  printDigitsSerial(minute());
-          Serial.println("");
-          Serial.print("Date:");
-          Serial.print(month());
-          Serial.print("-");
-          Serial.println(day());
-                
+
+/**************************************************************************/
+// Network Screen
+/**************************************************************************/   
+#if ENABLE_ETHERNET
+	// Initiate a DHCP session
+        if (Ethernet.begin(macAddress) == 0)
+        
+	{
+       		Serial.println(F("Failed DHCP"));
+  // DHCP failed, so use a fixed IP address:
+        	Ethernet.begin(macAddress, localIP);
+	}
+
+        Serial.print("Local IP:");
+        Serial.println(Ethernet.localIP());	       
+	Serial.println(F("setup OK."));	
+
+//          if (config.intf == "EN") {
+                  delay (3000); 
+                  lcd.clear();
+                  lcd.setCursor(0, 0);
+                  lcd.print("NETWORK ETHER (DHCP)");
+                  lcd.setCursor(0, 1);
+                  lcd.print("IP:");
+                  lcd.print(Ethernet.localIP()); 
+                  lcd.setCursor(0, 2);        
+                  lcd.print("GW:");
+                  lcd.print(config.gw1);
+                  lcd.setCursor(0, 3);
+                  lcd.print("ID");
+                      for (int i=0; i<6; ++i)
+                          {
+                        lcd.print(":");
+                        lcd.print(macAddress[i],HEX);
+                        
+                        }
+                  
+            
+//          }
+#endif
+
+#if ENABLE_3G
+                  delay (3000); 
+                  lcd.clear();
+                  lcd.setCursor(0, 0);
+                  lcd.print("NETWORK 3G");
+                  lcd.setCursor(0, 1);
+                  lcd.print("Signal:");
+                  lcd.print("[000000]"); 
+                  lcd.setCursor(0, 2);        
+                  lcd.print("Carrier:");
+                  lcd.print("NTT Docomo");
+                  lcd.setCursor(0, 3);
+                  lcd.print("Phone: ");
+                  lcd.print("080XXXXYYYY");
+  #endif          
+
 
    
     //Gateways setup to be done
@@ -474,49 +685,22 @@ void setup() {
        //Serial.print(gatewaynumber);
     
     //select randomly for total sserver
-       delay(3000);
-       lcd.clear();
-       lcd.setCursor(0, 0);
-       lcd.print("G1=");
-       lcd.print(config.gw1);
-       lcd.setCursor(0, 1);
-       lcd.print("G2=");
-       lcd.print(config.gw2);
-       Serial.print("Gateway1=");
-       Serial.println(config.gw1);
-       Serial.print("Gateway2=");
-       Serial.println(config.gw2);
-       Serial.print("APIkey=");
-       Serial.println(config.api_key);    
-    
+//       delay(3000);
+//       lcd.clear();
+//       lcd.setCursor(0, 0);
+//       lcd.print("G1=");
+//       lcd.print(config.gw1);
+//       lcd.setCursor(0, 1);
+//       lcd.print("G2=");
+//       lcd.print(config.gw2);
+//       Serial.print("Gateway1=");
+//       Serial.println(config.gw1);
+//       Serial.print("Gateway2=");
+//       Serial.println(config.gw2);
+//       Serial.print("APIkey=");
+//       Serial.println(config.api_key);    
+//        
 
-
-    //Display User IDs
-        delay(3000);
-        lcd.clear();
-        lcd.setCursor(0, 0);
-        lcd.print("ID:");
-        lcd.print(config.user_id);
-        lcd.print(" ID2:");
-        lcd.print(config.user_id2);
-        lcd.setCursor(0, 1);
-        Serial.print("ID:");
-        Serial.print(config.user_id);
-        Serial.print(" ID2:");
-        Serial.println(config.user_id2);
-        
-     //Display Lon/Lat
-        lcd.print("LAT:");
-        lcd.print(config.latitude);
-        lcd.setCursor(0, 2);
-        lcd.print("LON:");
-        lcd.print(config.longitude);
-        Serial.print("LAT:");
-        Serial.println(config.latitude);
-        lcd.setCursor(0, 3);
-        Serial.print("LON:");
-        Serial.println(config.longitude);
-        delay(3000);  
     
     
     //setup update time in msec
@@ -524,63 +708,12 @@ void setup() {
         //updateIntervalInMillis = updateIntervalInMinutes * 6000;                  // update time in ms
         unsigned long now1 = millis();
         nextExecuteMillis = now1 + updateIntervalInMillis;
-
-    // say setup finished
-
-#if ENABLE_3G
-    lcd.clear();
-    lcd.print("Starting up 3Gshield");
-    lcd.setCursor(0, 1);
-    lcd.print("counting pulses..");
-    if (a3gs.start() == 0 && a3gs.begin() == 0)
-           {
-         }else {
-           //a3gs.restart();
-           lcd.setCursor(0, 0);
-           lcd.print("no 3G connection ..");
-       }
-       
-       
-#endif       
+     
     // create logfile name 
     if (openlog_ready) {
         logfile_ready = true;
         createFile(logfile_name);
-        
-
     }
-
-
-
-/**************************************************************************/
-// Print out the current device ID
-/**************************************************************************/
-#if ENABLE_ETHERNET
-	// Initiate a DHCP session
-        if (Ethernet.begin(macAddress) == 0)
-	{
-       		Serial.println(F("Failed DHCP"));
-  // DHCP failed, so use a fixed IP address:
-        	Ethernet.begin(macAddress, localIP);
-	}
-	lcd.clear();
-	lcd.setCursor(0, 0);
-	lcd.print(F("local_IP:"));
-	lcd.setCursor(0, 1);
-	lcd.print(Ethernet.localIP());
-        Serial.print("Local IP:");
-        Serial.println(Ethernet.localIP());	
-        
-	//delay(5000);
-	Serial.println(F("setup OK."));	
-	lcd.setCursor(0, 2);
-	lcd.print("setup finished");
-	lcd.setCursor(0, 3);
-	lcd.print("no errors");
-	delay(5000);
-#endif
-//      counts_per_sample = 0;
-//      counts_per_sample2 = 0;
 	
 }
 /**************************************************************************/
@@ -920,10 +1053,19 @@ void SendDataToServer(float CPM,float CPM2){
       lcd.print(uSv2);
       lcd.print("uSv/h");
 
-
-
-
-
+   // connect 3G
+//    lcd.clear();
+//    lcd.print("Starting up 3Gshield");
+//    lcd.setCursor(0, 1);
+//    lcd.print("counting pulses..");
+    if (a3gs.start() == 0 && a3gs.begin() == 0)
+           {
+         }else {
+           //a3gs.restart();
+           lcd.setCursor(0, 0);
+           lcd.print("no 3G connection ..");
+       }
+       
 
         // Create data string for sensor 1
         len = sizeof(res);
@@ -1247,11 +1389,52 @@ void createFile(char *fileName) {
       #endif
 
 
-/* retrieve battery voltage */
-float read_voltage(int pin)
-{
-  static float voltage_divider = (float)VOLTAGE_R2 / (VOLTAGE_R1 + VOLTAGE_R2);
-  float result = (float)analogRead(pin)/1024 *10 / voltage_divider;
-  return result;
+// retrieve battery voltage 
+    float read_voltage(int pin)
+    {
+      static float voltage_divider = (float)VOLTAGE_R2 / (VOLTAGE_R1 + VOLTAGE_R2);
+      float result = (float)analogRead(pin)/4096*10  / voltage_divider;
+      return result;
+    }
+
+// retrieve temperature
+float getTemp(){
+
+      byte data[12];
+      byte addr[8];
+      
+      if ( !ds.search(addr)) {
+      //no more sensors on chain, reset search
+      ds.reset_search();
+      return -1000;
+      }
+      
+      
+      if ( addr[0] != 0x10 && addr[0] != 0x28) {
+      Serial.print("Device is not recognized");
+      return -1000;
+      }
+      
+      ds.reset();
+      ds.select(addr);
+      ds.write(0x44,1); // start conversion, with parasite power on at the end
+      
+      byte present = ds.reset();
+      ds.select(addr);
+      ds.write(0xBE); // Read Scratchpad
+      
+      for (int i = 0; i < 9; i++) { // we need 9 bytes
+      data[i] = ds.read();
+      }
+      
+      ds.reset_search();
+      
+      byte MSB = data[1];
+      byte LSB = data[0];
+      
+      float tempRead = ((MSB << 8) | LSB); //using two’s compliment
+      float TemperatureSum = tempRead / 16;
+      delay(1000);
+      return TemperatureSum;
+
 }
- 
