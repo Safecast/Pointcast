@@ -13,10 +13,7 @@
 2015-04-23 V2.7.0 renamed Pointcast
 2015-04-28 V2.7.1 moved  startup 3G into send string, battery voltage report corrected for Teensy.
 2015-04-30 V2.7.2 Added temperature setup for DS18B20 (disabled at the moment) setup screens
-2015-04-30 V2.7.3 Added joystick functions
-
-
-
+2015-04-30 V2.7.3 Added Joy stick setup. Added Height.
 contact rob@yr-design.biz
  */
  
@@ -42,62 +39,45 @@ contact rob@yr-design.biz
 #include "PointcastDebug.h"
 
 //setup LCD I2C
-    #define I2C_ADDR    0x27  // Define I2C Address where the PCF8574A is for LCD2004 form http://www.sainsmart.com
-    #define BACKLIGHT_PIN     3
-    #define En_pin  2
-    #define Rw_pin  1
-    #define Rs_pin  0
-    #define D4_pin  4
-    #define D5_pin  5
-    #define D6_pin  6
-    #define D7_pin  7
+#define I2C_ADDR    0x27  // Define I2C Address where the PCF8574A is for LCD2004 form http://www.sainsmart.com
+#define BACKLIGHT_PIN     3
+#define En_pin  2
+#define Rw_pin  1
+#define Rs_pin  0
+#define D4_pin  4
+#define D5_pin  5
+#define D6_pin  6
+#define D7_pin  7
 
-// Voltage pin setup
-    #define VOLTAGE_PIN A13
-    #define VOLTAGE_R1 150000
-    #define VOLTAGE_R2 10000
+int n = 1;
+LiquidCrystal_I2C	lcd(I2C_ADDR,En_pin,Rw_pin,Rs_pin,D4_pin,D5_pin,D6_pin,D7_pin);
+int backlightPin = 2;
 
-//joystick pins setup
-    #define joy_down_pin  19
-    #define joy_left_pin  20
-    #define joy_up_pin  21
-    #define joy_center_pin  22
-    #define joy_right_pin  23
-    int joy_down = digitalRead(joy_down_pin);
-    int joy_left = digitalRead(joy_down_pin);
-    int joy_up = digitalRead(joy_down_pin);
-    int joy_center = digitalRead(joy_down_pin);
-    int joy_right = digitalRead(joy_down_pin);
+//setup Power detection
+#define VOLTAGE_PIN A13
+#define VOLTAGE_R1 150000
+#define VOLTAGE_R2 10000
 
 //setup Onewire for temp sensor
-    #include <OneWire.h>
-    OneWire  ds(A12);  // on pin 10 (a 4.7K resistor is necessary)
-
-//setup LCD
-    int n = 1;
-    LiquidCrystal_I2C	lcd(I2C_ADDR,En_pin,Rw_pin,Rs_pin,D4_pin,D5_pin,D6_pin,D7_pin);
-    int backlightPin = 2;
+#include <OneWire.h>
+OneWire  ds(A12);  // on pin 10 (a 4.7K resistor is necessary)
 
 
-//misc setup
-    #define ENABLE_DEBUG 
-    #define LINE_SZ 120
-    //OLINE_SZ is used for OpenLog buffers
-    #define OLINE_SZ 1024
-    //GATEWAY_sz is array for gateways
-    #define GATEWAY_SZ 2
 
-//static
-    static char obuf[OLINE_SZ];
-    static char buf[LINE_SZ];
-    static char buf2[LINE_SZ];
-    static char lat_buf[16];
-    static char lon_buf[16];
-    static char VERSION[] = "V2.7.3";
-    static char path[LINE_SZ];
-    static char path2[LINE_SZ];
-    char datedisplay[8];
-    char coordinate[16];
+#define ENABLE_DEBUG 
+#define LINE_SZ 128
+// SENT_SZ is used for sending data for 3G
+#define SENT_SZ 120
+//OLINE_SZ is used for OpenLog buffers
+#define OLINE_SZ 1024
+//GATEWAY_sz is array for gateways
+#define GATEWAY_SZ 2
+
+static char obuf[OLINE_SZ];
+static char buf[LINE_SZ];
+static char buf2[LINE_SZ];
+static char lat_buf[16];
+static char lon_buf[16];
 
 
 // OpenLog Settings --------------------------------------------------------------
@@ -116,13 +96,29 @@ contact rob@yr-design.biz
     PointcastSetup PointcastSetup(OpenLog, config, obuf, OLINE_SZ);
 
 
-// connetions fail setup
-    typedef struct
-    {
-        unsigned char state;
-        unsigned char conn_fail_cnt;
-    } devctrl_t;
-    static devctrl_t ctrl;
+//static
+      static char VERSION[] = "V2.7.2";
+
+    #if ENABLE_3G
+    static char path[LINE_SZ];
+    static char path2[LINE_SZ];
+    char datedisplay[8];
+    char coordinate[16];
+    #endif
+
+    #if ENABLE_ETHERNET
+    static char json_buf[SENT_SZ];
+    static char json_buf2[SENT_SZ];
+    #endif
+
+
+//Struct setup
+typedef struct
+{
+    unsigned char state;
+    unsigned char conn_fail_cnt;
+} devctrl_t;
+static devctrl_t ctrl;
 
 //const
     const char *server = "107.161.164.163";
@@ -140,7 +136,6 @@ contact rob@yr-design.biz
     int ethernet_powerdonwPin = 7;
     
     #endif
-
 
 //int
     int MAX_FAILED_CONNS = 3;
@@ -164,6 +159,31 @@ contact rob@yr-design.biz
     #endif
 
 
+//joystick pins setup
+    #define joy_down_pin  19
+    #define joy_left_pin  20
+    #define joy_up_pin  21
+    #define joy_center_pin  22
+    #define joy_right_pin  23
+    int joy_down = digitalRead(joy_down_pin);
+    int joy_left = digitalRead(joy_down_pin);
+    int joy_up = digitalRead(joy_down_pin);
+    int joy_center = digitalRead(joy_down_pin);
+    int joy_right = digitalRead(joy_down_pin);
+    
+    
+    //Joystick setup
+        void joy_stick()
+        {
+            pinMode(joy_down_pin, INPUT_PULLUP);
+            pinMode(joy_left_pin, INPUT_PULLUP);
+            pinMode(joy_up_pin, INPUT_PULLUP);
+            pinMode(joy_center_pin, INPUT_PULLUP);
+            pinMode(joy_right_pin, INPUT_PULLUP);
+      
+        }
+    
+
 //WDT setup init
 
     #define RCM_SRS0_WAKEUP                     0x01
@@ -177,30 +197,18 @@ contact rob@yr-design.biz
     #define RCM_SRS1_SW                         0x04
     #define RCM_SRS1_MDM_AP                     0x08
     #define RCM_SRS1_SACKERR                    0x20
-
-//WDT timer
+    
+    //WDT timer
     IntervalTimer wdTimer;
 
 //reset marco
     #define CPU_RESTART_ADDR (uint32_t *)0xE000ED0C
     #define CPU_RESTART_VAL 0x5FA0004
     #define CPU_RESTART (*CPU_RESTART_ADDR = CPU_RESTART_VAL);
-
+    
     void onReset()
     {
      CPU_RESTART;
-    }
-
-
-//Joystick setup
-    void joy_stick()
-    {
-        pinMode(joy_down_pin, INPUT_PULLUP);
-        pinMode(joy_left_pin, INPUT_PULLUP);
-        pinMode(joy_up_pin, INPUT_PULLUP);
-        pinMode(joy_center_pin, INPUT_PULLUP);
-        pinMode(joy_right_pin, INPUT_PULLUP);
-      
     }
 
 
@@ -249,16 +257,14 @@ contact rob@yr-design.biz
     float conversionCoefficient2 = 0;
 
 
-// pulse counting routines
+//Pulse counters
     void onPulse()
     {
-        counts_per_sample++; 
-    
+        counts_per_sample++;  
     }
     void onPulse2()
     {
         counts_per_sample2++;
-    
     }
 
 
@@ -342,15 +348,15 @@ void setup() {
             
      // read battery     
        float battery =((read_voltage(VOLTAGE_PIN)));
-       Serial.print("Battery Voltage =");
+       Serial.println("Battery Voltage =");
        Serial.print(battery);
-       Serial.print("V");
+       Serial.println("V");
        
       //get temperature 
         //float temperature = getTemp();
         Serial.print("Temperature =");
         //Serial.println(temperature);
-        Serial.print("Celsius");
+        Serial.println("Celsius");
        
       
       
@@ -437,7 +443,7 @@ void setup() {
           if (openlog_ready) {
               Serial.println();
               Serial.println("loading setup");
-              PointcastSetup.loadFromFile("POINTCAST.TXT");
+              PointcastSetup.loadFromFile("PCAST.TXT");
               Serial.println();
               Serial.println("loading Network setup");
               PointcastSetup.loadFromFile("NETWORKS.TXT");
@@ -735,48 +741,48 @@ void setup() {
 // Degrees to NMEA format 
 /**************************************************************************/
 
-    void deg2nmae(char *lat, char *lon, char *lat_lon_nmea)
-    {
-     
-      double lat_f = strtod(lat, NULL);
-      double lon_f = strtod(lon, NULL);
-      
-      char NS = (lat_f >= 0) ? 'N' : 'S';
-      lat_f = (lat_f >= 0) ? lat_f : -lat_f;
-      int lat_d = (int)fabs(lat_f);
-      double lat_min = (lat_f - lat_d)*60.;
-      
-      char lat_min_str[9];
-      dtostrf(lat_min, 2, 4, lat_min_str);
-      
-      char EW = (lon_f >= 0) ? 'E' : 'W';
-      lon_f = (lon_f >= 0) ? lon_f : -lon_f;
-      int lon_d = (int)fabs(lon_f);
-      double lon_min = (lon_f - lon_d)*60.;
-      
-      char lon_min_str[9];
-      dtostrf(lon_min, 2, 4, lon_min_str);
-      
-      snprintf(lat_lon_nmea, 25, "%02d%s,%c,%03d%s,%c", lat_d, lat_min_str, NS, lon_d, lon_min_str, EW);
-    
-    }
+void deg2nmae(char *lat, char *lon, char *lat_lon_nmea)
+{
+ 
+  double lat_f = strtod(lat, NULL);
+  double lon_f = strtod(lon, NULL);
+  
+  char NS = (lat_f >= 0) ? 'N' : 'S';
+  lat_f = (lat_f >= 0) ? lat_f : -lat_f;
+  int lat_d = (int)fabs(lat_f);
+  double lat_min = (lat_f - lat_d)*60.;
+  
+  char lat_min_str[9];
+  dtostrf(lat_min, 2, 4, lat_min_str);
+  
+  char EW = (lon_f >= 0) ? 'E' : 'W';
+  lon_f = (lon_f >= 0) ? lon_f : -lon_f;
+  int lon_d = (int)fabs(lon_f);
+  double lon_min = (lon_f - lon_d)*60.;
+  
+  char lon_min_str[9];
+  dtostrf(lon_min, 2, 4, lon_min_str);
+  
+  snprintf(lat_lon_nmea, 25, "%02d%s,%c,%03d%s,%c", lat_d, lat_min_str, NS, lon_d, lon_min_str, EW);
+
+}
 /**************************************************************************/
 // display digits
 /**************************************************************************/
 
-    void printDigits(int digits){
-      // utility function for digital clock display: prints preceding colon and leading 0
-      if(digits < 10)
-        lcd.print('0');
-        lcd.print(digits);
-    }
-    
-    void printDigitsSerial(int digits){
-      // utility function for digital clock display: prints preceding colon and leading 0
-      if(digits < 10)
-        Serial.print('0');
-        Serial.print(digits);
-    }	
+void printDigits(int digits){
+  // utility function for digital clock display: prints preceding colon and leading 0
+  if(digits < 10)
+    lcd.print('0');
+    lcd.print(digits);
+}
+
+void printDigitsSerial(int digits){
+  // utility function for digital clock display: prints preceding colon and leading 0
+  if(digits < 10)
+    Serial.print('0');
+    Serial.print(digits);
+}	
 //**************************************************************************/
 /*!
 //  On each falling edge of the Geiger counter's output,
@@ -788,8 +794,10 @@ void setup() {
 
 void SendDataToServer(float CPM,float CPM2){ 
 
-#if ENABLE_ETHERNET
-  // Convert from cpm to µSv/h with the pre-defined coefficient
+  #if ENABLE_ETHERNET
+
+
+// Convert from cpm to µSv/h with the pre-defined coefficient
 
     float uSv = CPM * conversionCoefficient;                   // convert CPM to Micro Sieverts Per Hour
     char CPM_string[16];
@@ -851,16 +859,16 @@ void SendDataToServer(float CPM,float CPM2){
 
     // prepare the log entry
 
-	memset(path, 0, LINE_SZ);
-	sprintf_P(path, PSTR("{\"longitude\":\"%s\",\"latitude\":\"%s\",\"device_id\":\"%d\",\"value\":\"%s\",\"unit\":\"cpm\"}"),  \
+	memset(json_buf, 0, SENT_SZ);
+	sprintf_P(json_buf, PSTR("{\"longitude\":\"%s\",\"latitude\":\"%s\",\"device_id\":\"%d\",\"value\":\"%s\",\"unit\":\"cpm\"}"),  \
 	              config.latitude, \
 	              config.longitude, \
 	              config.user_id,  \
 	              CPM_string);
 
-	int len = strlen(path);
-	path[len] = '\0';
-	Serial.println(path);
+	int len = strlen(json_buf);
+	json_buf[len] = '\0';
+	Serial.println(json_buf);
 
         #if ENABLE_DEV
         	client.print("POST /scripts/indextest.php?api_key=");
@@ -875,10 +883,10 @@ void SendDataToServer(float CPM,float CPM2){
 	client.print("Host:");
         client.println(serverIP);
 	client.print("Content-Length: ");
-	client.println(strlen(path));
+	client.println(strlen(json_buf));
 	client.println("Content-Type: application/json");
 	client.println();
-	client.println(path);
+	client.println(json_buf);
 	Serial.println("Disconnecting");
         client.stop();
    
@@ -917,16 +925,16 @@ void SendDataToServer(float CPM,float CPM2){
 
 
     // prepare the log entry
-	memset(path2, 0, LINE_SZ);
-	sprintf_P(path2, PSTR("{\"longitude\":\"%s\",\"latitude\":\"%s\",\"device_id\":\"%d\",\"value\":\"%s\",\"unit\":\"cpm\"}"),  \
+	memset(json_buf2, 0, SENT_SZ);
+	sprintf_P(json_buf2, PSTR("{\"longitude\":\"%s\",\"latitude\":\"%s\",\"device_id\":\"%d\",\"value\":\"%s\",\"unit\":\"cpm\"}"),  \
 	              config.latitude, \
 	              config.longitude, \
 	              config.user_id2,  \
 	              CPM2_string);
 
-	int len2 = strlen(path2);
-	path2[len2] = '\0';
-	Serial.println(path2);
+	int len2 = strlen(json_buf2);
+	json_buf2[len2] = '\0';
+	Serial.println(json_buf2);
 
 
         #if ENABLE_DEV
@@ -942,10 +950,10 @@ void SendDataToServer(float CPM,float CPM2){
 	client.print("Host:");
         client.println(serverIP);
 	client.print("Content-Length: ");
-	client.println(strlen(path2));
+	client.println(strlen(json_buf2));
 	client.println("Content-Type: application/json");
 	client.println();
-	client.println(path2);
+	client.println(json_buf2);
 	Serial.println("Disconnecting");
         client.stop();
 
@@ -963,11 +971,12 @@ void SendDataToServer(float CPM,float CPM2){
 
      //sensor 1 sd card string setup
           memset(buf, 0, LINE_SZ);
-          sprintf_P(buf, PSTR("$NGRDD,%d,%s,,,%s,A,%s,1,A,,"),  \
+          sprintf_P(buf, PSTR("$NGRDD,%d,%s,,,%s,A,%s,%d,A,,"),  \
                     config.user_id, \
                     timestamp, \
                     CPM_string, \
-                    lat_lon_nmea);
+                    lat_lon_nmea, \
+                    config.alt);
   
           len = strlen(buf);
           buf[len] = '\0';
@@ -998,11 +1007,12 @@ void SendDataToServer(float CPM,float CPM2){
        
      //sensor 2 sd card string setup
           memset(buf2, 0, LINE_SZ);     
-          sprintf_P(buf2, PSTR("$NGRDD,%d,%s,,,%s,A,%s,1,A,,"),  \
+          sprintf_P(buf2, PSTR("$NGRDD,%d,%s,,,%s,A,%s,%d,A,,"),  \
                     config.user_id2, \
                     timestamp, \
                     CPM2_string, \
-                    lat_lon_nmea);
+                    lat_lon_nmea, \
+                    config.alt);
   
           len2 = strlen(buf2);
           buf2[len2] = '\0';
@@ -1046,211 +1056,212 @@ void SendDataToServer(float CPM,float CPM2){
 
 
 #if ENABLE_3G
-    // Convert from cpm to µSv/h with the pre-defined coefficient
-    
-        float uSv = CPM * conversionCoefficient;                   // convert CPM to Micro Sieverts Per Hour
-        char CPM_string[16];
-        dtostrf(CPM, 0, 0, CPM_string);
-        float uSv2 = CPM2 * conversionCoefficient2;                   // convert CPM to Micro Sieverts Per Hour
-        char CPM2_string[16];
-        dtostrf(CPM2, 0, 0, CPM2_string);
-    
-        //display geiger info
-          lcd.clear();
-          lcd.setCursor(0, 0);
-          lcd.print("S1:");
-          lcd.print(uSv);
-          lcd.print("uSv/h");
-          lcd.setCursor(0, 1);
-          lcd.print("S2:");
-          lcd.print(uSv2);
-          lcd.print("uSv/h");
-    
-       // connect 3G
-    //    lcd.clear();
-    //    lcd.print("Starting up 3Gshield");
-    //    lcd.setCursor(0, 1);
-    //    lcd.print("counting pulses..");
-        if (a3gs.start() == 0 && a3gs.begin() == 0)
-               {
-             }else {
-               //a3gs.restart();
-               lcd.setCursor(0, 0);
-               lcd.print("no 3G connection ..");
-           }
-           
-    
-            // Create data string for sensor 1
-            len = sizeof(res);
-    		lastConnectionTime = millis();
-                      #if ENABLE_DEV
-                              sprintf_P(path, PSTR("/scripts/shorttest.php?api_key=%s&lat=%s&lon=%s&cpm=%s&id=%d"),
-                      #endif
-                      
-                      #if ENABLE_API
-                              sprintf_P(path, PSTR("/scripts/short.php?api_key=%s&lat=%s&lon=%s&cpm=%s&id=%d"),
-                      #endif 
-    
-                      config.api_key, \
-                      config.latitude, \
-                      config.longitude, \
-                      CPM_string, \
-                      config.user_id);
-                      
-                      
-           // Create data string for sensor 2
-                      #if ENABLE_DEV
-                              sprintf_P(path2, PSTR("/scripts/shorttest.php?api_key=%s&lat=%s&lon=%s&cpm=%s&id=%d"),
-                      #endif
-                      
-                      #if ENABLE_API
-                              sprintf_P(path2, PSTR("/scripts/short.php?api_key=%s&lat=%s&lon=%s&cpm=%s&id=%d"),
-                      #endif 
-                      config.api_key, \
-                      config.latitude, \
-                      config.longitude, \
-                      CPM2_string, \
-                      config.user_id2);          
-                      
-    
-            //convert time in correct format
-            memset(timestamp, 0, LINE_SZ);
-            sprintf_P(timestamp, PSTR("%02d-%02d-%02dT%02d:%02d:%02dZ"),  \
-    					year(), month(), day(),  \
-                        hour(), minute(), second());
-                        
-                        
-    		// convert degree to NMAE
-    		deg2nmae (config.latitude,config.longitude, lat_lon_nmea);
-         
-         
-           //sensor 1 sd card string setup
-            memset(buf, 0, LINE_SZ);
-            sprintf_P(buf, PSTR("$NGRDD,%d,%s,,,%s,A,%s,1,A,,"),  \
-                      config.user_id, \
-                      timestamp, \
-                      CPM_string, \
-                      lat_lon_nmea);
-    
-            len = strlen(buf);
-            buf[len] = '\0';
+// Convert from cpm to µSv/h with the pre-defined coefficient
+
+    float uSv = CPM * conversionCoefficient;                   // convert CPM to Micro Sieverts Per Hour
+    char CPM_string[16];
+    dtostrf(CPM, 0, 0, CPM_string);
+    float uSv2 = CPM2 * conversionCoefficient2;                   // convert CPM to Micro Sieverts Per Hour
+    char CPM2_string[16];
+    dtostrf(CPM2, 0, 0, CPM2_string);
+
+    //display geiger info
+      lcd.clear();
+      lcd.setCursor(0, 0);
+      lcd.print("S1:");
+      lcd.print(uSv);
+      lcd.print("uSv/h");
+      lcd.setCursor(0, 1);
+      lcd.print("S2:");
+      lcd.print(uSv2);
+      lcd.print("uSv/h");
+
+   // connect 3G
+//    lcd.clear();
+//    lcd.print("Starting up 3Gshield");
+//    lcd.setCursor(0, 1);
+//    lcd.print("counting pulses..");
+    if (a3gs.start() == 0 && a3gs.begin() == 0)
+           {
+         }else {
+           //a3gs.restart();
+           lcd.setCursor(0, 0);
+           lcd.print("no 3G connection ..");
+       }
+       
+
+        // Create data string for sensor 1
+        len = sizeof(res);
+		lastConnectionTime = millis();
+                  #if ENABLE_DEV
+                          sprintf_P(path, PSTR("/scripts/shorttest.php?api_key=%s&lat=%s&lon=%s&cpm=%s&id=%d"),
+                  #endif
+                  
+                  #if ENABLE_API
+                          sprintf_P(path, PSTR("/scripts/short.php?api_key=%s&lat=%s&lon=%s&cpm=%s&id=%d"),
+                  #endif 
+
+                  config.api_key, \
+                  config.latitude, \
+                  config.longitude, \
+                  CPM_string, \
+                  config.user_id);
+                  
+                  
+       // Create data string for sensor 2
+                  #if ENABLE_DEV
+                          sprintf_P(path2, PSTR("/scripts/shorttest.php?api_key=%s&lat=%s&lon=%s&cpm=%s&id=%d"),
+                  #endif
+                  
+                  #if ENABLE_API
+                          sprintf_P(path2, PSTR("/scripts/short.php?api_key=%s&lat=%s&lon=%s&cpm=%s&id=%d"),
+                  #endif 
+                  config.api_key, \
+                  config.latitude, \
+                  config.longitude, \
+                  CPM2_string, \
+                  config.user_id2);          
+                  
+
+        //convert time in correct format
+        memset(timestamp, 0, LINE_SZ);
+        sprintf_P(timestamp, PSTR("%02d-%02d-%02dT%02d:%02d:%02dZ"),  \
+					year(), month(), day(),  \
+                    hour(), minute(), second());
+                    
+                    
+		// convert degree to NMAE
+		deg2nmae (config.latitude,config.longitude, lat_lon_nmea);
+     
+     
+       //sensor 1 sd card string setup
+        memset(buf, 0, LINE_SZ);
+        sprintf_P(buf, PSTR("$NGRDD,%d,%s,,,%s,A,%s,1,A,,"),  \
+                  config.user_id, \
+                  timestamp, \
+                  CPM_string, \
+                  lat_lon_nmea);
+
+        len = strlen(buf);
+        buf[len] = '\0';
+        
+        // generate checksum
+        chk = checksum(buf+1, len);
+        
+        // add checksum to end of line before sending
+        if (chk < 16)
+            sprintf_P(buf + len, PSTR("*0%X"), (int)chk);
+        else
+            sprintf_P(buf + len, PSTR("*%X"), (int)chk);
+        Serial.println(buf);
+       
+       //sensor 2 sd card string setup
+        memset(buf2, 0, LINE_SZ);     
+        sprintf_P(buf2, PSTR("$NGRDD,%d,%s,,,%s,A,%s,1,A,,"),  \
+                  config.user_id2, \
+                  timestamp, \
+                  CPM2_string, \
+                  lat_lon_nmea);
+
+        len2 = strlen(buf2);
+        buf2[len2] = '\0';
+        //check if timestamp works
+       
+
+        // generate checksum
+        chk2 = checksum(buf2+1, len2);
+        
+        
+        // add checksum to end of line before sending
+        if (chk2 < 16)
+            sprintf_P(buf2 + len2, PSTR("*0%X"), (int)chk2);
+        else
+            sprintf_P(buf2 + len2, PSTR("*%X"), (int)chk2);
             
-            // generate checksum
-            chk = checksum(buf+1, len);
+        Serial.println(buf2);    
+
+        //write to sd card sensor 1 info
+        OpenLog.println(buf);
+        //write to sd card sensor 2 info
+        OpenLog.println(buf2);
+
+        //send to server
+        if (a3gs.httpGET(server, port, path, res, len) == 0) {
+	           Serial.println(F("Sent sensor 1 info to server OK!"));
+            a3gs.httpGET(server, port, path2, res, len);
+                   Serial.println(F("Sent sensor 2 info to server OK!"));
+		  conn_fail_cnt = 0;
+      
+             //Display infomation 
+                lcd.setCursor(0, 2);
+            	lcd.print("Sent (GMT):");
+                printDigits(hour());
+                lcd.print(F(":"));
+             	printDigits(minute());
+                lcd.setCursor(0, 3);
+                //lcd.print(     );
+                lcd.print("CPM1:");
+                lcd.print(CPM_string);
+                lcd.print("  CPM2:");
+                lcd.print(CPM2_string);
+                         
+            lastConnectionTime = millis();
+        }
+        else {
             
-            // add checksum to end of line before sending
-            if (chk < 16)
-                sprintf_P(buf + len, PSTR("*0%X"), (int)chk);
-            else
-                sprintf_P(buf + len, PSTR("*%X"), (int)chk);
-            Serial.println(buf);
-           
-           //sensor 2 sd card string setup
-            memset(buf2, 0, LINE_SZ);     
-            sprintf_P(buf2, PSTR("$NGRDD,%d,%s,,,%s,A,%s,1,A,,"),  \
-                      config.user_id2, \
-                      timestamp, \
-                      CPM2_string, \
-                      lat_lon_nmea);
-    
-            len2 = strlen(buf2);
-            buf2[len2] = '\0';
-            //check if timestamp works
-           
-    
-            // generate checksum
-            chk2 = checksum(buf2+1, len2);
+            lcd.setCursor(0,2);
+            lcd.print("NC API! SDcard only");
+            lastConnectionTime = millis();
+            Serial.println("No connection to API!");
+            Serial.println("saving to SDcard only");
             
-            
-            // add checksum to end of line before sending
-            if (chk2 < 16)
-                sprintf_P(buf2 + len2, PSTR("*0%X"), (int)chk2);
-            else
-                sprintf_P(buf2 + len2, PSTR("*%X"), (int)chk2);
-                
-            Serial.println(buf2);    
-    
-            //write to sd card sensor 1 info
-            OpenLog.println(buf);
-            //write to sd card sensor 2 info
-            OpenLog.println(buf2);
-    
-            //send to server
-            if (a3gs.httpGET(server, port, path, res, len) == 0) {
-    	           Serial.println(F("Sent sensor 1 info to server OK!"));
-                a3gs.httpGET(server, port, path2, res, len);
-                       Serial.println(F("Sent sensor 2 info to server OK!"));
-    		  conn_fail_cnt = 0;
-          
-                 //Display infomation 
-                    lcd.setCursor(0, 2);
-                	lcd.print("Sent (GMT):");
-                    printDigits(hour());
-                    lcd.print(F(":"));
-                 	printDigits(minute());
-                    lcd.setCursor(0, 3);
-                    //lcd.print(     );
-                    lcd.print("CPM1:");
-                    lcd.print(CPM_string);
-                    lcd.print("  CPM2:");
-                    lcd.print(CPM2_string);
-                             
-                lastConnectionTime = millis();
-            }
-            else {
-                
-                lcd.setCursor(0,2);
-                lcd.print("NC API! SDcard only");
-                lastConnectionTime = millis();
-                Serial.println("No connection to API!");
-                Serial.println("saving to SDcard only");
-                
-                conn_fail_cnt++;
-    		if (conn_fail_cnt >= MAX_FAILED_CONNS)
-    		{
-                          //first shut down 3G before reset
-                          a3gs.end();
-                          a3gs.shutdown();
-    		      
-                          CPU_RESTART;
-    		}
-                      lcd.setCursor(0, 2);
-                      lcd.print("Retries left:");
-                      lcd.print(MAX_FAILED_CONNS - conn_fail_cnt);
-                      Serial.print("NC. Retries left:");
-                      Serial.println(MAX_FAILED_CONNS - conn_fail_cnt);
-    		lastConnectionTime = millis();
-    		return;
-            }
-        //}
-        //clean out the buffers
-        memset(buf, 0, sizeof(buf));
-        memset(path, 0, sizeof(path));
-        lastConnectionTime = millis();
-    
-    #endif
- }
+            conn_fail_cnt++;
+		if (conn_fail_cnt >= MAX_FAILED_CONNS)
+		{
+                      //first shut down 3G before reset
+                      a3gs.end();
+                      a3gs.shutdown();
+		      
+                      CPU_RESTART;
+		}
+                  lcd.setCursor(0, 2);
+                  lcd.print("Retries left:");
+                  lcd.print(MAX_FAILED_CONNS - conn_fail_cnt);
+                  Serial.print("NC. Retries left:");
+                  Serial.println(MAX_FAILED_CONNS - conn_fail_cnt);
+		lastConnectionTime = millis();
+		return;
+        }
+    //}
+    //clean out the buffers
+    memset(buf, 0, sizeof(buf));
+    memset(path, 0, sizeof(path));
+    lastConnectionTime = millis();
+
+
+#endif
+}
 
 
 
 /**************************************************************************/
 // Main Loop
 /**************************************************************************/
-    void loop() {
-    
-        // Main Loop
-          if (elapsedTime(lastConnectionTime) < updateIntervalInMillis)
-          {
-              return;
-          }
-      
-          float CPM = (float)counts_per_sample / (float)updateIntervalInMinutes/5;
-          counts_per_sample = 0;
-          float CPM2 = (float)counts_per_sample2 / (float)updateIntervalInMinutes/5;
-          counts_per_sample2 = 0;
-          
-          SendDataToServer(CPM,CPM2);
+void loop() {
+
+    // Main Loop
+      if (elapsedTime(lastConnectionTime) < updateIntervalInMillis)
+      {
+          return;
       }
+  
+      float CPM = (float)counts_per_sample / (float)updateIntervalInMinutes/5;
+      counts_per_sample = 0;
+      float CPM2 = (float)counts_per_sample2 / (float)updateIntervalInMinutes/5;
+      counts_per_sample2 = 0;
+      
+      SendDataToServer(CPM,CPM2);
+  }
 
 
 /**************************************************************************/
@@ -1402,83 +1413,51 @@ void createFile(char *fileName) {
 
 
 // retrieve battery voltage 
-      float read_voltage(int pin)
-      {
-        static float voltage_divider = (float)VOLTAGE_R2 / (VOLTAGE_R1 + VOLTAGE_R2);
-        float result = (float)analogRead(pin)/4096*10  / voltage_divider;
-        return result;
-      }
-
-// retrieve temperature
-    void getTemp(void){
-          byte i;
-          byte present = 0;
-          byte type_s;
-          byte data[12];
-          byte addr[8];
-          float celsius, fahrenheit;
-          
-          if ( !ds.search(addr)) {
-            ds.reset_search();
-            delay(250);
-            return;
-          }
-    
-          for( i = 0; i < 8; i++) {
-          }
-        
-          if (OneWire::crc8(addr, 7) != addr[7]) {
-              return;
-          }
-          switch (addr[0]) {
-            case 0x10:
-              type_s = 1;
-              break;
-            case 0x28:
-              type_s = 0;
-              break;
-            case 0x22:
-              type_s = 0;
-              break;
-            default:
-              return;
-          } 
-        
-          ds.reset();
-          ds.select(addr);
-          ds.write(0x44, 1);        // start conversion, with parasite power on at the end
-          
-          delay(1000);     // maybe 750ms is enough, maybe not
-          // we might do a ds.depower() here, but the reset will take care of it.
-          
-          present = ds.reset();
-          ds.select(addr);    
-          ds.write(0xBE);         // Read Scratchpad
-          for ( i = 0; i < 9; i++) {           // we need 9 bytes
-            data[i] = ds.read();
-          }
-          int16_t raw = (data[1] << 8) | data[0];
-          if (type_s) {
-            raw = raw << 3; // 9 bit resolution default
-            if (data[7] == 0x10) {
-              // "count remain" gives full 12 bit resolution
-              raw = (raw & 0xFFF0) + 12 - data[6];
-            }
-          } else {
-            byte cfg = (data[4] & 0x60);
-        
-            if (cfg == 0x00) raw = raw & ~7;  // 9 bit resolution, 93.75 ms
-            else if (cfg == 0x20) raw = raw & ~3; // 10 bit res, 187.5 ms
-            else if (cfg == 0x40) raw = raw & ~1; // 11 bit res, 375 ms
-        
-          }
-          celsius = (float)raw / 16.0;
-          fahrenheit = celsius * 1.8 + 32.0;
-          lcd.setCursor(0, 1);
-          lcd.print(" Temp= ");
-          lcd.print(celsius);
-          lcd.print(" C");
-    
+    float read_voltage(int pin)
+    {
+      static float voltage_divider = (float)VOLTAGE_R2 / (VOLTAGE_R1 + VOLTAGE_R2);
+      float result = (float)analogRead(pin)/4096*10  / voltage_divider;
+      return result;
     }
 
+// retrieve temperature
+float getTemp(){
 
+      byte data[12];
+      byte addr[8];
+      
+      if ( !ds.search(addr)) {
+      //no more sensors on chain, reset search
+      ds.reset_search();
+      return -1000;
+      }
+      
+      
+      if ( addr[0] != 0x10 && addr[0] != 0x28) {
+      Serial.print("Device is not recognized");
+      return -1000;
+      }
+      
+      ds.reset();
+      ds.select(addr);
+      ds.write(0x44,1); // start conversion, with parasite power on at the end
+      
+      byte present = ds.reset();
+      ds.select(addr);
+      ds.write(0xBE); // Read Scratchpad
+      
+      for (int i = 0; i < 9; i++) { // we need 9 bytes
+      data[i] = ds.read();
+      }
+      
+      ds.reset_search();
+      
+      byte MSB = data[1];
+      byte LSB = data[0];
+      
+      float tempRead = ((MSB << 8) | LSB); //using two’s compliment
+      float TemperatureSum = tempRead / 16;
+      delay(1000);
+      return TemperatureSum;
+
+}
