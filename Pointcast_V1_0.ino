@@ -13,7 +13,7 @@
 2015-04-23 V2.7.0 renamed Pointcast
 2015-04-28 V2.7.1 moved  startup 3G into send string, battery voltage report corrected for Teensy.
 2015-04-30 V2.7.2 Added temperature setup for DS18B20 (disabled at the moment) setup screens
-2015-04-30 V2.7.3 Added Joy stick setup. Added Height.
+2015-04-30 V2.7.3 Added Joy stick setup. Added Height. Fixed lot/lan sending information on Ethernet
 contact rob@yr-design.biz
  */
  
@@ -861,8 +861,8 @@ void SendDataToServer(float CPM,float CPM2){
 
 	memset(json_buf, 0, SENT_SZ);
 	sprintf_P(json_buf, PSTR("{\"longitude\":\"%s\",\"latitude\":\"%s\",\"device_id\":\"%d\",\"value\":\"%s\",\"unit\":\"cpm\"}"),  \
-	              config.latitude, \
 	              config.longitude, \
+	              config.latitude, \
 	              config.user_id,  \
 	              CPM_string);
 
@@ -927,8 +927,8 @@ void SendDataToServer(float CPM,float CPM2){
     // prepare the log entry
 	memset(json_buf2, 0, SENT_SZ);
 	sprintf_P(json_buf2, PSTR("{\"longitude\":\"%s\",\"latitude\":\"%s\",\"device_id\":\"%d\",\"value\":\"%s\",\"unit\":\"cpm\"}"),  \
-	              config.latitude, \
 	              config.longitude, \
+	              config.latitude, \
 	              config.user_id2,  \
 	              CPM2_string);
 
