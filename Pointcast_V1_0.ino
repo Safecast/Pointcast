@@ -453,8 +453,8 @@ void setup() {
               PointcastSetup.loadFromFile("SENSORS.TXT");
           }
           if (!openlog_ready) {
-//              lcd.setCursor(0, 3);
-//              lcd.print("No SD card.. ");
+              lcd.setCursor(0, 3);
+              lcd.print("No SD card.. ");
               Serial.println();
               Serial.println("No SD card.. ");
           }
