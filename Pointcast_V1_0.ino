@@ -13,7 +13,7 @@
 2015-04-23 V2.7.0 renamed Pointcast
 2015-04-28 V2.7.1 moved  startup 3G into send string, battery voltage report corrected for Teensy.
 2015-04-30 V2.7.2 Added temperature setup for DS18B20 (disabled at the moment) setup screens
-2015-04-30 V2.7.3 Added Joy stick setup. Added Height. Fixed lot/lan sending information on Ethernet
+2015-04-05 V2.7.3 Added Joy stick setup. Added Height. Fixed lot/lan sending information on Ethernet
 contact rob@yr-design.biz
  */
  
@@ -97,7 +97,7 @@ static char lon_buf[16];
 
 
 //static
-      static char VERSION[] = "V2.7.2";
+      static char VERSION[] = "V2.7.3";
 
     #if ENABLE_3G
     static char path[LINE_SZ];
@@ -353,6 +353,7 @@ void setup() {
        Serial.println("V");
        
       //get temperature 
+         float temperature = 18.3;
         //float temperature = getTemp();
         Serial.print("Temperature =");
         //Serial.println(temperature);
@@ -992,14 +993,16 @@ void SendDataToServer(float CPM,float CPM2){
 
  
  
-      int battery =((read_voltage(VOLTAGE_PIN)));
- 
+      float battery =((read_voltage(VOLTAGE_PIN)));
+      //test data temperature
+      float temperature= 18.6;
  
      //add second line for addtional info
-       sprintf_P(buf + len, PSTR("*%X%s$%s,%d"), 
+       sprintf_P(buf + len, PSTR("*%X%s$%s,%d,%d"), 
               (int)chk, \
               "\n", \
               HEADER_SENSOR,  \
+              temperature, \
               battery);
  
       Serial.println(buf);
@@ -1030,10 +1033,11 @@ void SendDataToServer(float CPM,float CPM2){
   
          
         //add second line for addtional info
-            sprintf_P(buf2 + len, PSTR("*%X%s$%s,%d"), 
+           sprintf_P(buf + len, PSTR("*%X%s$%s,%d,%d"), 
               (int)chk, \
               "\n", \
               HEADER_SENSOR,  \
+              temperature, \
               battery);
               
               
@@ -1456,8 +1460,8 @@ float getTemp(){
       byte LSB = data[0];
       
       float tempRead = ((MSB << 8) | LSB); //using two’s compliment
-      float TemperatureSum = tempRead / 16;
+      float temperature = tempRead / 16;
       delay(1000);
-      return TemperatureSum;
+      return temperature;
 
 }
