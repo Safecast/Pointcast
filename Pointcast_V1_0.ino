@@ -14,6 +14,8 @@
 2015-04-28 V2.7.1 moved  startup 3G into send string, battery voltage report corrected for Teensy.
 2015-04-30 V2.7.2 Added temperature setup for DS18B20 (disabled at the moment) setup screens
 2015-04-05 V2.7.3 Added Joy stick setup. Added Height. Fixed lot/lan sending information on Ethernet
+2015-04-05 V2.7.4 Added new screens for setup and error reporting
+
 contact rob@yr-design.biz
  */
  
@@ -97,7 +99,7 @@ static char lon_buf[16];
 
 
 //static
-      static char VERSION[] = "V2.7.3";
+      static char VERSION[] = "V2.7.4";
 
     #if ENABLE_3G
     static char path[LINE_SZ];
@@ -325,6 +327,24 @@ void setup() {
            lcd.setCursor(0, 3);
            lcd.print("http://safecast.org");         
 
+    // SENSOR 1 setup
+    if (config.sensor1_enabled) {
+        conversionCoefficient = 1/config.sensor1_cpm_factor; // 0.0029;
+        pinMode(14, INPUT_PULLUP);
+        attachInterrupt(14, onPulse, interruptMode);
+        Serial.print("CMPF1=");
+        Serial.println(config.sensor1_cpm_factor); 
+    }
+    
+    // SENSOR 2 setup
+     if (config.sensor2_enabled) {
+        conversionCoefficient2 = 1/config.sensor2_cpm_factor; // 0.0029;
+        pinMode(15,INPUT_PULLUP);
+        attachInterrupt(15, onPulse2, interruptMode);
+        Serial.print("CMPF2=");
+        Serial.println(config.sensor2_cpm_factor);
+        
+    }
 
     //LED1(green) setup
       pinMode(31, OUTPUT);
@@ -335,11 +355,13 @@ void setup() {
      digitalWrite(26, HIGH);
      
     // LED on delay
-      delay (3000); 
+      delay (5000); 
      
     //LED off
       digitalWrite(26, LOW);
       digitalWrite(31, LOW); 
+      
+
 
 
 /**************************************************************************/
@@ -403,7 +425,7 @@ void setup() {
       }  
       
       //display time
-          delay (3000); 
+          delay (5000); 
           lcd.clear();
           lcd.setCursor(0, 0);
           lcd.print("TIME (PRESS TO SET)");
@@ -442,24 +464,56 @@ void setup() {
         OpenLog.begin(9600);
         setupOpenLog();
           if (openlog_ready) {
+               delay (5000); 
+              lcd.clear();
+              lcd.setCursor(0, 0);
+              lcd.print("SDCARD : PASS");
+              lcd.setCursor(0, 1);
+              lcd.print("PCAST  :");
               Serial.println();
               Serial.println("loading setup");
               PointcastSetup.loadFromFile("PCAST.TXT");
-              Serial.println();
-              Serial.println("loading Network setup");
-              PointcastSetup.loadFromFile("NETWORKS.TXT");
+              lcd.print(" PASS");;
+//              if (no_error) {
+//                lcd.print(" PASS");;
+//              } else {
+//                lcd.print(" FAIL");
+//              }
+              lcd.setCursor(0, 2);
+              lcd.print("SENSORS:");
               Serial.println();
               Serial.println("loading sensors setup");
               PointcastSetup.loadFromFile("SENSORS.TXT");
+              lcd.print(" PASS");;
+//              if (no_error) {
+//                lcd.print(" PASS");;
+//              } else {
+//                lcd.print(" FAIL");
+//              }
+              lcd.setCursor(0, 3);
+              lcd.print("NETWORK:");
+              Serial.println();
+              Serial.println("loading Network setup");
+              PointcastSetup.loadFromFile("NETWORKS.TXT");
+              lcd.print(" PASS");;
+//              if (no_error) {
+//                lcd.print(" PASS");;
+//              } else {
+//                lcd.print(" FAIL");
+//              }
+
           }
           if (!openlog_ready) {
-              lcd.setCursor(0, 3);
-              lcd.print("No SD card.. ");
+               delay (5000); 
+              lcd.clear();
+              lcd.setCursor(0, 0);
+              lcd.print("SDCARD : FAIL");
               Serial.println();
               Serial.println("No SD card.. ");
           }
-      
-      
+
+
+         
      // printout selected interface
         Serial.print("Device ID =");
         Serial.println(config.devid);
@@ -489,25 +543,11 @@ void setup() {
         Serial.println(config.s2i);
         Serial.print("aux =");
         Serial.println(config.aux);
-
-        //display information
-          delay (3000); 
-          lcd.clear();
-          lcd.setCursor(0, 0);
-          lcd.print("SDCARD");
-          lcd.setCursor(0, 1);
-          lcd.print("POINTCAST:");
-          lcd.setCursor(0, 2);
-          lcd.print("SENSORS:");
-          lcd.setCursor(0, 3);
-          lcd.print("NETWORK:");
-         
-
 /**************************************************************************/
 // POINTCAST Screen
 /**************************************************************************/  
         //display information
-          delay (3000); 
+          delay (5000); 
           lcd.clear();
           lcd.setCursor(0, 0);
           lcd.print("POINTCAST SETUP");
@@ -522,7 +562,7 @@ void setup() {
           lcd.print(config.alm);
           lcd.print("CPM");    
 
-          delay (3000); 
+          delay (5000); 
           lcd.clear();
           lcd.setCursor(0, 0);
           lcd.print("UPLOAD MODE");
@@ -537,7 +577,7 @@ void setup() {
 // GPS Screen
 /**************************************************************************/  
   
-        delay (3000); 
+        delay (5000); 
         lcd.clear();
         lcd.setCursor(0, 0);
         lcd.print("GPS LOCATION");
@@ -564,7 +604,7 @@ void setup() {
 /**************************************************************************/
 // Sensors Screen
 /**************************************************************************/    
-        delay (3000); 
+        delay (5000); 
         lcd.clear();
         lcd.setCursor(0, 0);
         lcd.print("SENSORS ");
@@ -589,21 +629,29 @@ void setup() {
 /**************************************************************************/
 // Sensors Test Screen
 /**************************************************************************/  
-        delay (3000); 
+        delay (5000); 
         lcd.clear();
         lcd.setCursor(0, 0);
         lcd.print("SENSOR TEST");
         lcd.setCursor(0, 1);
-        lcd.print("S1=");
-        lcd.setCursor(0, 2);        
-        lcd.print("S2=");
-        lcd.setCursor(0, 3);
+        if (counts_per_sample++ < 1 ) {
+                lcd.print("S1=FAIL");;
+              } else {
+                lcd.print("S1=PASS");
+              }
+        lcd.setCursor(0, 2);
+        if (counts_per_sample2++ < 1 ) {
+                lcd.print("S2=FAIL");
+              } else {
+                lcd.print("S2=PASS");
+              }    
+        lcd.setCursor(0, 3);    
         lcd.print("AUX=NC");
 
 /**************************************************************************/
 // API Screen
 /**************************************************************************/  
-        delay (3000); 
+        delay (5000); 
         lcd.clear();
         lcd.setCursor(0, 0);
         lcd.print("API");
@@ -619,25 +667,7 @@ void setup() {
 
 
 
-    // SENSOR 1 setup
-    if (config.sensor1_enabled) {
-        conversionCoefficient = 1/config.sensor1_cpm_factor; // 0.0029;
-        pinMode(14, INPUT_PULLUP);
-        attachInterrupt(14, onPulse, interruptMode);
-        Serial.print("CMPF1=");
-        Serial.println(config.sensor1_cpm_factor); 
-    }
-    
-    // SENSOR 2 setup
-    
-     if (config.sensor2_enabled) {
-        conversionCoefficient2 = 1/config.sensor2_cpm_factor; // 0.0029;
-        pinMode(15,INPUT_PULLUP);
-        attachInterrupt(15, onPulse2, interruptMode);
-        Serial.print("CMPF2=");
-        Serial.println(config.sensor2_cpm_factor);
-        
-    }
+
     
 
 /**************************************************************************/
@@ -658,7 +688,7 @@ void setup() {
 	Serial.println(F("setup OK."));	
 
 //          if (config.intf == "EN") {
-                  delay (3000); 
+                  delay (5000); 
                   lcd.clear();
                   lcd.setCursor(0, 0);
                   lcd.print("NETWORK ETHER (DHCP)");
@@ -674,15 +704,13 @@ void setup() {
                           {
                         lcd.print(":");
                         lcd.print(macAddress[i],HEX);
-                        
-                        }
-                  
+                        }               
             
 //          }
 #endif
 
 #if ENABLE_3G
-                  delay (3000); 
+                  delay (5000); 
                   lcd.clear();
                   lcd.setCursor(0, 0);
                   lcd.print("NETWORK 3G");
@@ -697,7 +725,30 @@ void setup() {
                   lcd.print("080XXXXYYYY");
   #endif          
 
+/**************************************************************************/
+// Datalogger Screen
+/**************************************************************************/   
+                  delay (5000); 
+                  lcd.clear();
+                  lcd.setCursor(0, 0);
+                  lcd.print("DATA LOGGER");
+                  lcd.setCursor(0, 1);
+                  lcd.print(logfile_name);
+                  lcd.print(":"); 
+                  lcd.setCursor(0, 2);        
+                  lcd.print("XXXX MB Free");
 
+/**************************************************************************/
+// Counting Screen
+/**************************************************************************/   
+                  delay (5000); 
+                  lcd.clear();
+                  lcd.setCursor(0, 0);
+                  lcd.print("COLLECTING DATA");
+                  lcd.setCursor(0, 1);
+                  lcd.print("WAIT 5 MINUTES......");
+   
+  
    
     //Gateways setup to be done
     //read for SDcard gateways 
@@ -810,19 +861,19 @@ void SendDataToServer(float CPM,float CPM2){
     //display geiger info
       lcd.clear();
       lcd.setCursor(0, 0);
-      lcd.print("1:");
+      lcd.print("S1:");
+      lcd.print(CPM_string); 
+      lcd.print(" CPM ");  
       lcd.print(uSv);
       lcd.print("uSv/h"); 
       lcd.setCursor(0,1);    
-      lcd.print(CPM_string); 
-      lcd.print(" CPM");     
-      lcd.setCursor(0,2);
-      lcd.print("2:");
+      lcd.print("S2:");
+      lcd.print(CPM2_string); 
+      lcd.print(" CPM ");
       lcd.print(uSv2);
       lcd.print("uSv/h");
-      lcd.setCursor(0,3);
-      lcd.print(CPM2_string); 
-      lcd.print(" CPM");
+      lcd.setCursor(0,2);
+      lcd.print("API:");
       
       
 	
@@ -913,8 +964,8 @@ void SendDataToServer(float CPM,float CPM2){
 	else
 	{
      	   ctrl.conn_fail_cnt++;
-           lcd.setCursor(0,3);
-           lcd.print("no connect retry=");
+           lcd.setCursor(10,2);
+           lcd.print("FAIL=");
            lcd.print(ctrl.conn_fail_cnt);
 		if (ctrl.conn_fail_cnt >= MAX_FAILED_CONNS)
 		{
@@ -955,6 +1006,8 @@ void SendDataToServer(float CPM,float CPM2){
 	client.println("Content-Type: application/json");
 	client.println();
 	client.println(json_buf2);
+        lcd.setCursor(10,2);
+        lcd.print("PASS");
 	Serial.println("Disconnecting");
         client.stop();
 
@@ -996,6 +1049,13 @@ void SendDataToServer(float CPM,float CPM2){
       float battery =((read_voltage(VOLTAGE_PIN)));
       //test data temperature
       float temperature= 18.6;
+      lcd.setCursor(0,3);
+      lcd.print("STS:");
+      lcd.setCursor(6,3);
+      lcd.print(battery);
+      lcd.print("V");
+      
+      
  
      //add second line for addtional info
        sprintf_P(buf + len, PSTR("*%X%s$%s,%d,%d"), 
@@ -1052,7 +1112,7 @@ void SendDataToServer(float CPM,float CPM2){
     
     // report to LCD 
     
-    lcd.setCursor(15, 4);
+    lcd.setCursor(4, 2);
           printDigits(hour());
           lcd.print(":");
        	  printDigits(minute());
