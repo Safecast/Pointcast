@@ -14,7 +14,10 @@
 2015-04-28 V2.7.1 moved  startup 3G into send string, battery voltage report corrected for Teensy.
 2015-04-30 V2.7.2 Added temperature setup for DS18B20 (disabled at the moment) setup screens
 2015-04-05 V2.7.3 Added Joy stick setup. Added Height. Fixed lot/lan sending information on Ethernet
-2015-04-05 V2.7.4 Added new screens for setup and error reporting
+2015-04-08 V2.7.4 Added new screens for setup and error reporting
+2015-04-09 V2.7.5 Changed startup name 
+2015-04-10 V2.7.6 Added Red LED warning on SDcard and Sensor fails, renemd SDcard files and updates headers
+2015-04-10 V2.7.7 Updates headers. 3G display and header setup same as Ethernet card
 
 contact rob@yr-design.biz
  */
@@ -99,7 +102,7 @@ static char lon_buf[16];
 
 
 //static
-      static char VERSION[] = "V2.7.4";
+      static char VERSION[] = "V2.7.7";
 
     #if ENABLE_3G
     static char path[LINE_SZ];
@@ -184,7 +187,13 @@ static devctrl_t ctrl;
             pinMode(joy_right_pin, INPUT_PULLUP);
       
         }
-    
+
+////red blink test    
+//      const int red_ledPin =  26;      // the number of the LED pi
+//      int red_ledState = LOW;             // ledState used to set the LED 
+//      long previousMillis = 0;        // will store last time LED was updated 
+//      long interval = 1000; 
+
 
 //WDT setup init
 
@@ -277,11 +286,7 @@ static devctrl_t ctrl;
 /**************************************************************************/
 
 void setup() {  
-
-  
-   // openlog setup 
-          Serial.begin(9600);
-          OpenLog.begin(9600);
+         
           
    
    //print last reset message and setup the patting of the dog
@@ -308,6 +313,9 @@ void setup() {
           
     //set up the LCD's number of columns and rows: 
           lcd.begin(20, 4);
+          
+//     //red blink setup
+//           pinMode(red_ledPin, OUTPUT);
 
 	
 /**************************************************************************/
@@ -317,12 +325,12 @@ void setup() {
 
     // Print startup message to the LCD.
 	   lcd.clear();
-	   lcd.print("Pointcast V1.0");
+	   lcd.print("SAFECAST POINTCASTv1");
            lcd.setCursor(0, 1);
            lcd.print("Firmware :");
            lcd.print(VERSION);
            lcd.setCursor(0, 2);
-           lcd.print("Device ID:");
+           lcd.print("Device ID:");  
            lcd.print(config.devid);
            lcd.setCursor(0, 3);
            lcd.print("http://safecast.org");         
@@ -472,7 +480,7 @@ void setup() {
               lcd.print("PCAST  :");
               Serial.println();
               Serial.println("loading setup");
-              PointcastSetup.loadFromFile("PCAST.TXT");
+              PointcastSetup.loadFromFile("PNTCAST.TXT");
               lcd.print(" PASS");;
 //              if (no_error) {
 //                lcd.print(" PASS");;
@@ -508,6 +516,8 @@ void setup() {
               lcd.clear();
               lcd.setCursor(0, 0);
               lcd.print("SDCARD : FAIL");
+              //Red LED on
+               digitalWrite(26, HIGH);
               Serial.println();
               Serial.println("No SD card.. ");
           }
@@ -635,13 +645,17 @@ void setup() {
         lcd.print("SENSOR TEST");
         lcd.setCursor(0, 1);
         if (counts_per_sample++ < 1 ) {
-                lcd.print("S1=FAIL");;
+                lcd.print("S1=FAIL");
+                 //Red LED on
+                digitalWrite(26, HIGH);
               } else {
                 lcd.print("S1=PASS");
               }
         lcd.setCursor(0, 2);
         if (counts_per_sample2++ < 1 ) {
                 lcd.print("S2=FAIL");
+                 //Red LED on
+                  digitalWrite(26, HIGH);
               } else {
                 lcd.print("S2=PASS");
               }    
@@ -742,11 +756,34 @@ void setup() {
 // Counting Screen
 /**************************************************************************/   
                   delay (5000); 
-                  lcd.clear();
-                  lcd.setCursor(0, 0);
-                  lcd.print("COLLECTING DATA");
-                  lcd.setCursor(0, 1);
-                  lcd.print("WAIT 5 MINUTES......");
+      lcd.clear();
+      lcd.setCursor(0, 0);
+      lcd.print("S1:");
+      lcd.print("0"); 
+      lcd.print(" CPM ");  
+      lcd.print("0"); 
+      lcd.print("uSv/h"); 
+      lcd.setCursor(0,1);    
+      lcd.print("S2:");
+      lcd.print("0"); 
+      lcd.print(" CPM ");
+      lcd.print("0"); 
+      lcd.print("uSv/h");
+      lcd.setCursor(0,2);
+      lcd.print("API:");
+      lcd.setCursor(4, 2);
+      printDigits(hour());
+      lcd.print(":");
+      printDigits(minute());
+      lcd.setCursor(11, 2);
+      lcd.print("STARTUP");
+      lcd.setCursor(0,3);
+      lcd.print("STS:");
+      lcd.setCursor(6,3);
+      lcd.print(battery);
+      lcd.print("V");
+      
+      
    
   
    
@@ -897,8 +934,8 @@ void SendDataToServer(float CPM,float CPM2){
 	else
 	{
      	   ctrl.conn_fail_cnt++;
-           lcd.setCursor(0,3);
-           lcd.print("no connect retry=");
+           lcd.setCursor(10,2);
+           lcd.print("FAIL=");
            lcd.print(ctrl.conn_fail_cnt);
 		if (ctrl.conn_fail_cnt >= MAX_FAILED_CONNS)
 		{
@@ -1025,7 +1062,8 @@ void SendDataToServer(float CPM,float CPM2){
 
      //sensor 1 sd card string setup
           memset(buf, 0, LINE_SZ);
-          sprintf_P(buf, PSTR("$NGRDD,%d,%s,,,%s,A,%s,%d,A,,"),  \
+          sprintf_P(buf, PSTR("$%s,%d,%s,,,%s,A,%s,%d,A,,"),  \
+                    HEADER, \
                     config.user_id, \
                     timestamp, \
                     CPM_string, \
@@ -1058,10 +1096,11 @@ void SendDataToServer(float CPM,float CPM2){
       
  
      //add second line for addtional info
-       sprintf_P(buf + len, PSTR("*%X%s$%s,%d,%d"), 
+       sprintf_P(buf + len, PSTR("*%X%s$%s,%d,%d,%d"), 
               (int)chk, \
               "\n", \
               HEADER_SENSOR,  \
+               config.devid, \              
               temperature, \
               battery);
  
@@ -1070,7 +1109,8 @@ void SendDataToServer(float CPM,float CPM2){
        
      //sensor 2 sd card string setup
           memset(buf2, 0, LINE_SZ);     
-          sprintf_P(buf2, PSTR("$NGRDD,%d,%s,,,%s,A,%s,%d,A,,"),  \
+          sprintf_P(buf2, PSTR("$%s,%d,%s,,,%s,A,%s,%d,A,,"),  \
+                    HEADER, \
                     config.user_id2, \
                     timestamp, \
                     CPM2_string, \
@@ -1093,12 +1133,13 @@ void SendDataToServer(float CPM,float CPM2){
   
          
         //add second line for addtional info
-           sprintf_P(buf + len, PSTR("*%X%s$%s,%d,%d"), 
+           sprintf_P(buf2 + len2, PSTR("*%X%s$%s,%d,%d,%d"), 
               (int)chk, \
               "\n", \
               HEADER_SENSOR,  \
-              temperature, \
-              battery);
+               config.devid, \
+               temperature, \
+               battery);
               
               
          Serial.println(buf2); 
@@ -1110,8 +1151,7 @@ void SendDataToServer(float CPM,float CPM2){
 
        
     
-    // report to LCD 
-    
+    // report to LCD     
     lcd.setCursor(4, 2);
           printDigits(hour());
           lcd.print(":");
@@ -1133,12 +1173,18 @@ void SendDataToServer(float CPM,float CPM2){
       lcd.clear();
       lcd.setCursor(0, 0);
       lcd.print("S1:");
+      lcd.print(CPM_string); 
+      lcd.print(" CPM ");  
       lcd.print(uSv);
-      lcd.print("uSv/h");
-      lcd.setCursor(0, 1);
+      lcd.print("uSv/h"); 
+      lcd.setCursor(0,1);    
       lcd.print("S2:");
+      lcd.print(CPM2_string); 
+      lcd.print(" CPM ");
       lcd.print(uSv2);
       lcd.print("uSv/h");
+      lcd.setCursor(0,2);
+      lcd.print("API:");
 
    // connect 3G
 //    lcd.clear();
@@ -1149,8 +1195,8 @@ void SendDataToServer(float CPM,float CPM2){
            {
          }else {
            //a3gs.restart();
-           lcd.setCursor(0, 0);
-           lcd.print("no 3G connection ..");
+           lcd.setCursor(10,2);
+           lcd.print("FAIL=");
        }
        
 
@@ -1200,8 +1246,9 @@ void SendDataToServer(float CPM,float CPM2){
      
        //sensor 1 sd card string setup
         memset(buf, 0, LINE_SZ);
-        sprintf_P(buf, PSTR("$NGRDD,%d,%s,,,%s,A,%s,1,A,,"),  \
-                  config.user_id, \
+        sprintf_P(buf, PSTR("$%s,%d,%s,,,%s,A,%s,1,A,,"),  \
+                   HEADER, \
+                   config.user_id, \
                   timestamp, \
                   CPM_string, \
                   lat_lon_nmea);
@@ -1221,7 +1268,8 @@ void SendDataToServer(float CPM,float CPM2){
        
        //sensor 2 sd card string setup
         memset(buf2, 0, LINE_SZ);     
-        sprintf_P(buf2, PSTR("$NGRDD,%d,%s,,,%s,A,%s,1,A,,"),  \
+        sprintf_P(buf2, PSTR("$%s,%d,%s,,,%s,A,%s,1,A,,"),  \
+                   HEADER, \
                   config.user_id2, \
                   timestamp, \
                   CPM2_string, \
@@ -1242,6 +1290,21 @@ void SendDataToServer(float CPM,float CPM2){
         else
             sprintf_P(buf2 + len2, PSTR("*%X"), (int)chk2);
             
+         
+        //Get temp and Battery 
+             float battery =((read_voltage(VOLTAGE_PIN)));
+            //test data temperature
+            float temperature= 18.6;
+            
+       //add second line for addtional info
+           sprintf_P(buf2 + len2, PSTR("*%X%s$%s,%d,%d,%d"), 
+              (int)chk, \
+              "\n", \
+              HEADER_SENSOR,  \
+               config.devid, \
+               temperature, \
+               battery);
+            
         Serial.println(buf2);    
 
         //write to sd card sensor 1 info
@@ -1257,24 +1320,21 @@ void SendDataToServer(float CPM,float CPM2){
 		  conn_fail_cnt = 0;
       
              //Display infomation 
-                lcd.setCursor(0, 2);
-            	lcd.print("Sent (GMT):");
-                printDigits(hour());
-                lcd.print(F(":"));
-             	printDigits(minute());
-                lcd.setCursor(0, 3);
-                //lcd.print(     );
-                lcd.print("CPM1:");
-                lcd.print(CPM_string);
-                lcd.print("  CPM2:");
-                lcd.print(CPM2_string);
+                   
+              lcd.setCursor(10,2);
+              lcd.print("PASS");
+              lcd.setCursor(0,3);
+              lcd.print("STS:");
+              lcd.setCursor(6,3);
+              lcd.print(battery);
+              lcd.print("V");
                          
             lastConnectionTime = millis();
         }
         else {
             
-            lcd.setCursor(0,2);
-            lcd.print("NC API! SDcard only");
+           lcd.setCursor(10,2);
+           lcd.print("FAIL=");
             lastConnectionTime = millis();
             Serial.println("No connection to API!");
             Serial.println("saving to SDcard only");
@@ -1288,9 +1348,9 @@ void SendDataToServer(float CPM,float CPM2){
 		      
                       CPU_RESTART;
 		}
-                  lcd.setCursor(0, 2);
-                  lcd.print("Retries left:");
-                  lcd.print(MAX_FAILED_CONNS - conn_fail_cnt);
+                 lcd.setCursor(10,2);
+                 lcd.print("FAIL=");
+                 lcd.print(ctrl.conn_fail_cnt);
                   Serial.print("NC. Retries left:");
                   Serial.println(MAX_FAILED_CONNS - conn_fail_cnt);
 		lastConnectionTime = millis();
@@ -1302,6 +1362,12 @@ void SendDataToServer(float CPM,float CPM2){
     memset(path, 0, sizeof(path));
     lastConnectionTime = millis();
 
+
+    // report to LCD     
+    lcd.setCursor(4, 2);
+          printDigits(hour());
+          lcd.print(":");
+       	  printDigits(minute());
 
 #endif
 }
@@ -1525,3 +1591,18 @@ float getTemp(){
       return temperature;
 
 }
+
+//Red led blink routine
+//void red_led_blink() {
+//  unsigned long currentMillis = millis();
+//  if(currentMillis - previousMillis > interval) {
+//    previousMillis = currentMillis;
+//    if (red_ledState == LOW){
+//      red_ledState = HIGH;
+//    }
+//    else{
+//      red_ledState = LOW;
+//    }
+//    digitalWrite(red_ledPin, red_ledState);
+//  }
+//}
