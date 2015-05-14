@@ -17,7 +17,10 @@
 2015-04-08 V2.7.4 Added new screens for setup and error reporting
 2015-04-09 V2.7.5 Changed startup name 
 2015-04-10 V2.7.6 Added Red LED warning on SDcard and Sensor fails, renemd SDcard files and updates headers
-2015-04-10 V2.7.7 Updates headers. 3G display and header setup same as Ethernet card
+2015-04-11 V2.7.7 Updates headers. 3G display and header setup same as Ethernet card
+2015-04-12 V2.7.8 Moved SDcard screen before time screen
+
+
 
 contact rob@yr-design.biz
  */
@@ -279,8 +282,6 @@ static devctrl_t ctrl;
     }
 
 
-
-
 /**************************************************************************/
 // Setup
 /**************************************************************************/
@@ -298,8 +299,7 @@ void setup() {
          
    // Load EEPROM settings
          PointcastSetup.initialize();
-
-         
+     
    //beep 
        tone(28, 600, 200);
     
@@ -412,58 +412,6 @@ void setup() {
            lcd.print("C");
 
            
-           
-
-    
-    
-/**************************************************************************/
-// Time Screen
-/**************************************************************************/  
-
-    
-  //Check if Time is setup
-    setSyncProvider(getTeensy3Time);
-    if (timeStatus()!= timeSet) {
-        Serial.println("Unable to sync with the RTC");
-        sprintf_P(logfile_name, PSTR("%04d1234.log"),config.user_id);
-
-      } else {
-        Serial.println("RTC has set the system time for GMT");
-	sprintf_P(logfile_name, PSTR("%04d%02d%02d.log"),config.user_id, month(), day());
-      }  
-      
-      //display time
-          delay (5000); 
-          lcd.clear();
-          lcd.setCursor(0, 0);
-          lcd.print("TIME (PRESS TO SET)");
-          lcd.setCursor(0, 1);
-          lcd.print("Date:");
-          lcd.print(month());
-          lcd.print("-");
-          lcd.print(day());
-          lcd.setCursor(0, 2);
-          lcd.print("Time:");          
-          printDigits(hour());
-          lcd.print(":");
-       	  printDigits(minute());
-          lcd.setCursor(0, 3);
-          lcd.print("Zone:");
-          lcd.print(config.tz);  
-
-
-          //serial info print
-              Serial.print("Time (GMT):");
-              printDigitsSerial(hour());
-              Serial.print(F(":"));
-              printDigitsSerial(minute());
-              Serial.println("");
-              Serial.print("Date:");
-              Serial.print(month());
-              Serial.print("-");
-              Serial.println(day());
-          
-          
 /**************************************************************************/
 // SDcard Screen
 /**************************************************************************/  
@@ -552,7 +500,59 @@ void setup() {
         Serial.print("s2i =");
         Serial.println(config.s2i);
         Serial.print("aux =");
-        Serial.println(config.aux);
+        Serial.println(config.aux);      
+
+    
+    
+/**************************************************************************/
+// Time Screen
+/**************************************************************************/  
+
+    
+  //Check if Time is setup
+    setSyncProvider(getTeensy3Time);
+    if (timeStatus()!= timeSet) {
+        Serial.println("Unable to sync with the RTC");
+        sprintf_P(logfile_name, PSTR("%04d1234.log"),config.user_id);
+
+      } else {
+        Serial.println("RTC has set the system time for GMT");
+	sprintf_P(logfile_name, PSTR("%04d%02d%02d.log"),config.user_id, month(), day());
+      }  
+      
+      //display time
+          delay (5000); 
+          lcd.clear();
+          lcd.setCursor(0, 0);
+          lcd.print("TIME (PRESS TO SET)");
+          lcd.setCursor(0, 1);
+          lcd.print("Date:");
+          lcd.print(month());
+          lcd.print("-");
+          lcd.print(day());
+          lcd.setCursor(0, 2);
+          lcd.print("Time:");          
+          printDigits(hour());
+          lcd.print(":");
+       	  printDigits(minute());
+          lcd.setCursor(0, 3);
+          lcd.print("Zone:");
+          lcd.print(config.tz);  
+
+
+        //serial info print
+            Serial.print("Time (GMT):");
+            printDigitsSerial(hour());
+            Serial.print(F(":"));
+            printDigitsSerial(minute());
+            Serial.println("");
+            Serial.print("Date:");
+            Serial.print(month());
+            Serial.print("-");
+            Serial.println(day());
+          
+          
+
 /**************************************************************************/
 // POINTCAST Screen
 /**************************************************************************/  
@@ -742,50 +742,47 @@ void setup() {
 /**************************************************************************/
 // Datalogger Screen
 /**************************************************************************/   
-                  delay (5000); 
-                  lcd.clear();
-                  lcd.setCursor(0, 0);
-                  lcd.print("DATA LOGGER");
-                  lcd.setCursor(0, 1);
-                  lcd.print(logfile_name);
-                  lcd.print(":"); 
-                  lcd.setCursor(0, 2);        
-                  lcd.print("XXXX MB Free");
+          delay (5000); 
+          lcd.clear();
+          lcd.setCursor(0, 0);
+          lcd.print("DATA LOGGER");
+          lcd.setCursor(0, 1);
+          lcd.print(logfile_name);
+          lcd.print(":"); 
+          lcd.setCursor(0, 2);        
+          lcd.print("XXXX MB Free");
 
 /**************************************************************************/
 // Counting Screen
 /**************************************************************************/   
-                  delay (5000); 
-      lcd.clear();
-      lcd.setCursor(0, 0);
-      lcd.print("S1:");
-      lcd.print("0"); 
-      lcd.print(" CPM ");  
-      lcd.print("0"); 
-      lcd.print("uSv/h"); 
-      lcd.setCursor(0,1);    
-      lcd.print("S2:");
-      lcd.print("0"); 
-      lcd.print(" CPM ");
-      lcd.print("0"); 
-      lcd.print("uSv/h");
-      lcd.setCursor(0,2);
-      lcd.print("API:");
-      lcd.setCursor(4, 2);
-      printDigits(hour());
-      lcd.print(":");
-      printDigits(minute());
-      lcd.setCursor(11, 2);
-      lcd.print("STARTUP");
-      lcd.setCursor(0,3);
-      lcd.print("STS:");
-      lcd.setCursor(6,3);
-      lcd.print(battery);
-      lcd.print("V");
-      
-      
-   
-  
+          delay (5000); 
+          lcd.clear();
+          lcd.setCursor(0, 0);
+          lcd.print("S1:");
+          lcd.print("0"); 
+          lcd.print(" CPM ");  
+          lcd.print("0"); 
+          lcd.print("uSv/h"); 
+          lcd.setCursor(0,1);    
+          lcd.print("S2:");
+          lcd.print("0"); 
+          lcd.print(" CPM ");
+          lcd.print("0"); 
+          lcd.print("uSv/h");
+          lcd.setCursor(0,2);
+          lcd.print("API:");
+          lcd.setCursor(4, 2);
+          printDigits(hour());
+          lcd.print(":");
+          printDigits(minute());
+          lcd.setCursor(11, 2);
+          lcd.print("STARTUP");
+          lcd.setCursor(0,3);
+          lcd.print("STS:");
+          lcd.setCursor(6,3);
+          lcd.print(battery);
+          lcd.print("V");
+       
    
     //Gateways setup to be done
     //read for SDcard gateways 
@@ -793,26 +790,8 @@ void setup() {
     
        //gatewaynumber=random(2);
        //Serial.print(gatewaynumber);
-    
-    //select randomly for total sserver
-//       delay(3000);
-//       lcd.clear();
-//       lcd.setCursor(0, 0);
-//       lcd.print("G1=");
-//       lcd.print(config.gw1);
-//       lcd.setCursor(0, 1);
-//       lcd.print("G2=");
-//       lcd.print(config.gw2);
-//       Serial.print("Gateway1=");
-//       Serial.println(config.gw1);
-//       Serial.print("Gateway2=");
-//       Serial.println(config.gw2);
-//       Serial.print("APIkey=");
-//       Serial.println(config.api_key);    
-//        
-
-    
-    
+   
+       
     //setup update time in msec
         updateIntervalInMillis = updateIntervalInMinutes * 300000;                  // update time in ms
         //updateIntervalInMillis = updateIntervalInMinutes * 6000;                  // update time in ms
@@ -1297,7 +1276,7 @@ void SendDataToServer(float CPM,float CPM2){
             float temperature= 18.6;
             
        //add second line for addtional info
-           sprintf_P(buf2 + len2, PSTR("*%X%s$%s,%d,%d,%d"), 
+           sprintf_P(buf2 + len2, PSTR("*%X%s$%s,%d,%d,%d"), \
               (int)chk, \
               "\n", \
               HEADER_SENSOR,  \
@@ -1591,6 +1570,33 @@ float getTemp(){
       return temperature;
 
 }
+
+float read_rssi(){
+  unsigned int result = 0;
+  delay(3000);  // Wait for Start Serial Monitor
+  Serial.println("Ready.");
+
+  Serial.print("Initializing.. ");
+  if (a3gs.start() == 0 && a3gs.begin() == 0) {
+    Serial.println("Succeeded.");
+    int rssi;
+    if (a3gs.getRSSI(rssi) == 0) {
+      Serial.print("RSSI = ");
+      Serial.print(rssi);
+      Serial.println(" dBm");
+        // return the result:
+        result = rssi;
+       return(result);
+    }
+  }
+  else
+    Serial.println("Failed.");
+
+  Serial.println("Shutdown..");
+  a3gs.end();
+  a3gs.shutdown();
+}
+
 
 //Red led blink routine
 //void red_led_blink() {
