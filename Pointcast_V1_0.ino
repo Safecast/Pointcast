@@ -19,9 +19,9 @@
 2015-04-10 V2.7.6 Added Red LED warning on SDcard and Sensor fails, renemd SDcard files and updates headers
 2015-04-11 V2.7.7 Updates headers. 3G display and header setup same as Ethernet card
 2015-04-12 V2.7.8 Moved SDcard screen before time screen
-2015-04-12 V2.7.9 Added Joystick interaction. Key down startup 1/5 of normal time. Prepare joy stick enter ket (push down) for other functions.
-
-
+2015-04-16 V2.7.9 Added Joystick interaction. Key down startup 1/5 of normal time. Prepare joy stick enter ket (push down) for other functions.
+2015-04-17 V2.8.0 Changed startup screen to be faster with 1 second display if joystick in pressed down. Blink the heartbeat LED for 1 sec.
+2015-04-18 V2.8.1 Setup NTP for automatic update time on Ethernet. 
 
 contact rob@yr-design.biz
  */
@@ -61,6 +61,8 @@ contact rob@yr-design.biz
 int n = 1;
 LiquidCrystal_I2C	lcd(I2C_ADDR,En_pin,Rw_pin,Rs_pin,D4_pin,D5_pin,D6_pin,D7_pin);
 int backlightPin = 2;
+int green_ledPin=31;
+int red_ledPin=26;
 
 //setup Power detection
 #define VOLTAGE_PIN A13
@@ -106,7 +108,7 @@ static char lon_buf[16];
 
 
 //static
-      static char VERSION[] = "V2.7.9";
+    static char VERSION[] = "V2.8.1";
 
     #if ENABLE_3G
     static char path[LINE_SZ];
@@ -122,12 +124,12 @@ static char lon_buf[16];
 
 
 //Struct setup
-typedef struct
-{
-    unsigned char state;
-    unsigned char conn_fail_cnt;
-} devctrl_t;
-static devctrl_t ctrl;
+    typedef struct
+    {
+        unsigned char state;
+        unsigned char conn_fail_cnt;
+    } devctrl_t;
+    static devctrl_t ctrl;
 
 //const
     const char *server = "107.161.164.163";
@@ -141,9 +143,13 @@ static devctrl_t ctrl;
     EthernetClient client;
     IPAddress localIP (192, 168, 100, 40);	
     IPAddress serverIP(107, 161, 164, 163 ); 
+    IPAddress timeServer(132, 163, 4, 101); // time-a.timefreq.bldrdoc.gov
     int resetPin = A1;   //
     int ethernet_powerdonwPin = 7;
-    
+    const int timeZone = 1;
+    boolean timeset_on =false;
+    EthernetUDP Udp;
+    unsigned int localPort = 8888;  // local port to listen for UDP packets
     #endif
 
 //int
@@ -157,8 +163,11 @@ static devctrl_t ctrl;
     unsigned long elapsedTime(unsigned long startTime);
     unsigned long previousMillis=0;
  
-// Interval is how long we wait
+// Interval is how long display  wait
    int display_interval = 5000;
+   
+// Interval is how long LED blinks  
+    int blinkinterval=1000;
 
 //char
     char timestamp[19];
@@ -179,11 +188,11 @@ static devctrl_t ctrl;
     const int JOY_D_PIN = 22;
     const int JOY_E_PIN = 23;
     
-    boolean joyCntA = false;
-    boolean joyCntB = false;
-    boolean joyCntC = false;
-    boolean joyCntD = false;
-    boolean joyCntE = false;
+    volatile boolean joyCntA = false;
+    volatile boolean joyCntB = false;
+    volatile boolean joyCntC = false;
+    volatile boolean joyCntD = false;
+    volatile boolean joyCntE = false;
     
 
 ////red blink test    
@@ -350,8 +359,7 @@ void setup() {
 /**************************************************************************/
 // Start screen
 /**************************************************************************/
-        OpenLog.begin(9600);
-        setupOpenLog();
+
 
      lcd.clear();
     // LED on delay (start speed diplay function by pressing down)
@@ -395,27 +403,27 @@ void setup() {
               }
           
               //LED1(green) setup
-                pinMode(31, OUTPUT);
-                digitalWrite(31, HIGH);
+                pinMode(green_ledPin, OUTPUT);
+                digitalWrite(green_ledPin, HIGH);
                 
              //LED2(red) setup
-               pinMode(26, OUTPUT);
-               digitalWrite(26, HIGH);
+               pinMode(red_ledPin, OUTPUT);
+               digitalWrite(red_ledPin, HIGH);
              
 
         }
      
     //LED off
-      digitalWrite(26, LOW);
-      digitalWrite(31, LOW); 
+      digitalWrite(red_ledPin, LOW);
+      digitalWrite(green_ledPin, LOW); 
       
-
 
 
 /**************************************************************************/
 // System Screen
 /**************************************************************************/
-            
+
+        
      // read battery     
        float battery =((read_voltage(VOLTAGE_PIN)));
        Serial.println("Battery Voltage =");
@@ -460,14 +468,20 @@ void setup() {
                lcd.print("C");
      }
 
-           
+
+     
 /**************************************************************************/
 // SDcard Screen
 /**************************************************************************/  
-        
+      lcd.clear();
+      lcd.setCursor(0, 0);
+      lcd.print("SDCARD :");  
+      OpenLog.begin(9600);
+      setupOpenLog();
+
+
     //Openlog setup
           if (openlog_ready) {
-           lcd.clear();
            previousMillis=millis() ;
            while ((unsigned long)(millis() - previousMillis) <= display_interval) {
                if (joyCntA){
@@ -475,9 +489,8 @@ void setup() {
                         joyCntA=!joyCntA;
                         Serial.println ("joystick down");
                     }
-
-                        lcd.setCursor(0, 0);
-                        lcd.print("SDCARD : PASS");
+                        lcd.setCursor(8, 0);
+                        lcd.print(" PASS"); 
                         lcd.setCursor(0, 1);
                         lcd.print("PCAST  :");
                         Serial.println();
@@ -522,8 +535,8 @@ void setup() {
                         joyCntA=!joyCntA;
                         Serial.println ("joystick down");
                     }
-                  lcd.setCursor(0, 0);
-                  lcd.print("SDCARD : FAIL");
+                  lcd.setCursor(8, 0);
+                  lcd.print("FAIL");
                   //Red LED on
                    digitalWrite(26, HIGH);
                   Serial.println();
@@ -535,40 +548,57 @@ void setup() {
 
          
      // printout selected interface
-//        Serial.print("Device ID =");
-//        Serial.println(config.devid);
-//        Serial.print("Interface =");
-//        Serial.println(config.intf);
-//        Serial.print("dev =");
-//        Serial.println(config.dev);
-//        Serial.print("tws =");
-//        Serial.println(config.tws);
-//        Serial.print("alt =");
-//        Serial.println(config.alt);
-//        Serial.print("autow =");
-//        Serial.println(config.autow);
-//        Serial.print("alm =");
-//        Serial.println(config.alm);
-//        Serial.print("ssid =");
-//        Serial.println(config.ssid);
-//        Serial.print("tz =");
-//        Serial.println(config.tz);
-//        Serial.print("pwd =");
-//        Serial.println(config.pwd);
-//        Serial.print("gwn =");
-//        Serial.println(config.gwn);
-//        Serial.print("s1i =");
-//        Serial.println(config.s1i);
-//        Serial.print("s2i =");
-//        Serial.println(config.s2i);
-//        Serial.print("aux =");
-//        Serial.println(config.aux);      
+        Serial.print("Device ID =");
+        Serial.println(config.devid);
+        Serial.print("Interface =");
+        Serial.println(config.intf);
+        Serial.print("dev =");
+        Serial.println(config.dev);
+        Serial.print("tws =");
+        Serial.println(config.tws);
+        Serial.print("alt =");
+        Serial.println(config.alt);
+        Serial.print("autow =");
+        Serial.println(config.autow);
+        Serial.print("alm =");
+        Serial.println(config.alm);
+        Serial.print("ssid =");
+        Serial.println(config.ssid);
+        Serial.print("tz =");
+        Serial.println(config.tz);
+        Serial.print("pwd =");
+        Serial.println(config.pwd);
+        Serial.print("gwn =");
+        Serial.println(config.gwn);
+        Serial.print("s1i =");
+        Serial.println(config.s1i);
+        Serial.print("s2i =");
+        Serial.println(config.s2i);
+        Serial.print("aux =");
+        Serial.println(config.aux);      
 
     
     
 /**************************************************************************/
 // Time Screen
 /**************************************************************************/  
+    //setup time 
+           Serial.println("TimeNTP setup");
+            if (Ethernet.begin(macAddress) == 0) {
+              while (1) {
+                Serial.println("Failed to configure Ethernet using DHCP");
+                delay(10000);
+              }
+            }
+          Udp.begin(localPort);
+          Serial.println("waiting for sync");
+          setSyncProvider(getNtpTime);
+          Teensy3Clock.set(now());
+           if(timeset_on){             
+              lcd.setCursor(0, 2); 
+              lcd.println("GMT time is set");
+           }                       
+          Serial.println("GMT time is set"); 
 
     
   //Check if Time is setup
@@ -576,9 +606,10 @@ void setup() {
     if (timeStatus()!= timeSet) {
         Serial.println("Unable to sync with the RTC");
         sprintf_P(logfile_name, PSTR("%04d1234.log"),config.user_id);
+        
 
       } else {
-        Serial.println("RTC has set the system time for GMT");
+        Serial.println("RTC has set the system time for GMT");                 
 	sprintf_P(logfile_name, PSTR("%04d%02d%02d.log"),config.user_id, month(), day());
       }  
       
@@ -587,31 +618,33 @@ void setup() {
            lcd.clear();
            previousMillis=millis() ;
            while ((unsigned long)(millis() - previousMillis) <= display_interval) {
-               if (joyCntA){
+                    lcd.setCursor(0, 0);
+                    lcd.print("TIME (GMT)");
+                    lcd.setCursor(0, 1);
+                    lcd.print("Date:");
+                    lcd.print(month());
+                    lcd.print("-");
+                    lcd.print(day());
+                    lcd.setCursor(0, 2);
+                    lcd.print("Time:");          
+                    printDigits(hour());
+                    lcd.print(":");
+                    printDigits(minute());
+                    lcd.setCursor(0, 3);
+                    lcd.print("Zone:");
+                    lcd.print(config.tz);  
+
+    
+             if (joyCntA){
                         display_interval=1000;
                         joyCntA=!joyCntA;
                         Serial.println ("joystick down");
                     }
                 if (joyCntD){
                         joyCntD=!joyCntD;
-                        //RTC setup routine
                         Serial.println ("joystick center");
                     }
-                lcd.setCursor(0, 0);
-                lcd.print("TIME (PRESS TO SET)");
-                lcd.setCursor(0, 1);
-                lcd.print("Date:");
-                lcd.print(month());
-                lcd.print("-");
-                lcd.print(day());
-                lcd.setCursor(0, 2);
-                lcd.print("Time:");          
-                printDigits(hour());
-                lcd.print(":");
-             	printDigits(minute());
-                lcd.setCursor(0, 3);
-                lcd.print("Zone:");
-                lcd.print(config.tz);  
+
           } 
           
         //serial info print
@@ -697,12 +730,12 @@ void setup() {
          }
      
      //serial print 
-//        Serial.print("Lon:");
-//        Serial.println(config.longitude);   
-//        Serial.print("Lat:");
-//        Serial.println(config.latitude);
-//        Serial.print("Alt:");
-//        Serial.println(config.alt);  
+        Serial.print("Lon:");
+        Serial.println(config.longitude);   
+        Serial.print("Lat:");
+        Serial.println(config.latitude);
+        Serial.print("Alt:");
+        Serial.println(config.alt);  
 
 
 /**************************************************************************/
@@ -799,12 +832,15 @@ void setup() {
 /**************************************************************************/   
 #if ENABLE_ETHERNET
 	// Initiate a DHCP session
+        lcd.clear();
+        lcd.setCursor(0, 0);
+        lcd.print("NETWORK ETHER (DHCP)");
         if (Ethernet.begin(macAddress) == 0)
 	{
        		Serial.println("Failed DHCP");
         	Ethernet.begin(macAddress, localIP);
 	}
-           lcd.clear();
+
            previousMillis=millis() ;
            while ((unsigned long)(millis() - previousMillis) <= display_interval) {
                if (joyCntA){
@@ -1262,10 +1298,13 @@ void SendDataToServer(float CPM,float CPM2){
        
     
     // report to LCD     
-    lcd.setCursor(4, 2);
+          lcd.setCursor(4, 2);
           printDigits(hour());
           lcd.print(":");
        	  printDigits(minute());
+
+//      // Reset last 
+//      lastConnectionTime = millis();
 #endif
 
 
@@ -1613,10 +1652,11 @@ void createFile(char *fileName) {
 /**************************************************************************/
 
     void KickDog() {
-      Serial.println("Patting the dog!");
-      //digitalWrite(LED_BUILTIN, !digitalRead(LED_BUILTIN));
-      pinMode(31, OUTPUT);
-      digitalWrite(31, !digitalRead(31));
+//      Serial.println("Patting the dog!");
+////      //digitalWrite(LED_BUILTIN, !digitalRead(LED_BUILTIN));
+//      pinMode(31, OUTPUT);
+//      digitalWrite(31, !digitalRead(31));
+     green_led_blink();
       noInterrupts();
       WDOG_REFRESH = 0xA602;
       WDOG_REFRESH = 0xB480;
@@ -1661,46 +1701,46 @@ void createFile(char *fileName) {
     }
 
 // retrieve temperature
-float getTemp(){
-
-      byte data[12];
-      byte addr[8];
-      
-      if ( !ds.search(addr)) {
-      //no more sensors on chain, reset search
-      ds.reset_search();
-      return -1000;
-      }
-      
-      
-      if ( addr[0] != 0x10 && addr[0] != 0x28) {
-      Serial.print("Device is not recognized");
-      return -1000;
-      }
-      
-      ds.reset();
-      ds.select(addr);
-      ds.write(0x44,1); // start conversion, with parasite power on at the end
-      
-      byte present = ds.reset();
-      ds.select(addr);
-      ds.write(0xBE); // Read Scratchpad
-      
-      for (int i = 0; i < 9; i++) { // we need 9 bytes
-      data[i] = ds.read();
-      }
-      
-      ds.reset_search();
-      
-      byte MSB = data[1];
-      byte LSB = data[0];
-      
-      float tempRead = ((MSB << 8) | LSB); //using two’s compliment
-      float temperature = tempRead / 16;
-      delay(1000);
-      return temperature;
-
-}
+//float getTemp(){
+//
+//      byte data[12];
+//      byte addr[8];
+//      
+//      if ( !ds.search(addr)) {
+//      //no more sensors on chain, reset search
+//      ds.reset_search();
+//      return -1000;
+//      }
+//      
+//      
+//      if ( addr[0] != 0x10 && addr[0] != 0x28) {
+//      Serial.print("Device is not recognized");
+//      return -1000;
+//      }
+//      
+//      ds.reset();
+//      ds.select(addr);
+//      ds.write(0x44,1); // start conversion, with parasite power on at the end
+//      
+//      byte present = ds.reset();
+//      ds.select(addr);
+//      ds.write(0xBE); // Read Scratchpad
+//      
+//      for (int i = 0; i < 9; i++) { // we need 9 bytes
+//      data[i] = ds.read();
+//      }
+//      
+//      ds.reset_search();
+//      
+//      byte MSB = data[1];
+//      byte LSB = data[0];
+//      
+//      float tempRead = ((MSB << 8) | LSB); //using two’s compliment
+//      float temperature = tempRead / 16;
+//      delay(1000);
+//      return temperature;
+//
+//}
 
 float read_rssi(){
   unsigned int result = 0;
@@ -1729,20 +1769,78 @@ float read_rssi(){
 }
 
 
-//Red led blink routine
-//void red_led_blink() {
-//  unsigned long currentMillis = millis();
-//  if(currentMillis - previousMillis > interval) {
-//    previousMillis = currentMillis;
-//    if (red_ledState == LOW){
-//      red_ledState = HIGH;
-//    }
-//    else{
-//      red_ledState = LOW;
-//    }
-//    digitalWrite(red_ledPin, red_ledState);
-//  }
-//}
+// Red blink routine
+void red_led_blink() {
+      previousMillis=millis() ;
+     while ((unsigned long)(millis() - previousMillis) <= blinkinterval) {
+          digitalWrite(red_ledPin, HIGH);
+    }
+          digitalWrite(red_ledPin, LOW);
+  }
+
+
+// Green blink routine
+void green_led_blink() {
+      previousMillis=millis() ;
+     while ((unsigned long)(millis() - previousMillis) <= blinkinterval) {
+          digitalWrite(green_ledPin, HIGH);
+    }
+          digitalWrite(green_ledPin, LOW);
+  }
+
+
+/*-------- NTP code ----------*/
+
+const int NTP_PACKET_SIZE = 48; // NTP time is in the first 48 bytes of message
+byte packetBuffer[NTP_PACKET_SIZE]; //buffer to hold incoming & outgoing packets
+
+time_t getNtpTime()
+{
+  while (Udp.parsePacket() > 0) ; // discard any previously received packets
+  Serial.println("Transmit NTP Request");
+  sendNTPpacket(timeServer);
+  uint32_t beginWait = millis();
+  while (millis() - beginWait < 1500) {
+    int size = Udp.parsePacket();
+    if (size >= NTP_PACKET_SIZE) {
+      Serial.println("Receive NTP Response");
+      Udp.read(packetBuffer, NTP_PACKET_SIZE);  // read packet into the buffer
+      unsigned long secsSince1900;
+      // convert four bytes starting at location 40 to a long integer
+      secsSince1900 =  (unsigned long)packetBuffer[40] << 24;
+      secsSince1900 |= (unsigned long)packetBuffer[41] << 16;
+      secsSince1900 |= (unsigned long)packetBuffer[42] << 8;
+      secsSince1900 |= (unsigned long)packetBuffer[43];
+      return secsSince1900 - 2208988800UL + timeZone * SECS_PER_HOUR;
+    }
+  }
+  Serial.println("No NTP Response :-(");
+  return 0; // return 0 if unable to get the time
+}
+
+// send an NTP request to the time server at the given address
+
+void sendNTPpacket(IPAddress &address)
+{
+  // set all bytes in the buffer to 0
+  memset(packetBuffer, 0, NTP_PACKET_SIZE);
+  // Initialize values needed to form NTP request
+  // (see URL above for details on the packets)
+  packetBuffer[0] = 0b11100011;   // LI, Version, Mode
+  packetBuffer[1] = 0;     // Stratum, or type of clock
+  packetBuffer[2] = 6;     // Polling Interval
+  packetBuffer[3] = 0xEC;  // Peer Clock Precision
+  // 8 bytes of zero for Root Delay & Root Dispersion
+  packetBuffer[12]  = 49;
+  packetBuffer[13]  = 0x4E;
+  packetBuffer[14]  = 49;
+  packetBuffer[15]  = 52;
+  // all NTP fields have been given values, now
+  // you can send a packet requesting a timestamp:                 
+  Udp.beginPacket(address, 123); //NTP requests are to port 123
+  Udp.write(packetBuffer, NTP_PACKET_SIZE);
+  Udp.endPacket();
+}
 
 
 
