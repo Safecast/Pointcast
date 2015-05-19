@@ -22,6 +22,8 @@
 2015-04-16 V2.7.9 Added Joystick interaction. Key down startup 1/5 of normal time. Prepare joy stick enter ket (push down) for other functions.
 2015-04-17 V2.8.0 Changed startup screen to be faster with 1 second display if joystick in pressed down. Blink the heartbeat LED for 1 sec.
 2015-04-18 V2.8.1 Setup NTP for automatic update time on Ethernet. 
+2015-04-19 V2.8.2 Fixed first display readings of CPM (was too high)
+2015-04-19 V2.8.3 Fixed 3G not starting up due to Ethernet settings.
 
 contact rob@yr-design.biz
  */
@@ -108,7 +110,7 @@ static char lon_buf[16];
 
 
 //static
-    static char VERSION[] = "V2.8.1";
+    static char VERSION[] = "V2.8.3";
 
     #if ENABLE_3G
     static char path[LINE_SZ];
@@ -582,24 +584,27 @@ void setup() {
 /**************************************************************************/
 // Time Screen
 /**************************************************************************/  
-    //setup time 
-           Serial.println("TimeNTP setup");
-            if (Ethernet.begin(macAddress) == 0) {
-              while (1) {
-                Serial.println("Failed to configure Ethernet using DHCP");
-                delay(10000);
-              }
-            }
-          Udp.begin(localPort);
-          Serial.println("waiting for sync");
-          setSyncProvider(getNtpTime);
-          Teensy3Clock.set(now());
-           if(timeset_on){             
-              lcd.setCursor(0, 2); 
-              lcd.println("GMT time is set");
-           }                       
-          Serial.println("GMT time is set"); 
-
+ #if ENABLE_ETHERNET
+          //setup time 
+                 Serial.println("TimeNTP setup");
+                  if (Ethernet.begin(macAddress) == 0) {
+                    {
+                      Serial.println("Failed to configure Ethernet using DHCP");
+                      Ethernet.begin(macAddress, localIP);
+                    }
+                    
+                  }
+                Udp.begin(localPort);
+                Serial.println("waiting for sync");
+                setSyncProvider(getNtpTime);
+                Teensy3Clock.set(now());
+                 if(timeset_on){             
+                    lcd.setCursor(0, 2); 
+                    lcd.println("GMT time is set");
+                 }                       
+                Serial.println("GMT time is set"); 
+                
+#endif
     
   //Check if Time is setup
     setSyncProvider(getTeensy3Time);
@@ -940,7 +945,8 @@ void setup() {
               printDigits(hour());
               lcd.print(":");
               printDigits(minute());
-              lcd.setCursor(11, 2);
+              lcd.print("GMT");              
+              lcd.setCursor(13, 2);
               lcd.print("STARTUP");
               lcd.setCursor(0,3);
               lcd.print("STS:");
@@ -970,6 +976,12 @@ void setup() {
         logfile_ready = true;
         createFile(logfile_name);
     }
+
+//Serial.print("lastConnectionTime=");
+//Serial.println(lastConnectionTime);
+
+counts_per_sample = 0;
+counts_per_sample2 = 0;
 	
 }
 /**************************************************************************/
@@ -1029,7 +1041,7 @@ void printDigitsSerial(int digits){
 
 void SendDataToServer(float CPM,float CPM2){ 
 
-  #if ENABLE_ETHERNET
+#if ENABLE_ETHERNET
 
 
 // Convert from cpm to µSv/h with the pre-defined coefficient
@@ -1080,7 +1092,7 @@ void SendDataToServer(float CPM,float CPM2){
 	else
 	{
      	   ctrl.conn_fail_cnt++;
-           lcd.setCursor(10,2);
+           lcd.setCursor(14,2);
            lcd.print("FAIL=");
            lcd.print(ctrl.conn_fail_cnt);
 		if (ctrl.conn_fail_cnt >= MAX_FAILED_CONNS)
@@ -1147,7 +1159,7 @@ void SendDataToServer(float CPM,float CPM2){
 	else
 	{
      	   ctrl.conn_fail_cnt++;
-           lcd.setCursor(10,2);
+           lcd.setCursor(14,2);
            lcd.print("FAIL=");
            lcd.print(ctrl.conn_fail_cnt);
 		if (ctrl.conn_fail_cnt >= MAX_FAILED_CONNS)
@@ -1189,7 +1201,7 @@ void SendDataToServer(float CPM,float CPM2){
 	client.println("Content-Type: application/json");
 	client.println();
 	client.println(json_buf2);
-        lcd.setCursor(10,2);
+        lcd.setCursor(14,2);
         lcd.print("PASS");
 	Serial.println("Disconnecting");
         client.stop();
@@ -1302,6 +1314,8 @@ void SendDataToServer(float CPM,float CPM2){
           printDigits(hour());
           lcd.print(":");
        	  printDigits(minute());
+          lcd.print("GMT");
+          
 
 //      // Reset last 
 //      lastConnectionTime = millis();
@@ -1344,7 +1358,7 @@ void SendDataToServer(float CPM,float CPM2){
            {
          }else {
            //a3gs.restart();
-           lcd.setCursor(10,2);
+           lcd.setCursor(14,2);
            lcd.print("FAIL=");
        }
        
@@ -1385,7 +1399,7 @@ void SendDataToServer(float CPM,float CPM2){
         //convert time in correct format
         memset(timestamp, 0, LINE_SZ);
         sprintf_P(timestamp, PSTR("%02d-%02d-%02dT%02d:%02d:%02dZ"),  \
-					year(), month(), day(),  \
+		    year(), month(), day(),  \
                     hour(), minute(), second());
                     
                     
@@ -1470,7 +1484,7 @@ void SendDataToServer(float CPM,float CPM2){
       
              //Display infomation 
                    
-              lcd.setCursor(10,2);
+              lcd.setCursor(14,2);
               lcd.print("PASS");
               lcd.setCursor(0,3);
               lcd.print("STS:");
@@ -1482,7 +1496,7 @@ void SendDataToServer(float CPM,float CPM2){
         }
         else {
             
-           lcd.setCursor(10,2);
+           lcd.setCursor(14,2);
            lcd.print("FAIL=");
             lastConnectionTime = millis();
             Serial.println("No connection to API!");
@@ -1497,8 +1511,9 @@ void SendDataToServer(float CPM,float CPM2){
 		      
                       CPU_RESTART;
 		}
-                 lcd.setCursor(10,2);
+                 lcd.setCursor(14,2);
                  lcd.print("FAIL=");
+                 
                  lcd.print(ctrl.conn_fail_cnt);
                   Serial.print("NC. Retries left:");
                   Serial.println(MAX_FAILED_CONNS - conn_fail_cnt);
@@ -1513,15 +1528,15 @@ void SendDataToServer(float CPM,float CPM2){
 
 
     // report to LCD     
-    lcd.setCursor(4, 2);
+          lcd.setCursor(4, 2);
           printDigits(hour());
           lcd.print(":");
        	  printDigits(minute());
+          lcd.print("GMT");
+       
 
 #endif
 }
-
-
 
 /**************************************************************************/
 // Main Loop
@@ -1529,6 +1544,7 @@ void SendDataToServer(float CPM,float CPM2){
 void loop() {
 
     // Main Loop
+    
       if (elapsedTime(lastConnectionTime) < updateIntervalInMillis)
       {
           return;
@@ -1790,7 +1806,7 @@ void green_led_blink() {
 
 
 /*-------- NTP code ----------*/
-
+#if ENABLE_ETHERNET
 const int NTP_PACKET_SIZE = 48; // NTP time is in the first 48 bytes of message
 byte packetBuffer[NTP_PACKET_SIZE]; //buffer to hold incoming & outgoing packets
 
@@ -1820,6 +1836,8 @@ time_t getNtpTime()
 
 // send an NTP request to the time server at the given address
 
+
+
 void sendNTPpacket(IPAddress &address)
 {
   // set all bytes in the buffer to 0
@@ -1841,6 +1859,7 @@ void sendNTPpacket(IPAddress &address)
   Udp.write(packetBuffer, NTP_PACKET_SIZE);
   Udp.endPacket();
 }
+#endif
 
 
 
