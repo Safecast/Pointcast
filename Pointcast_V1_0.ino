@@ -24,6 +24,9 @@
 2015-04-18 V2.8.1 Setup NTP for automatic update time on Ethernet. 
 2015-04-19 V2.8.2 Fixed first display readings of CPM (was too high)
 2015-04-19 V2.8.3 Fixed 3G not starting up due to Ethernet settings.
+2015-04-20 V2.8.4 Random Gateway setup
+2015-04-21 V2.8.5 Added "trb=" setup option to the SDcard for 5 seconds updates of main screen for fast trouble shooting (cpm will be not correct)
+
 
 contact rob@yr-design.biz
  */
@@ -110,7 +113,7 @@ static char lon_buf[16];
 
 
 //static
-    static char VERSION[] = "V2.8.3";
+    static char VERSION[] = "V2.8.5";
 
     #if ENABLE_3G
     static char path[LINE_SZ];
@@ -134,7 +137,7 @@ static char lon_buf[16];
     static devctrl_t ctrl;
 
 //const
-    const char *server = "107.161.164.163";
+    const char *server;
     const int port = 80;
     const int interruptMode = FALLING;
     const int updateIntervalInMinutes = 1;
@@ -144,7 +147,7 @@ static char lon_buf[16];
     byte macAddress[] = { 0x90, 0xA2, 0xDA, 0x0E, 0xE0, 0x5C };
     EthernetClient client;
     IPAddress localIP (192, 168, 100, 40);	
-    IPAddress serverIP(107, 161, 164, 163 ); 
+    IPAddress serverIP(107, 161, 164, 166); 
     IPAddress timeServer(132, 163, 4, 101); // time-a.timefreq.bldrdoc.gov
     int resetPin = A1;   //
     int ethernet_powerdonwPin = 7;
@@ -181,6 +184,10 @@ static char lon_buf[16];
     #if ENABLE_3G
     char res[a3gsMAX_RESULT_LENGTH+1];
     #endif
+
+    char gateway0[16] ;
+    char gateway1[16] ;
+    char *gateway[2];
 
 
 //joystick pins setup
@@ -354,10 +361,8 @@ void setup() {
     //set up the LCD's number of columns and rows: 
           lcd.begin(20, 4);
           
-//     //red blink setup
-//           pinMode(red_ledPin, OUTPUT);
 
-	
+          
 /**************************************************************************/
 // Start screen
 /**************************************************************************/
@@ -387,7 +392,15 @@ void setup() {
                      lcd.print("Device ID:");  
                      lcd.print(config.devid);
                      lcd.setCursor(0, 3);
-                     lcd.print("http://safecast.org");         
+                     if (config.trb) {            
+                             joyCntA=!joyCntA;
+                             lcd.print ("Troubleshoot mode");
+                     }
+                      if (!config.trb) {            
+                             lcd.print("http://safecast.org");
+                      }
+         
+     
           
               // SENSOR 1 setup
               if (config.sensor1_enabled) {
@@ -419,7 +432,11 @@ void setup() {
       digitalWrite(red_ledPin, LOW);
       digitalWrite(green_ledPin, LOW); 
       
-
+    // switch to fast trouble shoot mode if SDcard is setup for that
+         if (config.trb) {            
+            joyCntA=!joyCntA;
+            Serial.println (" Trouble shootmode"); 
+         }
 
 /**************************************************************************/
 // System Screen
@@ -577,7 +594,9 @@ void setup() {
         Serial.print("s2i =");
         Serial.println(config.s2i);
         Serial.print("aux =");
-        Serial.println(config.aux);      
+        Serial.println(config.aux);  
+        Serial.print("trb =");
+        Serial.println(config.trb);      
 
     
     
@@ -835,7 +854,21 @@ void setup() {
 /**************************************************************************/
 // Network Screen
 /**************************************************************************/   
+         // random gateway array setup
+            gateway[0] = config.gw1;
+            gateway[1] = config.gw2;
+            randomSeed(analogRead(0));
+            int gatewaynumber=random(GATEWAY_SZ);
+            Serial.print("Random gateway setup for ");
+            //Serial.println(gateway[gatewaynumber]);
+            server=gateway[gatewaynumber];
+            Serial.println(server);
+         
+
 #if ENABLE_ETHERNET
+
+
+          
 	// Initiate a DHCP session
         lcd.clear();
         lcd.setCursor(0, 0);
@@ -860,7 +893,7 @@ void setup() {
                   lcd.print(Ethernet.localIP()); 
                   lcd.setCursor(0, 2);        
                   lcd.print("GW:");
-                  lcd.print(config.gw1);
+                  lcd.print(server);
                   lcd.setCursor(0, 3);
                   lcd.print("ID");
                       for (int i=0; i<6; ++i)
@@ -956,29 +989,25 @@ void setup() {
           
            }
        
-   
-    //Gateways setup to be done
-    //read for SDcard gateways 
-    //store value in array
-    
-       //gatewaynumber=random(2);
-       //Serial.print(gatewaynumber);
+  
    
        
     //setup update time in msec
-        updateIntervalInMillis = updateIntervalInMinutes * 300000;                  // update time in ms
-        //updateIntervalInMillis = updateIntervalInMinutes * 6000;                  // update time in ms
-        unsigned long now1 = millis();
-        nextExecuteMillis = now1 + updateIntervalInMillis;
+        if (config.trb) {
+          updateIntervalInMillis = updateIntervalInMinutes * 6000;                  // update time in ms for trouble shooting
+         }
+         if (!config.trb) {
+          updateIntervalInMillis = updateIntervalInMinutes * 300000;                  // update time in ms 
+         }
+               
+          unsigned long now1 = millis();
+          nextExecuteMillis = now1 + updateIntervalInMillis;
      
     // create logfile name 
-    if (openlog_ready) {
-        logfile_ready = true;
-        createFile(logfile_name);
-    }
-
-//Serial.print("lastConnectionTime=");
-//Serial.println(lastConnectionTime);
+        if (openlog_ready) {
+            logfile_ready = true;
+            createFile(logfile_name);
+        }
 
 counts_per_sample = 0;
 counts_per_sample2 = 0;
@@ -1081,7 +1110,7 @@ void SendDataToServer(float CPM,float CPM2){
 
 	// Try to connect to the server
 	Serial.println("Connecting");
-	if (client.connect(serverIP, 80))
+	if (client.connect(server, 80))
 	{
 		Serial.println("Connected");
 		lastConnectionTime = millis();
@@ -1128,7 +1157,7 @@ void SendDataToServer(float CPM,float CPM2){
 	client.println(" HTTP/1.1");
 	client.println("Accept: application/json");
 	client.print("Host:");
-        client.println(serverIP);
+        client.println(server);
 	client.print("Content-Length: ");
 	client.println(strlen(json_buf));
 	client.println("Content-Type: application/json");
@@ -1148,7 +1177,7 @@ void SendDataToServer(float CPM,float CPM2){
 
 	// Try to connect to the server
 	Serial.println("Connecting");
-	if (client.connect(serverIP, 80))
+	if (client.connect(server, 80))
 	{
 		Serial.println("Connected");
 		lastConnectionTime = millis();
@@ -1195,7 +1224,7 @@ void SendDataToServer(float CPM,float CPM2){
 	client.println(" HTTP/1.1");
 	client.println("Accept: application/json");
 	client.print("Host:");
-        client.println(serverIP);
+        client.println(server);
 	client.print("Content-Length: ");
 	client.println(strlen(json_buf2));
 	client.println("Content-Type: application/json");

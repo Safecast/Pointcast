@@ -57,6 +57,7 @@ typedef struct {
   char s1i[8];              //Sensor 1 Isotope
   char s2i[8];              //Sensor 2 Isotope
   byte aux;                 //auto
+  byte trb;                 //troubleshooting
 
   
 } ConfigType;

@@ -294,6 +294,13 @@ void PointcastSetup::loadFromFile(char * setupFile) {
         DEBUG_PRINTLN("   - Update aux input is active");
       }
     }
+    else if(strcmp(key, "trb") == 0) {
+      if (mConfig.trb != atoi(value)) {
+        mConfig.trb = atoi(value);
+        config_changed = true;
+        DEBUG_PRINTLN("   - Update trouble shooting active");
+      }
+    }
     
   }
   DEBUG_PRINTLN("   - Done.");
