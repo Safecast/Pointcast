@@ -81,9 +81,9 @@ OneWire  ds(A12);  // on pin 10 (a 4.7K resistor is necessary)
 
 
 #define ENABLE_DEBUG 
-#define LINE_SZ 128
+#define LINE_SZ 80
 // SENT_SZ is used for sending data for 3G
-#define SENT_SZ 120
+#define SENT_SZ 90
 //OLINE_SZ is used for OpenLog buffers
 #define OLINE_SZ 1024
 //GATEWAY_sz is array for gateways
@@ -1385,9 +1385,11 @@ void SendDataToServer(float CPM,float CPM2){
 //    lcd.print("counting pulses..");
     if (a3gs.start() == 0 && a3gs.begin() == 0)
            {
+           lcd.setCursor(10,2);
+           lcd.print("CONNECTED");
          }else {
            //a3gs.restart();
-           lcd.setCursor(14,2);
+           lcd.setCursor(10,2);
            lcd.print("FAIL=");
        }
        
@@ -1428,7 +1430,7 @@ void SendDataToServer(float CPM,float CPM2){
         //convert time in correct format
         memset(timestamp, 0, LINE_SZ);
         sprintf_P(timestamp, PSTR("%02d-%02d-%02dT%02d:%02d:%02dZ"),  \
-		    year(), month(), day(),  \
+					year(), month(), day(),  \
                     hour(), minute(), second());
                     
                     
@@ -1489,7 +1491,7 @@ void SendDataToServer(float CPM,float CPM2){
             float temperature= 18.6;
             
        //add second line for addtional info
-           sprintf_P(buf2 + len2, PSTR("*%X%s$%s,%d,%d,%d"), \
+           sprintf_P(buf2 + len2, PSTR("*%X%s$%s,%d,%d,%d"), 
               (int)chk, \
               "\n", \
               HEADER_SENSOR,  \
@@ -1513,7 +1515,7 @@ void SendDataToServer(float CPM,float CPM2){
       
              //Display infomation 
                    
-              lcd.setCursor(14,2);
+              lcd.setCursor(10,2);
               lcd.print("PASS");
               lcd.setCursor(0,3);
               lcd.print("STS:");
@@ -1525,7 +1527,7 @@ void SendDataToServer(float CPM,float CPM2){
         }
         else {
             
-           lcd.setCursor(14,2);
+           lcd.setCursor(10,2);
            lcd.print("FAIL=");
             lastConnectionTime = millis();
             Serial.println("No connection to API!");
@@ -1540,9 +1542,8 @@ void SendDataToServer(float CPM,float CPM2){
 		      
                       CPU_RESTART;
 		}
-                 lcd.setCursor(14,2);
+                 lcd.setCursor(10,2);
                  lcd.print("FAIL=");
-                 
                  lcd.print(ctrl.conn_fail_cnt);
                   Serial.print("NC. Retries left:");
                   Serial.println(MAX_FAILED_CONNS - conn_fail_cnt);
@@ -1557,12 +1558,10 @@ void SendDataToServer(float CPM,float CPM2){
 
 
     // report to LCD     
-          lcd.setCursor(4, 2);
+    lcd.setCursor(4, 2);
           printDigits(hour());
           lcd.print(":");
        	  printDigits(minute());
-          lcd.print("GMT");
-       
 
 #endif
 }
