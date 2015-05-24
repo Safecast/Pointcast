@@ -26,7 +26,7 @@
 2015-04-19 V2.8.3 Fixed 3G not starting up due to Ethernet settings.
 2015-04-22 V2.8.4 Auto gateway setup (two gateways at the moment)
 2015-04-22 V2.8.5 Display RSSI level in 3G.
-2015-04-23 V2.8. SDCard RSSI level saved in 3G.
+2015-04-23 V2.8.6 SDCard RSSI level saved in 3G.
 
 
 
