@@ -24,8 +24,11 @@
 2015-04-18 V2.8.1 Setup NTP for automatic update time on Ethernet. 
 2015-04-19 V2.8.2 Fixed first display readings of CPM (was too high)
 2015-04-19 V2.8.3 Fixed 3G not starting up due to Ethernet settings.
-2015-04-20 V2.8.4 Random Gateway setup
-2015-04-21 V2.8.5 Added "trb=" setup option to the SDcard for 5 seconds updates of main screen for fast trouble shooting (cpm will be not correct)
+2015-04-22 V2.8.4 Auto gateway setup (two gateways at the moment)
+2015-04-22 V2.8.5 Display RSSI level in 3G.
+2015-04-23 V2.8. SDCard RSSI level saved in 3G.
+
+
 
 
 contact rob@yr-design.biz
@@ -69,6 +72,9 @@ int backlightPin = 2;
 int green_ledPin=31;
 int red_ledPin=26;
 
+// 3G signal strengh
+ int rssi=-125;
+
 //setup Power detection
 #define VOLTAGE_PIN A13
 #define VOLTAGE_R1 150000
@@ -81,9 +87,9 @@ OneWire  ds(A12);  // on pin 10 (a 4.7K resistor is necessary)
 
 
 #define ENABLE_DEBUG 
-#define LINE_SZ 80
+#define LINE_SZ 128
 // SENT_SZ is used for sending data for 3G
-#define SENT_SZ 90
+#define SENT_SZ 120
 //OLINE_SZ is used for OpenLog buffers
 #define OLINE_SZ 1024
 //GATEWAY_sz is array for gateways
@@ -113,7 +119,7 @@ static char lon_buf[16];
 
 
 //static
-    static char VERSION[] = "V2.8.5";
+    static char VERSION[] = "V2.8.6";
 
     #if ENABLE_3G
     static char path[LINE_SZ];
@@ -137,25 +143,27 @@ static char lon_buf[16];
     static devctrl_t ctrl;
 
 //const
-    const char *server;
+    const char *server = "107.161.164.163";
     const int port = 80;
     const int interruptMode = FALLING;
     const int updateIntervalInMinutes = 1;
 
     #if ENABLE_ETHERNET
-    //ethernet
-    byte macAddress[] = { 0x90, 0xA2, 0xDA, 0x0E, 0xE0, 0x5C };
-    EthernetClient client;
-    IPAddress localIP (192, 168, 100, 40);	
-    IPAddress serverIP(107, 161, 164, 166); 
-    IPAddress timeServer(132, 163, 4, 101); // time-a.timefreq.bldrdoc.gov
-    int resetPin = A1;   //
-    int ethernet_powerdonwPin = 7;
-    const int timeZone = 1;
-    boolean timeset_on =false;
-    EthernetUDP Udp;
-    unsigned int localPort = 8888;  // local port to listen for UDP packets
+      //ethernet
+      byte macAddress[] = { 0x90, 0xA2, 0xDA, 0x0E, 0xE0, 0x5C };
+      EthernetClient client;
+      IPAddress localIP (192, 168, 100, 40);	
+      //IPAddress server(107, 161, 164, 163 ); 
+      IPAddress timeServer(132, 163, 4, 101); // time-a.timefreq.bldrdoc.gov
+      int resetPin = A1;   //
+      int ethernet_powerdonwPin = 7;
+      const int timeZone = 1;
+      boolean timeset_on =false;
+      EthernetUDP Udp;
+      unsigned int localPort = 8888;  // local port to listen for UDP packets
     #endif
+    
+    
 
 //int
     int MAX_FAILED_CONNS = 3;
@@ -182,13 +190,14 @@ static char lon_buf[16];
     unsigned char state;
 
     #if ENABLE_3G
-    char res[a3gsMAX_RESULT_LENGTH+1];
+      char res[a3gsMAX_RESULT_LENGTH+1];
+      const int timeZone = 1;
     #endif
 
+//gateway setup    
     char gateway0[16] ;
     char gateway1[16] ;
     char *gateway[2];
-
 
 //joystick pins setup
     const int JOY_A_PIN = 17;
@@ -203,13 +212,6 @@ static char lon_buf[16];
     volatile boolean joyCntD = false;
     volatile boolean joyCntE = false;
     
-
-////red blink test    
-//      const int red_ledPin =  26;      // the number of the LED pi
-//      int red_ledState = LOW;             // ledState used to set the LED 
-//      long previousMillis = 0;        // will store last time LED was updated 
-//      long interval = 1000; 
-
 
 //WDT setup init
 
@@ -361,8 +363,10 @@ void setup() {
     //set up the LCD's number of columns and rows: 
           lcd.begin(20, 4);
           
+//     //red blink setup
+//           pinMode(red_ledPin, OUTPUT);
 
-          
+	
 /**************************************************************************/
 // Start screen
 /**************************************************************************/
@@ -392,15 +396,7 @@ void setup() {
                      lcd.print("Device ID:");  
                      lcd.print(config.devid);
                      lcd.setCursor(0, 3);
-                     if (config.trb) {            
-                             joyCntA=!joyCntA;
-                             lcd.print ("Troubleshoot mode");
-                     }
-                      if (!config.trb) {            
-                             lcd.print("http://safecast.org");
-                      }
-         
-     
+                     lcd.print("http://safecast.org");         
           
               // SENSOR 1 setup
               if (config.sensor1_enabled) {
@@ -432,16 +428,14 @@ void setup() {
       digitalWrite(red_ledPin, LOW);
       digitalWrite(green_ledPin, LOW); 
       
-    // switch to fast trouble shoot mode if SDcard is setup for that
-         if (config.trb) {            
-            joyCntA=!joyCntA;
-            Serial.println (" Trouble shootmode"); 
-         }
+
 
 /**************************************************************************/
 // System Screen
 /**************************************************************************/
-
+#if ENABLE_3G
+  a3gs.start();
+#endif
         
      // read battery     
        float battery =((read_voltage(VOLTAGE_PIN)));
@@ -492,6 +486,11 @@ void setup() {
 /**************************************************************************/
 // SDcard Screen
 /**************************************************************************/  
+
+
+#if ENABLE_3G
+  a3gs.begin();
+#endif
       lcd.clear();
       lcd.setCursor(0, 0);
       lcd.print("SDCARD :");  
@@ -594,9 +593,7 @@ void setup() {
         Serial.print("s2i =");
         Serial.println(config.s2i);
         Serial.print("aux =");
-        Serial.println(config.aux);  
-        Serial.print("trb =");
-        Serial.println(config.trb);      
+        Serial.println(config.aux);      
 
     
     
@@ -624,6 +621,22 @@ void setup() {
                 Serial.println("GMT time is set"); 
                 
 #endif
+
+
+#if ENABLE_3G
+      uint32_t seconds;
+      
+     if (a3gs.getTime2(seconds) == 0) {
+          setTime(seconds);
+          adjustTime(-28800);
+          Teensy3Clock.set(now());
+          Serial.print(seconds);
+          Serial.println(" Sec.");
+        }
+        else
+          Serial.println("Can't get seconds.");  
+    
+ #endif
     
   //Check if Time is setup
     setSyncProvider(getTeensy3Time);
@@ -671,17 +684,7 @@ void setup() {
 
           } 
           
-        //serial info print
-//            Serial.print("Time (GMT):");
-//            printDigitsSerial(hour());
-//            Serial.print(F(":"));
-//            printDigitsSerial(minute());
-//            Serial.println("");
-//            Serial.print("Date:");
-//            Serial.print(month());
-//            Serial.print("-");
-//            Serial.println(day());
-          
+
           
 
 /**************************************************************************/
@@ -854,22 +857,18 @@ void setup() {
 /**************************************************************************/
 // Network Screen
 /**************************************************************************/   
-         // random gateway array setup
+#if ENABLE_ETHERNET
+
+      // random gateway array setup
             gateway[0] = config.gw1;
             gateway[1] = config.gw2;
             randomSeed(analogRead(0));
             int gatewaynumber=random(GATEWAY_SZ);
             Serial.print("Random gateway setup for ");
-            //Serial.println(gateway[gatewaynumber]);
             server=gateway[gatewaynumber];
             Serial.println(server);
-         
-
-#if ENABLE_ETHERNET
-
-
-          
-	// Initiate a DHCP session
+	
+      // Initiate a DHCP session
         lcd.clear();
         lcd.setCursor(0, 0);
         lcd.print("NETWORK ETHER (DHCP)");
@@ -893,7 +892,7 @@ void setup() {
                   lcd.print(Ethernet.localIP()); 
                   lcd.setCursor(0, 2);        
                   lcd.print("GW:");
-                  lcd.print(server);
+                  lcd.print(config.gw1);
                   lcd.setCursor(0, 3);
                   lcd.print("ID");
                       for (int i=0; i<6; ++i)
@@ -906,6 +905,27 @@ void setup() {
 #endif
 
 #if ENABLE_3G
+
+          //Get RSSI level
+              a3gs.getRSSI(rssi);
+              Serial.print("RSSI = ");
+              Serial.print(rssi);
+              Serial.println(" dBm");
+//              lcd.setCursor(12,1);
+//              lcd.print(rssi);
+//              lcd.print(" dBm");
+
+        
+
+          // random gateway array setup
+                gateway[0] = config.gw1;
+                gateway[1] = config.gw2;
+                randomSeed(analogRead(0));
+                int gatewaynumber=random(GATEWAY_SZ);
+                Serial.print("Random gateway setup for ");
+                server=gateway[gatewaynumber];
+                Serial.println(server);
+                
            lcd.clear();
            previousMillis=millis() ;
            while ((unsigned long)(millis() - previousMillis) <= display_interval) {
@@ -914,12 +934,13 @@ void setup() {
                         joyCntA=!joyCntA;
                         Serial.println ("joystick down");
                     }
-                  lcd.clear();
                   lcd.setCursor(0, 0);
                   lcd.print("NETWORK 3G");
                   lcd.setCursor(0, 1);
                   lcd.print("Signal:");
-                  lcd.print("[000000]"); 
+                  lcd.print(rssi);
+                  lcd.print(" dBm");
+//                  lcd.print("[000000]"); 
                   lcd.setCursor(0, 2);        
                   lcd.print("Carrier:");
                   lcd.print("NTT Docomo");
@@ -986,28 +1007,37 @@ void setup() {
               lcd.setCursor(6,3);
               lcd.print(battery);
               lcd.print("V");
-          
+              #if ENABLE_3G
+                  lcd.setCursor(12,3);
+                  lcd.print(rssi);
+                  lcd.print(" dBm");
+                     if (a3gs.start() == 0 && a3gs.begin() == 0)
+                         {
+                       }else {
+                         //a3gs.restart();
+                         lcd.setCursor(14,2);
+                         lcd.print("FAILED");
+                     }
+
+                #endif
+
            }
        
-  
-   
        
     //setup update time in msec
-        if (config.trb) {
-          updateIntervalInMillis = updateIntervalInMinutes * 6000;                  // update time in ms for trouble shooting
-         }
-         if (!config.trb) {
-          updateIntervalInMillis = updateIntervalInMinutes * 300000;                  // update time in ms 
-         }
-               
-          unsigned long now1 = millis();
-          nextExecuteMillis = now1 + updateIntervalInMillis;
+        updateIntervalInMillis = updateIntervalInMinutes * 300000;                  // update time in ms
+        //updateIntervalInMillis = updateIntervalInMinutes * 6000;                  // update time in ms
+        unsigned long now1 = millis();
+        nextExecuteMillis = now1 + updateIntervalInMillis;
      
     // create logfile name 
-        if (openlog_ready) {
-            logfile_ready = true;
-            createFile(logfile_name);
-        }
+    if (openlog_ready) {
+        logfile_ready = true;
+        createFile(logfile_name);
+    }
+
+//Serial.print("lastConnectionTime=");
+//Serial.println(lastConnectionTime);
 
 counts_per_sample = 0;
 counts_per_sample2 = 0;
@@ -1346,8 +1376,8 @@ void SendDataToServer(float CPM,float CPM2){
           lcd.print("GMT");
           
 
-//      // Reset last 
-//      lastConnectionTime = millis();
+     // Reset last 
+lastConnectionTime = millis();
 #endif
 
 
@@ -1378,59 +1408,12 @@ void SendDataToServer(float CPM,float CPM2){
       lcd.setCursor(0,2);
       lcd.print("API:");
 
-   // connect 3G
-//    lcd.clear();
-//    lcd.print("Starting up 3Gshield");
-//    lcd.setCursor(0, 1);
-//    lcd.print("counting pulses..");
-    if (a3gs.start() == 0 && a3gs.begin() == 0)
-           {
-           lcd.setCursor(10,2);
-           lcd.print("CONNECTED");
-         }else {
-           //a3gs.restart();
-           lcd.setCursor(10,2);
-           lcd.print("FAIL=");
-       }
-       
 
-        // Create data string for sensor 1
-        len = sizeof(res);
-		lastConnectionTime = millis();
-                  #if ENABLE_DEV
-                          sprintf_P(path, PSTR("/scripts/shorttest.php?api_key=%s&lat=%s&lon=%s&cpm=%s&id=%d"),
-                  #endif
-                  
-                  #if ENABLE_API
-                          sprintf_P(path, PSTR("/scripts/short.php?api_key=%s&lat=%s&lon=%s&cpm=%s&id=%d"),
-                  #endif 
-
-                  config.api_key, \
-                  config.latitude, \
-                  config.longitude, \
-                  CPM_string, \
-                  config.user_id);
-                  
-                  
-       // Create data string for sensor 2
-                  #if ENABLE_DEV
-                          sprintf_P(path2, PSTR("/scripts/shorttest.php?api_key=%s&lat=%s&lon=%s&cpm=%s&id=%d"),
-                  #endif
-                  
-                  #if ENABLE_API
-                          sprintf_P(path2, PSTR("/scripts/short.php?api_key=%s&lat=%s&lon=%s&cpm=%s&id=%d"),
-                  #endif 
-                  config.api_key, \
-                  config.latitude, \
-                  config.longitude, \
-                  CPM2_string, \
-                  config.user_id2);          
-                  
 
         //convert time in correct format
         memset(timestamp, 0, LINE_SZ);
         sprintf_P(timestamp, PSTR("%02d-%02d-%02dT%02d:%02d:%02dZ"),  \
-					year(), month(), day(),  \
+		    year(), month(), day(),  \
                     hour(), minute(), second());
                     
                     
@@ -1491,12 +1474,13 @@ void SendDataToServer(float CPM,float CPM2){
             float temperature= 18.6;
             
        //add second line for addtional info
-           sprintf_P(buf2 + len2, PSTR("*%X%s$%s,%d,%d,%d"), 
+           sprintf_P(buf2 + len2, PSTR("*%X%s$%s,%d,%d,%d,%d"), \
               (int)chk, \
               "\n", \
               HEADER_SENSOR,  \
                config.devid, \
                temperature, \
+               rssi, \
                battery);
             
         Serial.println(buf2);    
@@ -1506,34 +1490,86 @@ void SendDataToServer(float CPM,float CPM2){
         //write to sd card sensor 2 info
         OpenLog.println(buf2);
 
-        //send to server
+      //check level
+
+        if (a3gs.getRSSI(rssi) == 0) {
+          Serial.print("RSSI = ");
+          Serial.print(rssi);
+          Serial.println(" dBm");
+          lcd.setCursor(12,3);
+          lcd.print(rssi);
+          lcd.print(" dBm");
+        }
+
+
+    //send to server
+        // Create data string for sensor 1
+                len = sizeof(res);
+		lastConnectionTime = millis();
+                  #if ENABLE_DEV
+                          sprintf_P(path, PSTR("/scripts/shorttest.php?api_key=%s&lat=%s&lon=%s&cpm=%s&id=%d"),
+                  #endif
+                  
+                  #if ENABLE_API
+                          sprintf_P(path, PSTR("/scripts/short.php?api_key=%s&lat=%s&lon=%s&cpm=%s&id=%d"),
+                  #endif 
+                  config.api_key, \
+                  config.latitude, \
+                  config.longitude, \
+                  CPM_string, \
+                  config.user_id);  
+                  
+                  
+       // Create data string for sensor 2
+                  #if ENABLE_DEV
+                          sprintf_P(path2, PSTR("/scripts/shorttest.php?api_key=%s&lat=%s&lon=%s&cpm=%s&id=%d"),
+                  #endif
+                  
+                  #if ENABLE_API
+                          sprintf_P(path2, PSTR("/scripts/short.php?api_key=%s&lat=%s&lon=%s&cpm=%s&id=%d"),
+                  #endif 
+                  config.api_key, \
+                  config.latitude, \
+                  config.longitude, \
+                  CPM2_string, \
+                  config.user_id2);  
+
         if (a3gs.httpGET(server, port, path, res, len) == 0) {
-	           Serial.println(F("Sent sensor 1 info to server OK!"));
+	           Serial.println("Sent sensor 1 info to server OK!");
+                   Serial.print(">Response=[");
+                   Serial.print(res);
+                   Serial.println("]");
+                  
+
             a3gs.httpGET(server, port, path2, res, len);
-                   Serial.println(F("Sent sensor 2 info to server OK!"));
-		  conn_fail_cnt = 0;
-      
+                   Serial.println("Sent sensor 2 info to server OK!");
+                   Serial.print(">Response=[");
+                   Serial.print(res);
+                   Serial.println("]");
+                   
+                    conn_fail_cnt = 0;     
+             
+             
+             
              //Display infomation 
                    
-              lcd.setCursor(10,2);
+              lcd.setCursor(14,2);
               lcd.print("PASS");
               lcd.setCursor(0,3);
               lcd.print("STS:");
               lcd.setCursor(6,3);
               lcd.print(battery);
               lcd.print("V");
-                         
-            lastConnectionTime = millis();
+              
         }
         else {
             
-           lcd.setCursor(10,2);
-           lcd.print("FAIL=");
+           lcd.setCursor(14,2);
             lastConnectionTime = millis();
             Serial.println("No connection to API!");
             Serial.println("saving to SDcard only");
             
-            conn_fail_cnt++;
+                conn_fail_cnt++;
 		if (conn_fail_cnt >= MAX_FAILED_CONNS)
 		{
                       //first shut down 3G before reset
@@ -1542,14 +1578,16 @@ void SendDataToServer(float CPM,float CPM2){
 		      
                       CPU_RESTART;
 		}
-                 lcd.setCursor(10,2);
+                 lcd.setCursor(14,2);
                  lcd.print("FAIL=");
-                 lcd.print(ctrl.conn_fail_cnt);
+                 
+                 lcd.print(MAX_FAILED_CONNS - conn_fail_cnt);
                   Serial.print("NC. Retries left:");
                   Serial.println(MAX_FAILED_CONNS - conn_fail_cnt);
 		lastConnectionTime = millis();
 		return;
         }
+
     //}
     //clean out the buffers
     memset(buf, 0, sizeof(buf));
@@ -1558,10 +1596,13 @@ void SendDataToServer(float CPM,float CPM2){
 
 
     // report to LCD     
-    lcd.setCursor(4, 2);
+          lcd.setCursor(4, 2);
           printDigits(hour());
           lcd.print(":");
        	  printDigits(minute());
+          lcd.print("GMT");
+       
+
 
 #endif
 }
@@ -1786,31 +1827,6 @@ void createFile(char *fileName) {
 //
 //}
 
-float read_rssi(){
-  unsigned int result = 0;
-  delay(3000);  // Wait for Start Serial Monitor
-  Serial.println("Ready.");
-
-  Serial.print("Initializing.. ");
-  if (a3gs.start() == 0 && a3gs.begin() == 0) {
-    Serial.println("Succeeded.");
-    int rssi;
-    if (a3gs.getRSSI(rssi) == 0) {
-      Serial.print("RSSI = ");
-      Serial.print(rssi);
-      Serial.println(" dBm");
-        // return the result:
-        result = rssi;
-       return(result);
-    }
-  }
-  else
-    Serial.println("Failed.");
-
-  Serial.println("Shutdown..");
-  a3gs.end();
-  a3gs.shutdown();
-}
 
 
 // Red blink routine
