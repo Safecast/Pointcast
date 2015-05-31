@@ -27,7 +27,9 @@
 2015-04-22 V2.8.4 Auto gateway setup (two gateways at the moment)
 2015-04-22 V2.8.5 Display RSSI level in 3G.
 2015-04-23 V2.8.6 SDCard RSSI level saved in 3G.
-
+2015-04-30 V2.8.7 Menu updated.
+2015-04-30 V2.8.8 Menu loop remake
+2015-04-31 V2.8.9 Logfile name fix
 
 
 
@@ -74,6 +76,8 @@ int red_ledPin=26;
 
 // 3G signal strengh
  int rssi=-125;
+ 
+
 
 //setup Power detection
 #define VOLTAGE_PIN A13
@@ -84,7 +88,9 @@ int red_ledPin=26;
 #include <OneWire.h>
 OneWire  ds(A12);  // on pin 10 (a 4.7K resistor is necessary)
 
-
+//main menu variable
+ boolean finished_startup = false;
+ boolean network_startup = false;
 
 #define ENABLE_DEBUG 
 #define LINE_SZ 128
@@ -119,7 +125,7 @@ static char lon_buf[16];
 
 
 //static
-    static char VERSION[] = "V2.8.6";
+    static char VERSION[] = "V2.8.9";
 
     #if ENABLE_3G
     static char path[LINE_SZ];
@@ -323,9 +329,7 @@ static char lon_buf[16];
 /**************************************************************************/
 
 void setup() {  
-         
-          
-   
+
    //print last reset message and setup the patting of the dog
          delay(100);
          printResetType();
@@ -336,7 +340,10 @@ void setup() {
    // Load EEPROM settings
          PointcastSetup.initialize();
      
-   //beep 
+   //beep for loud piezo
+//       pinMode(28, OUTPUT);
+//       digitalWrite(28, HIGH);
+    //beep for normal piezo
        tone(28, 600, 200);
     
     //button reset
@@ -363,28 +370,20 @@ void setup() {
     //set up the LCD's number of columns and rows: 
           lcd.begin(20, 4);
           
-//     //red blink setup
-//           pinMode(red_ledPin, OUTPUT);
-
 	
+Menu_startup();
+}
+
 /**************************************************************************/
 // Start screen
 /**************************************************************************/
 
-
+void Menu_startup(void){
      lcd.clear();
     // LED on delay (start speed diplay function by pressing down)
-     while ((unsigned long)(millis() - previousMillis) <= display_interval) {
-               if (joyCntA){
-                        display_interval=1000;
-                        joyCntA=!joyCntA;
-                        Serial.println ("joystick down");
-                    }
-                if (joyCntD){
-                        joyCntD=!joyCntD;
-                        //EEprom clear routine
-                        Serial.println ("joystick center");
-                    }
+     previousMillis = millis();
+         while ((unsigned long)(millis() - previousMillis) <= display_interval) {
+                     if (joyCntA){ Serial.println ("Down"); joyCntA=!joyCntA;joyCntB=false;lcd.clear();display_interval=3000;Menu_system();return;}
 
               // Print startup message to the LCD.
                      lcd.setCursor(0, 0);
@@ -416,26 +415,36 @@ void setup() {
               //LED1(green) setup
                 pinMode(green_ledPin, OUTPUT);
                 digitalWrite(green_ledPin, HIGH);
+                digitalWrite(28, LOW);
                 
              //LED2(red) setup
                pinMode(red_ledPin, OUTPUT);
                digitalWrite(red_ledPin, HIGH);
+
              
 
         }
      
     //LED off
       digitalWrite(red_ledPin, LOW);
-      digitalWrite(green_ledPin, LOW); 
+      digitalWrite(green_ledPin, LOW);
+    // Sound off  
+      digitalWrite(28, HIGH); 
       
-
+  
+  Menu_system();
+      
+}
 
 /**************************************************************************/
 // System Screen
 /**************************************************************************/
-#if ENABLE_3G
-  a3gs.start();
-#endif
+
+
+ void Menu_system(void){
+      #if ENABLE_3G
+        a3gs.start();
+      #endif
         
      // read battery     
        float battery =((read_voltage(VOLTAGE_PIN)));
@@ -456,11 +465,9 @@ void setup() {
 	   lcd.clear();
            previousMillis=millis() ;
            while ((unsigned long)(millis() - previousMillis) <= display_interval) {
-               if (joyCntA){
-                        display_interval=1000;
-                        joyCntA=!joyCntA;
-                        Serial.println ("joystick down");
-                    }
+                     if (joyCntB){ Serial.println ("Up"); joyCntB=!joyCntB;joyCntA=false;lcd.clear();display_interval=3000;Menu_startup();return;}
+                     if (joyCntA){ Serial.println ("Down"); joyCntA=!joyCntA;joyCntB=false;lcd.clear();display_interval=3000;Menu_sdcard();return;}
+
                lcd.setCursor(0, 0);
                lcd.print("System");
                lcd.setCursor(0, 1);
@@ -479,7 +486,10 @@ void setup() {
                lcd.print("Tmp:"); 
                //lcd.println(temperature);
                lcd.print("C");
-     }
+           }
+  
+  Menu_sdcard();
+}   
 
 
      
@@ -487,10 +497,12 @@ void setup() {
 // SDcard Screen
 /**************************************************************************/  
 
+void Menu_sdcard(void){
 
-#if ENABLE_3G
-  a3gs.begin();
-#endif
+      #if ENABLE_3G
+        a3gs.begin();
+      #endif
+      
       lcd.clear();
       lcd.setCursor(0, 0);
       lcd.print("SDCARD :");  
@@ -502,11 +514,9 @@ void setup() {
           if (openlog_ready) {
            previousMillis=millis() ;
            while ((unsigned long)(millis() - previousMillis) <= display_interval) {
-               if (joyCntA){
-                        display_interval=1000;
-                        joyCntA=!joyCntA;
-                        Serial.println ("joystick down");
-                    }
+                     if (joyCntB){ Serial.println ("Up"); joyCntB=!joyCntB;joyCntA=false;lcd.clear();display_interval=3000;Menu_system();return;}
+                     if (joyCntA){ Serial.println ("Down"); joyCntA=!joyCntA;joyCntB=false;lcd.clear();display_interval=3000;Menu_time();return;}
+
                         lcd.setCursor(8, 0);
                         lcd.print(" PASS"); 
                         lcd.setCursor(0, 1);
@@ -595,50 +605,55 @@ void setup() {
         Serial.print("aux =");
         Serial.println(config.aux);      
 
-    
+      
+  Menu_time();
+}  
     
 /**************************************************************************/
 // Time Screen
 /**************************************************************************/  
- #if ENABLE_ETHERNET
+ void Menu_time(void){
+ 
+         #if ENABLE_ETHERNET
           //setup time 
-                 Serial.println("TimeNTP setup");
+          if (!network_startup){
+          //setup time 
                   if (Ethernet.begin(macAddress) == 0) {
                     {
-                      Serial.println("Failed to configure Ethernet using DHCP");
                       Ethernet.begin(macAddress, localIP);
                     }
-                    
+                  }
+                  if (Ethernet.begin(macAddress) == 0) {
+                    {
+                      Ethernet.begin(macAddress, localIP);
+                    }
                   }
                 Udp.begin(localPort);
-                Serial.println("waiting for sync");
                 setSyncProvider(getNtpTime);
-                Teensy3Clock.set(now());
-                 if(timeset_on){             
-                    lcd.setCursor(0, 2); 
-                    lcd.println("GMT time is set");
-                 }                       
-                Serial.println("GMT time is set"); 
+                Teensy3Clock.set(now()); 
+          }
+          network_startup=true;
                 
-#endif
-
-
-#if ENABLE_3G
-      uint32_t seconds;
-      
-     if (a3gs.getTime2(seconds) == 0) {
-          setTime(seconds);
-          adjustTime(-28800);
-          Teensy3Clock.set(now());
-          Serial.print(seconds);
-          Serial.println(" Sec.");
-        }
-        else
-          Serial.println("Can't get seconds.");  
-    
- #endif
-    
+        #endif
+        
+        
+        #if ENABLE_3G
+              uint32_t seconds;
+              
+             if (a3gs.getTime2(seconds) == 0) {
+                  setTime(seconds);
+                  adjustTime(-28800);
+                  Teensy3Clock.set(now());
+                  Serial.print(seconds);
+                  Serial.println(" Sec.");
+                }
+                else
+                  Serial.println("Can't get seconds.");  
+            
+         #endif
+            
   //Check if Time is setup
+  
     setSyncProvider(getTeensy3Time);
     if (timeStatus()!= timeSet) {
         Serial.println("Unable to sync with the RTC");
@@ -653,8 +668,11 @@ void setup() {
       //display time
 
            lcd.clear();
-           previousMillis=millis() ;
-           while ((unsigned long)(millis() - previousMillis) <= display_interval) {
+            previousMillis = millis();
+            while ((unsigned long)(millis() - previousMillis) <= display_interval) {
+                     if (joyCntB){ Serial.println ("Up"); joyCntB=!joyCntB;joyCntA=false;lcd.clear();display_interval=3000;Menu_sdcard();return;}
+                     if (joyCntA){ Serial.println ("Down"); joyCntA=!joyCntA;joyCntB=false;lcd.clear();display_interval=3000;Menu_pointcast1();return;}
+
                     lcd.setCursor(0, 0);
                     lcd.print("TIME (GMT)");
                     lcd.setCursor(0, 1);
@@ -670,35 +688,26 @@ void setup() {
                     lcd.setCursor(0, 3);
                     lcd.print("Zone:");
                     lcd.print(config.tz);  
-
-    
-             if (joyCntA){
-                        display_interval=1000;
-                        joyCntA=!joyCntA;
-                        Serial.println ("joystick down");
-                    }
-                if (joyCntD){
-                        joyCntD=!joyCntD;
-                        Serial.println ("joystick center");
-                    }
-
           } 
           
+  
+  Menu_pointcast1();
+}          
 
           
 
 /**************************************************************************/
 // POINTCAST Screen
 /**************************************************************************/  
+void Menu_pointcast1(void){
+
         //display information
            lcd.clear();
            previousMillis=millis() ;
            while ((unsigned long)(millis() - previousMillis) <= display_interval) {
-               if (joyCntA){
-                        display_interval=1000;
-                        joyCntA=!joyCntA;
-                        Serial.println ("joystick down");
-                    }
+                     if (joyCntB){ Serial.println ("Up"); joyCntB=!joyCntB;joyCntA=false;lcd.clear();display_interval=3000;Menu_time();return;}
+                     if (joyCntA){ Serial.println ("Down"); joyCntA=!joyCntA;joyCntB=false;lcd.clear();display_interval=3000;Menu_pointcast2();return;}
+
                 lcd.setCursor(0, 0);
                 lcd.print("POINTCAST SETUP");
                 lcd.setCursor(0, 1);
@@ -712,14 +721,18 @@ void setup() {
                 lcd.print(config.alm);
                 lcd.print("CPM");    
            }
+           
+      
+      Menu_pointcast2();
+    }     
+
+ void Menu_pointcast2(void){   
           lcd.clear();
            previousMillis=millis() ;
            while ((unsigned long)(millis() - previousMillis) <= display_interval) {
-               if (joyCntA){
-                        display_interval=1000;
-                        joyCntA=!joyCntA;
-                        Serial.println ("joystick down");
-                    }
+                     if (joyCntB){ Serial.println ("Up"); joyCntB=!joyCntB;joyCntA=false;lcd.clear();display_interval=3000;Menu_pointcast1();return;}
+                     if (joyCntA){ Serial.println ("Down"); joyCntA=!joyCntA;joyCntB=false;lcd.clear();display_interval=3000;Menu_gps();return;}
+
                 lcd.setCursor(0, 0);
                 lcd.print("UPLOAD MODE");
                 lcd.setCursor(0, 1);
@@ -729,19 +742,20 @@ void setup() {
                 lcd.setCursor(0, 3);
                 lcd.print("Upload Win: 300sec"); 
            }  
-  
+      
+      Menu_gps();
+    }
+      
 /**************************************************************************/
 // GPS Screen
 /**************************************************************************/  
-  
+  void Menu_gps(void){
          lcd.clear();
            previousMillis=millis() ;
            while ((unsigned long)(millis() - previousMillis) <= display_interval) {
-               if (joyCntA){
-                        display_interval=1000;
-                        joyCntA=!joyCntA;
-                        Serial.println ("joystick down");
-                    } 
+                     if (joyCntB){ Serial.println ("Up"); joyCntB=!joyCntB;joyCntA=false;lcd.clear();display_interval=3000;Menu_pointcast2();return;}
+                     if (joyCntA){ Serial.println ("Down"); joyCntA=!joyCntA;joyCntB=false;lcd.clear();display_interval=3000;Menu_sensors();return;}
+
               lcd.setCursor(0, 0);
               lcd.print("GPS LOCATION");
               lcd.setCursor(0, 1);
@@ -763,19 +777,20 @@ void setup() {
         Serial.println(config.latitude);
         Serial.print("Alt:");
         Serial.println(config.alt);  
-
+    
+    Menu_sensors();
+  }
 
 /**************************************************************************/
 // Sensors Screen
-/**************************************************************************/    
+/**************************************************************************/   
+void Menu_sensors(void){
         lcd.clear();
            previousMillis=millis() ;
            while ((unsigned long)(millis() - previousMillis) <= display_interval) {
-               if (joyCntA){
-                        display_interval=1000;
-                        joyCntA=!joyCntA;
-                        Serial.println ("joystick down");
-                    }
+                     if (joyCntB){ Serial.println ("Up"); joyCntB=!joyCntB;joyCntA=false;lcd.clear();display_interval=3000;Menu_gps();return;}
+                     if (joyCntA){ Serial.println ("Down"); joyCntA=!joyCntA;joyCntB=false;lcd.clear();display_interval=3000;Menu_sensors_tests();return;}
+
               lcd.setCursor(0, 0);
               lcd.print("SENSORS ");
               if (config.sensor1_enabled & config.sensor2_enabled ) {
@@ -796,22 +811,24 @@ void setup() {
               lcd.setCursor(0, 3);
               lcd.print("AUX=NC");
            }
+       
+        Menu_sensors_tests();
+    }         
         
 /**************************************************************************/
 // Sensors Test Screen
 /**************************************************************************/  
+  void Menu_sensors_tests(void){
            lcd.clear();
            previousMillis=millis() ;
            while ((unsigned long)(millis() - previousMillis) <= display_interval) {
-               if (joyCntA){
-                        display_interval=1000;
-                        joyCntA=!joyCntA;
-                        Serial.println ("joystick down");
-                    } 
+                     if (joyCntB){ Serial.println ("Up"); joyCntB=!joyCntB;joyCntA=false;lcd.clear();display_interval=3000;Menu_sensors();return;}
+                     if (joyCntA){ Serial.println ("Down"); joyCntA=!joyCntA;joyCntB=false;lcd.clear();display_interval=3000;Menu_api();return;}
+
                 lcd.setCursor(0, 0);
                 lcd.print("SENSOR TEST");
                 lcd.setCursor(0, 1);
-                if (counts_per_sample++ < 1 ) {
+                if (counts_per_sample < 1 ) {
                         lcd.print("S1=FAIL");
                          //Red LED on
                         digitalWrite(26, HIGH);
@@ -819,7 +836,7 @@ void setup() {
                         lcd.print("S1=PASS");
                       }
                 lcd.setCursor(0, 2);
-                if (counts_per_sample2++ < 1 ) {
+                if (counts_per_sample2 < 1 ) {
                         lcd.print("S2=FAIL");
                          //Red LED on
                           digitalWrite(26, HIGH);
@@ -829,18 +846,21 @@ void setup() {
                 lcd.setCursor(0, 3);    
                 lcd.print("AUX=NC");
            }
+    
+    Menu_api();
+  }
 
 /**************************************************************************/
 // API Screen
 /**************************************************************************/  
+  
+  void Menu_api(void){
          lcd.clear();
            previousMillis=millis() ;
            while ((unsigned long)(millis() - previousMillis) <= display_interval) {
-               if (joyCntA){
-                        display_interval=1000;
-                        joyCntA=!joyCntA;
-                        Serial.println ("joystick down");
-                    }
+                     if (joyCntB){ Serial.println ("Up"); joyCntB=!joyCntB;joyCntA=false;lcd.clear();display_interval=3000;Menu_sensors_tests();return;}
+                     if (joyCntA){ Serial.println ("Down"); joyCntA=!joyCntA;joyCntB=false;lcd.clear();display_interval=3000;Menu_network();return;}
+
               lcd.setCursor(0, 0);
               lcd.print("API");
               lcd.setCursor(0, 1);
@@ -853,114 +873,118 @@ void setup() {
               lcd.print("API-KEY=");
       //        lcd.print(config.api_key);   
        }     
+  
+  Menu_network();
+}      
 
 /**************************************************************************/
 // Network Screen
 /**************************************************************************/   
-#if ENABLE_ETHERNET
+void Menu_network(void){
+      #if ENABLE_ETHERNET
+      
+            // random gateway array setup
+                  gateway[0] = config.gw1;
+                  gateway[1] = config.gw2;
+                  randomSeed(analogRead(0));
+                  int gatewaynumber=random(GATEWAY_SZ);
+                  Serial.print("Random gateway setup for ");
+                  server=gateway[gatewaynumber];
+                  Serial.println(server);
+      	
+            // Initiate a DHCP session
+              lcd.clear();
+              lcd.setCursor(0, 0);
+              lcd.print("NETWORK ETHER (DHCP)");
+//              if (Ethernet.begin(macAddress) == 0)
+//      	{
+//             		Serial.println("Failed DHCP");
+//              	Ethernet.begin(macAddress, localIP);
+//      	}
+//      
+                 previousMillis=millis() ;
+                 while ((unsigned long)(millis() - previousMillis) <= display_interval) {
+                    if (joyCntB){ Serial.println ("Up"); joyCntB=!joyCntB;joyCntA=false;lcd.clear();display_interval=3000;Menu_api();return;}
+                     if (joyCntA){ Serial.println ("Down"); joyCntA=!joyCntA;joyCntB=false;lcd.clear();display_interval=3000;Menu_datalogger();return;}
 
-      // random gateway array setup
-            gateway[0] = config.gw1;
-            gateway[1] = config.gw2;
-            randomSeed(analogRead(0));
-            int gatewaynumber=random(GATEWAY_SZ);
-            Serial.print("Random gateway setup for ");
-            server=gateway[gatewaynumber];
-            Serial.println(server);
-	
-      // Initiate a DHCP session
-        lcd.clear();
-        lcd.setCursor(0, 0);
-        lcd.print("NETWORK ETHER (DHCP)");
-        if (Ethernet.begin(macAddress) == 0)
-	{
-       		Serial.println("Failed DHCP");
-        	Ethernet.begin(macAddress, localIP);
-	}
+                        lcd.setCursor(0, 0);
+                        lcd.print("NETWORK ETHER (DHCP)");
+                        lcd.setCursor(0, 1);
+                        lcd.print("IP:");
+                        lcd.print(Ethernet.localIP()); 
+                        lcd.setCursor(0, 2);        
+                        lcd.print("GW:");
+                        lcd.print(config.gw1);
+                        lcd.setCursor(0, 3);
+                        lcd.print("ID");
+                            for (int i=0; i<6; ++i)
+                                {
+                              lcd.print(":");
+                              lcd.print(macAddress[i],HEX);
+                              } 
+                      }              
+                  
+      #endif
+      
 
-           previousMillis=millis() ;
-           while ((unsigned long)(millis() - previousMillis) <= display_interval) {
-               if (joyCntA){
-                        display_interval=1000;
-                        joyCntA=!joyCntA;
-                        Serial.println ("joystick down");
-                    }
-                  lcd.setCursor(0, 0);
-                  lcd.print("NETWORK ETHER (DHCP)");
-                  lcd.setCursor(0, 1);
-                  lcd.print("IP:");
-                  lcd.print(Ethernet.localIP()); 
-                  lcd.setCursor(0, 2);        
-                  lcd.print("GW:");
-                  lcd.print(config.gw1);
-                  lcd.setCursor(0, 3);
-                  lcd.print("ID");
-                      for (int i=0; i<6; ++i)
-                          {
-                        lcd.print(":");
-                        lcd.print(macAddress[i],HEX);
-                        } 
-                }              
-            
-#endif
+      #if ENABLE_3G
+      
+                //Get RSSI level
+                    a3gs.getRSSI(rssi);
+                    Serial.print("RSSI = ");
+                    Serial.print(rssi);
+                    Serial.println(" dBm");
+      //              lcd.setCursor(12,1);
+      //              lcd.print(rssi);
+      //              lcd.print(" dBm");
+      
+              
+      
+                // random gateway array setup
+                      gateway[0] = config.gw1;
+                      gateway[1] = config.gw2;
+                      randomSeed(analogRead(0));
+                      int gatewaynumber=random(GATEWAY_SZ);
+                      Serial.print("Random gateway setup for ");
+                      server=gateway[gatewaynumber];
+                      Serial.println(server);
+                      
+                 lcd.clear();
+                 previousMillis=millis() ;
+                 while ((unsigned long)(millis() - previousMillis) <= display_interval) {
+                     if (joyCntB){ Serial.println ("Up"); joyCntB=!joyCntB;joyCntA=false;lcd.clear();display_interval=3000;Menu_api();return;}
+                     if (joyCntA){ Serial.println ("Down"); joyCntA=!joyCntA;joyCntB=false;lcd.clear();display_interval=3000;Menu_datalogger();return;}
 
-#if ENABLE_3G
-
-          //Get RSSI level
-              a3gs.getRSSI(rssi);
-              Serial.print("RSSI = ");
-              Serial.print(rssi);
-              Serial.println(" dBm");
-//              lcd.setCursor(12,1);
-//              lcd.print(rssi);
-//              lcd.print(" dBm");
-
-        
-
-          // random gateway array setup
-                gateway[0] = config.gw1;
-                gateway[1] = config.gw2;
-                randomSeed(analogRead(0));
-                int gatewaynumber=random(GATEWAY_SZ);
-                Serial.print("Random gateway setup for ");
-                server=gateway[gatewaynumber];
-                Serial.println(server);
-                
-           lcd.clear();
-           previousMillis=millis() ;
-           while ((unsigned long)(millis() - previousMillis) <= display_interval) {
-               if (joyCntA){
-                        display_interval=1000;
-                        joyCntA=!joyCntA;
-                        Serial.println ("joystick down");
-                    }
-                  lcd.setCursor(0, 0);
-                  lcd.print("NETWORK 3G");
-                  lcd.setCursor(0, 1);
-                  lcd.print("Signal:");
-                  lcd.print(rssi);
-                  lcd.print(" dBm");
-//                  lcd.print("[000000]"); 
-                  lcd.setCursor(0, 2);        
-                  lcd.print("Carrier:");
-                  lcd.print("NTT Docomo");
-                  lcd.setCursor(0, 3);
-                  lcd.print("Phone: ");
-                  lcd.print("080XXXXYYYY");
-           }    
-  #endif          
-
+                        lcd.setCursor(0, 0);
+                        lcd.print("NETWORK 3G");
+                        lcd.setCursor(0, 1);
+                        lcd.print("Signal:");
+                        lcd.print(rssi);
+                        lcd.print(" dBm");
+      //                  lcd.print("[000000]"); 
+                        lcd.setCursor(0, 2);        
+                        lcd.print("Carrier:");
+                        lcd.print("NTT Docomo");
+                        lcd.setCursor(0, 3);
+                        lcd.print("Phone: ");
+                        lcd.print("080XXXXYYYY");
+                 }    
+        #endif  
+  
+  
+  Menu_datalogger();
+} 
 /**************************************************************************/
 // Datalogger Screen
 /**************************************************************************/   
+ 
+ void Menu_datalogger(void){
            lcd.clear();
            previousMillis=millis() ;
            while ((unsigned long)(millis() - previousMillis) <= display_interval) {
-               if (joyCntA){
-                        display_interval=1000;
-                        joyCntA=!joyCntA;
-                        Serial.println ("joystick down");
-                    }
+                     if (joyCntB){ Serial.println ("Up"); joyCntB=!joyCntB;joyCntA=false;lcd.clear();display_interval=3000;Menu_network();return;}
+                     if (joyCntA){ Serial.println ("Down"); joyCntA=!joyCntA;joyCntB=false;lcd.clear();display_interval=3000;Menu_counting();return;}
+
                 lcd.setCursor(0, 0);
                 lcd.print("DATA LOGGER");
                 lcd.setCursor(0, 1);
@@ -969,18 +993,23 @@ void setup() {
                 lcd.setCursor(0, 2);        
                 lcd.print("XXXX MB Free");
            }
+   
+    Menu_counting();
+}
 
 /**************************************************************************/
 // Counting Screen
 /**************************************************************************/   
+ void Menu_counting(void){
+            // read battery     
+           float battery =((read_voltage(VOLTAGE_PIN)));
+           
            lcd.clear();
            previousMillis=millis() ;
            while ((unsigned long)(millis() - previousMillis) <= display_interval) {
-               if (joyCntA){
-                        display_interval=1000;
-                        joyCntA=!joyCntA;
-                        Serial.println ("joystick down");
-                    }
+                     if (joyCntB){ Serial.println ("Up"); joyCntB=!joyCntB;joyCntA=false;lcd.clear();display_interval=3000;Menu_datalogger();return;}
+                     if (joyCntA){ Serial.println ("Down"); joyCntA=!joyCntA;joyCntB=false;lcd.clear();display_interval=500;loop();return;}
+
               lcd.setCursor(0, 0);
               lcd.print("S1:");
               lcd.print("0"); 
@@ -1031,18 +1060,24 @@ void setup() {
         nextExecuteMillis = now1 + updateIntervalInMillis;
      
     // create logfile name 
-    if (openlog_ready) {
-        logfile_ready = true;
-        createFile(logfile_name);
+    if (!finished_startup){
+      if (openlog_ready) {
+          logfile_ready = true;
+          createFile(logfile_name);
+      }
     }
 
-//Serial.print("lastConnectionTime=");
-//Serial.println(lastConnectionTime);
+    //Serial.print("lastConnectionTime=");
+    //Serial.println(lastConnectionTime);
+    
+    counts_per_sample = 0;
+    counts_per_sample2 = 0;
 
-counts_per_sample = 0;
-counts_per_sample2 = 0;
-	
+
+    
+  loop();
 }
+
 /**************************************************************************/
 // Degrees to NMEA format 
 /**************************************************************************/
@@ -1614,8 +1649,11 @@ void loop() {
 
     // Main Loop
     
+    
+       finished_startup = true;
       if (elapsedTime(lastConnectionTime) < updateIntervalInMillis)
       {
+         if (joyCntB){ Serial.println ("Up"); joyCntB=!joyCntB;joyCntA=false;lcd.clear();display_interval=3000;Menu_datalogger(); return;}
           return;
       }
   
