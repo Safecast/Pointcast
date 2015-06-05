@@ -13,23 +13,26 @@
 2015-04-23 V2.7.0 renamed Pointcast
 2015-04-28 V2.7.1 moved  startup 3G into send string, battery voltage report corrected for Teensy.
 2015-04-30 V2.7.2 Added temperature setup for DS18B20 (disabled at the moment) setup screens
-2015-04-05 V2.7.3 Added Joy stick setup. Added Height. Fixed lot/lan sending information on Ethernet
-2015-04-08 V2.7.4 Added new screens for setup and error reporting
-2015-04-09 V2.7.5 Changed startup name 
-2015-04-10 V2.7.6 Added Red LED warning on SDcard and Sensor fails, renemd SDcard files and updates headers
-2015-04-11 V2.7.7 Updates headers. 3G display and header setup same as Ethernet card
-2015-04-12 V2.7.8 Moved SDcard screen before time screen
-2015-04-16 V2.7.9 Added Joystick interaction. Key down startup 1/5 of normal time. Prepare joy stick enter ket (push down) for other functions.
-2015-04-17 V2.8.0 Changed startup screen to be faster with 1 second display if joystick in pressed down. Blink the heartbeat LED for 1 sec.
-2015-04-18 V2.8.1 Setup NTP for automatic update time on Ethernet. 
-2015-04-19 V2.8.2 Fixed first display readings of CPM (was too high)
-2015-04-19 V2.8.3 Fixed 3G not starting up due to Ethernet settings.
-2015-04-22 V2.8.4 Auto gateway setup (two gateways at the moment)
-2015-04-22 V2.8.5 Display RSSI level in 3G.
-2015-04-23 V2.8.6 SDCard RSSI level saved in 3G.
-2015-04-30 V2.8.7 Menu updated.
-2015-04-30 V2.8.8 Menu loop remake
-2015-04-31 V2.8.9 Logfile name fix
+2015-05-05 V2.7.3 Added Joy stick setup. Added Height. Fixed lot/lan sending information on Ethernet
+2015-05-08 V2.7.4 Added new screens for setup and error reporting
+2015-05-09 V2.7.5 Changed startup name 
+2015-05-10 V2.7.6 Added Red LED warning on SDcard and Sensor fails, renemd SDcard files and updates headers
+2015-05-11 V2.7.7 Updates headers. 3G display and header setup same as Ethernet card
+2015-05-12 V2.7.8 Moved SDcard screen before time screen
+2015-05-16 V2.7.9 Added Joystick interaction. Key down startup 1/5 of normal time. Prepare joy stick enter ket (push down) for other functions.
+2015-05-17 V2.8.0 Changed startup screen to be faster with 1 second display if joystick in pressed down. Blink the heartbeat LED for 1 sec.
+2015-05-18 V2.8.1 Setup NTP for automatic update time on Ethernet. 
+2015-05-19 V2.8.2 Fixed first display readings of CPM (was too high)
+2015-05-19 V2.8.3 Fixed 3G not starting up due to Ethernet settings.
+2015-05-22 V2.8.4 Auto gateway setup (two gateways at the moment)
+2015-05-22 V2.8.5 Display RSSI level in 3G.
+2015-05-23 V2.8.6 SDCard RSSI level saved in 3G.
+2015-05-30 V2.8.7 Menu updated.
+2015-05-30 V2.8.8 Menu loop remake
+2015-05-31 V2.8.9 Logfile name fix
+2015-05-31 V2.9.0 Sending data through indextest_extra.php on 107.161.164.166 with no timestamping and with extra information
+2015-06-04 V2.9.1 Setup for fast sens mode selectable from SDcard with the "trb" option
+
 
 
 
@@ -91,6 +94,7 @@ OneWire  ds(A12);  // on pin 10 (a 4.7K resistor is necessary)
 //main menu variable
  boolean finished_startup = false;
  boolean network_startup = false;
+ boolean sdcard_startup = false;
 
 #define ENABLE_DEBUG 
 #define LINE_SZ 128
@@ -125,7 +129,7 @@ static char lon_buf[16];
 
 
 //static
-    static char VERSION[] = "V2.8.9";
+    static char VERSION[] = "V2.9.1";
 
     #if ENABLE_3G
     static char path[LINE_SZ];
@@ -341,10 +345,14 @@ void setup() {
          PointcastSetup.initialize();
      
    //beep for loud piezo
-//       pinMode(28, OUTPUT);
-//       digitalWrite(28, HIGH);
+       digitalWrite(28, HIGH);
+       pinMode(28, OUTPUT);
+       delay(250);
+       pinMode(28, INPUT);
+
+
     //beep for normal piezo
-       tone(28, 600, 200);
+       //tone(28, 600, 200);
     
     //button reset
           pinMode(27, INPUT_PULLUP);
@@ -369,8 +377,8 @@ void setup() {
           
     //set up the LCD's number of columns and rows: 
           lcd.begin(20, 4);
-          
-	
+   
+                     
 Menu_startup();
 }
 
@@ -386,6 +394,7 @@ void Menu_startup(void){
                      if (joyCntA){ Serial.println ("Down"); joyCntA=!joyCntA;joyCntB=false;lcd.clear();display_interval=3000;Menu_system();return;}
 
               // Print startup message to the LCD.
+                      digitalWrite(28, HIGH); 
                      lcd.setCursor(0, 0);
           	     lcd.print("SAFECAST POINTCASTv1");
                      lcd.setCursor(0, 1);
@@ -429,8 +438,7 @@ void Menu_startup(void){
       digitalWrite(red_ledPin, LOW);
       digitalWrite(green_ledPin, LOW);
     // Sound off  
-      digitalWrite(28, HIGH); 
-      
+     digitalWrite(28, HIGH); 
   
   Menu_system();
       
@@ -502,21 +510,21 @@ void Menu_sdcard(void){
       #if ENABLE_3G
         a3gs.begin();
       #endif
+      if(!sdcard_startup){
+      OpenLog.begin(9600);
+      setupOpenLog();
+      }
       
       lcd.clear();
       lcd.setCursor(0, 0);
       lcd.print("SDCARD :");  
-      OpenLog.begin(9600);
-      setupOpenLog();
-
-
     //Openlog setup
           if (openlog_ready) {
            previousMillis=millis() ;
            while ((unsigned long)(millis() - previousMillis) <= display_interval) {
                      if (joyCntB){ Serial.println ("Up"); joyCntB=!joyCntB;joyCntA=false;lcd.clear();display_interval=3000;Menu_system();return;}
                      if (joyCntA){ Serial.println ("Down"); joyCntA=!joyCntA;joyCntB=false;lcd.clear();display_interval=3000;Menu_time();return;}
-
+                     if(!sdcard_startup){
                         lcd.setCursor(8, 0);
                         lcd.print(" PASS"); 
                         lcd.setCursor(0, 1);
@@ -552,8 +560,26 @@ void Menu_sdcard(void){
           //              } else {
           //                lcd.print(" FAIL");
           //              }
+                        
+                        sdcard_startup- true;
           
-                    }
+                    }   
+                        // sdcard display status 
+                        lcd.setCursor(8, 0);
+                        lcd.print(" PASS"); 
+                        lcd.setCursor(0, 1);
+                        lcd.print("PCAST  :");
+                        lcd.print(" PASS");;
+                        lcd.setCursor(0, 2);
+                        lcd.print("SENSORS:");
+                        lcd.print(" PASS");;
+                        lcd.setCursor(0, 3);
+                        lcd.print("NETWORK:");
+
+                        lcd.print(" PASS");;
+
+
+                    
          if (!openlog_ready) {
           lcd.clear();
            previousMillis=millis() ;
@@ -566,46 +592,17 @@ void Menu_sdcard(void){
                   lcd.setCursor(8, 0);
                   lcd.print("FAIL");
                   //Red LED on
-                   digitalWrite(26, HIGH);
+                  digitalWrite(26, HIGH);
                   Serial.println();
                   Serial.println("No SD card.. ");
                  }
             }
           }
+       }
 
 
-         
-     // printout selected interface
-        Serial.print("Device ID =");
-        Serial.println(config.devid);
-        Serial.print("Interface =");
-        Serial.println(config.intf);
-        Serial.print("dev =");
-        Serial.println(config.dev);
-        Serial.print("tws =");
-        Serial.println(config.tws);
-        Serial.print("alt =");
-        Serial.println(config.alt);
-        Serial.print("autow =");
-        Serial.println(config.autow);
-        Serial.print("alm =");
-        Serial.println(config.alm);
-        Serial.print("ssid =");
-        Serial.println(config.ssid);
-        Serial.print("tz =");
-        Serial.println(config.tz);
-        Serial.print("pwd =");
-        Serial.println(config.pwd);
-        Serial.print("gwn =");
-        Serial.println(config.gwn);
-        Serial.print("s1i =");
-        Serial.println(config.s1i);
-        Serial.print("s2i =");
-        Serial.println(config.s2i);
-        Serial.print("aux =");
-        Serial.println(config.aux);      
-
-      
+               
+  sdcard_startup = true;
   Menu_time();
 }  
     
@@ -889,7 +886,7 @@ void Menu_network(void){
                   randomSeed(analogRead(0));
                   int gatewaynumber=random(GATEWAY_SZ);
                   Serial.print("Random gateway setup for ");
-                  server=gateway[gatewaynumber];
+                  server=gateway[1];
                   Serial.println(server);
       	
             // Initiate a DHCP session
@@ -914,7 +911,7 @@ void Menu_network(void){
                         lcd.print(Ethernet.localIP()); 
                         lcd.setCursor(0, 2);        
                         lcd.print("GW:");
-                        lcd.print(config.gw1);
+                        lcd.print(server);
                         lcd.setCursor(0, 3);
                         lcd.print("ID");
                             for (int i=0; i<6; ++i)
@@ -1008,7 +1005,7 @@ void Menu_network(void){
            previousMillis=millis() ;
            while ((unsigned long)(millis() - previousMillis) <= display_interval) {
                      if (joyCntB){ Serial.println ("Up"); joyCntB=!joyCntB;joyCntA=false;lcd.clear();display_interval=3000;Menu_datalogger();return;}
-                     if (joyCntA){ Serial.println ("Down"); joyCntA=!joyCntA;joyCntB=false;lcd.clear();display_interval=500;loop();return;}
+                     if (joyCntA){ Serial.println ("Down"); joyCntA=!joyCntA;joyCntB=false;display_interval=500;loop();return;}
 
               lcd.setCursor(0, 0);
               lcd.print("S1:");
@@ -1054,8 +1051,12 @@ void Menu_network(void){
        
        
     //setup update time in msec
-        updateIntervalInMillis = updateIntervalInMinutes * 300000;                  // update time in ms
-        //updateIntervalInMillis = updateIntervalInMinutes * 6000;                  // update time in ms
+    if (!config.trb){
+        updateIntervalInMillis = updateIntervalInMinutes * 300000; 
+    }
+    if (config.trb){
+        updateIntervalInMillis = updateIntervalInMinutes * 6000; 
+    }       
         unsigned long now1 = millis();
         nextExecuteMillis = now1 + updateIntervalInMillis;
      
@@ -1072,10 +1073,8 @@ void Menu_network(void){
     
     counts_per_sample = 0;
     counts_per_sample2 = 0;
-
-
-    
-  loop();
+   
+  //loop();
 }
 
 /**************************************************************************/
@@ -1165,6 +1164,10 @@ void SendDataToServer(float CPM,float CPM2){
       lcd.print("API:");
       
       
+      float battery =((read_voltage(VOLTAGE_PIN)));
+      //test data temperature
+      float temperature= 18.6;
+      
 	
  //send first sensor  
 	if (client.connected())
@@ -1201,7 +1204,7 @@ void SendDataToServer(float CPM,float CPM2){
     // prepare the log entry
 
 	memset(json_buf, 0, SENT_SZ);
-	sprintf_P(json_buf, PSTR("{\"longitude\":\"%s\",\"latitude\":\"%s\",\"device_id\":\"%d\",\"value\":\"%s\",\"unit\":\"cpm\"}"),  \
+	sprintf_P(json_buf, PSTR("{\"longitude\":\"%s\",\"latitude\":\"%s\",\"device_id\":\"%d\",\"value\":\"%s\",\"unit\":\"cpm1\"}"),  \
 	              config.longitude, \
 	              config.latitude, \
 	              config.user_id,  \
@@ -1267,7 +1270,7 @@ void SendDataToServer(float CPM,float CPM2){
 
     // prepare the log entry
 	memset(json_buf2, 0, SENT_SZ);
-	sprintf_P(json_buf2, PSTR("{\"longitude\":\"%s\",\"latitude\":\"%s\",\"device_id\":\"%d\",\"value\":\"%s\",\"unit\":\"cpm\"}"),  \
+	sprintf_P(json_buf2, PSTR("{\"longitude\":\"%s\",\"latitude\":\"%s\",\"device_id\":\"%d\",\"value\":\"%s\",\"unit\":\"test\"}"),  \
 	              config.longitude, \
 	              config.latitude, \
 	              config.user_id2,  \
@@ -1298,7 +1301,43 @@ void SendDataToServer(float CPM,float CPM2){
         lcd.setCursor(14,2);
         lcd.print("PASS");
 	Serial.println("Disconnecting");
-        client.stop();
+        
+ 
+        
+        
+//        //send second string
+//        memset(json_buf2, 0, SENT_SZ);
+//	sprintf_P(json_buf2, PSTR("{\"longitude\":\"%s\",\"latitude\":\"%s\",\"device_id\":\"%d\",\"value\":\"%s\",\"unit\":\"Voltage\"}"),  \
+//	              config.longitude, \
+//	              config.latitude, \
+//	              config.user_id2,  \
+//	              CPM2_string);
+//
+//	int len3 = strlen(json_buf2);
+//	json_buf2[len3] = '\0';
+//	Serial.println(json_buf2);;
+//        #if ENABLE_DEV
+//        	client.print("POST /scripts/indextest.php?api_key=");
+//        #endif
+//        
+//        #if ENABLE_API
+//                client.print("POST /scripts/index.php?api_key=");
+//        #endif 
+//	client.print(config.api_key);
+//	client.println(" HTTP/1.1");
+//	client.println("Accept: application/json");
+//	client.print("Host:");
+//        client.println(server);
+//	client.print("Content-Length: ");
+//	client.println(strlen(json_buf2));
+//	client.println("Content-Type: application/json");
+//	client.println();
+//	client.println(json_buf2);
+//        lcd.setCursor(14,2);
+//        lcd.print("PASS");
+//	Serial.println("Disconnecting");
+//        
+//        client.stop();
 
 
 
@@ -1336,9 +1375,9 @@ void SendDataToServer(float CPM,float CPM2){
 
  
  
-      float battery =((read_voltage(VOLTAGE_PIN)));
-      //test data temperature
-      float temperature= 18.6;
+//      float battery =((read_voltage(VOLTAGE_PIN)));
+//      //test data temperature
+//      float temperature= 18.6;
       lcd.setCursor(0,3);
       lcd.print("STS:");
       lcd.setCursor(6,3);

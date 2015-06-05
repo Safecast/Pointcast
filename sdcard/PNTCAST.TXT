@@ -1,4 +1,4 @@
-devid=1000
+devid=1002
 lat=35.646107
 lon=139.703774
 api=q1LKu7RQ8s5pmyxunnDW
@@ -9,4 +9,4 @@ autow=1
 rst=0
 alm=150
 tz=-9
-trb=0
+trb=1
