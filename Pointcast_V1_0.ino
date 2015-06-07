@@ -32,7 +32,7 @@
 2015-05-31 V2.8.9 Logfile name fix
 2015-05-31 V2.9.0 Sending data through indextest_extra.php on 107.161.164.166 with no timestamping and with extra information
 2015-06-04 V2.9.1 Setup for fast sens mode selectable from SDcard with the "trb" option
-
+2015-06-04 V2.9.2 Temperature setup truncated API key, battery/power setup changed.
 
 
 
@@ -89,7 +89,7 @@ int red_ledPin=26;
 
 //setup Onewire for temp sensor
 #include <OneWire.h>
-OneWire  ds(A12);  // on pin 10 (a 4.7K resistor is necessary)
+OneWire  ds(32);  // on pin 10 (a 4.7K resistor is necessary)
 
 //main menu variable
  boolean finished_startup = false;
@@ -110,6 +110,7 @@ static char buf[LINE_SZ];
 static char buf2[LINE_SZ];
 static char lat_buf[16];
 static char lon_buf[16];
+static char strbuffer[32];
 
 
 // OpenLog Settings --------------------------------------------------------------
@@ -129,7 +130,7 @@ static char lon_buf[16];
 
 
 //static
-    static char VERSION[] = "V2.9.1";
+    static char VERSION[] = "V2.9.2";
 
     #if ENABLE_3G
     static char path[LINE_SZ];
@@ -394,7 +395,6 @@ void Menu_startup(void){
                      if (joyCntA){ Serial.println ("Down"); joyCntA=!joyCntA;joyCntB=false;lcd.clear();display_interval=3000;Menu_system();return;}
 
               // Print startup message to the LCD.
-                      digitalWrite(28, HIGH); 
                      lcd.setCursor(0, 0);
           	     lcd.print("SAFECAST POINTCASTv1");
                      lcd.setCursor(0, 1);
@@ -461,9 +461,10 @@ void Menu_startup(void){
        Serial.println("V");
        
       //get temperature 
-         float temperature = 18.3;
-        //float temperature = getTemp();
+        //float temperature = 18.3;
+        float temperature = getTemp();
         Serial.print("Temperature =");
+        Serial.println(temperature);
         //Serial.println(temperature);
         Serial.println("Celsius");
        
@@ -480,19 +481,31 @@ void Menu_startup(void){
                lcd.print("System");
                lcd.setCursor(0, 1);
                lcd.print("Power:");
-               if (battery < 4.5) {
+               if (battery < 4.4) {
                     lcd.print("BAT");;
                   } else {
                     lcd.print("EXT");
-                  }
-                           
+                  } 
+               lcd.setCursor(15, 1);    
+               lcd.print(battery);
+               lcd.print("V"); 
                lcd.setCursor(0, 2);
                lcd.print("Bat:");
-               lcd.print(battery);
+               int battery1=((battery-3.3)*100);
+                if (battery < 4.4) {
+                   if (battery1 < 0) battery1=1;
+                   if (battery1 > 100) battery1=100;
+                   sprintf_P(strbuffer, PSTR("%02d"), battery1);
+                   lcd.print(strbuffer);
+                   lcd.print("%");
+                }
+               lcd.setCursor(11, 2);
+               lcd.print("TNSY:");
+               lcd.print("3.3");
                lcd.print("V");
                lcd.setCursor(0, 3);
                lcd.print("Tmp:"); 
-               //lcd.println(temperature);
+               lcd.print(temperature);
                lcd.print("C");
            }
   
@@ -868,7 +881,8 @@ void Menu_sensors(void){
               lcd.print(config.user_id2);
               lcd.setCursor(0, 3);
               lcd.print("API-KEY=");
-      //        lcd.print(config.api_key);   
+              strncpy( strbuffer, config.api_key, 12);
+              lcd.print(strbuffer);
        }     
   
   Menu_network();
@@ -886,7 +900,7 @@ void Menu_network(void){
                   randomSeed(analogRead(0));
                   int gatewaynumber=random(GATEWAY_SZ);
                   Serial.print("Random gateway setup for ");
-                  server=gateway[1];
+                  server=gateway[gatewaynumber];
                   Serial.println(server);
       	
             // Initiate a DHCP session
@@ -1166,7 +1180,8 @@ void SendDataToServer(float CPM,float CPM2){
       
       float battery =((read_voltage(VOLTAGE_PIN)));
       //test data temperature
-      float temperature= 18.6;
+      //float temperature = getTemp();
+      //float temperature= 18.6;
       
 	
  //send first sensor  
@@ -1378,6 +1393,7 @@ void SendDataToServer(float CPM,float CPM2){
 //      float battery =((read_voltage(VOLTAGE_PIN)));
 //      //test data temperature
 //      float temperature= 18.6;
+float temperature = getTemp();
       lcd.setCursor(0,3);
       lcd.print("STS:");
       lcd.setCursor(6,3);
@@ -1545,7 +1561,8 @@ lastConnectionTime = millis();
         //Get temp and Battery 
              float battery =((read_voltage(VOLTAGE_PIN)));
             //test data temperature
-            float temperature= 18.6;
+            //float temperature= 18.6;
+             float temperature = getTemp();
             
        //add second line for addtional info
            sprintf_P(buf2 + len2, PSTR("*%X%s$%s,%d,%d,%d,%d"), \
@@ -1862,47 +1879,47 @@ void createFile(char *fileName) {
       return result;
     }
 
-// retrieve temperature
-//float getTemp(){
-//
-//      byte data[12];
-//      byte addr[8];
-//      
-//      if ( !ds.search(addr)) {
-//      //no more sensors on chain, reset search
-//      ds.reset_search();
-//      return -1000;
-//      }
-//      
-//      
-//      if ( addr[0] != 0x10 && addr[0] != 0x28) {
-//      Serial.print("Device is not recognized");
-//      return -1000;
-//      }
-//      
-//      ds.reset();
-//      ds.select(addr);
-//      ds.write(0x44,1); // start conversion, with parasite power on at the end
-//      
-//      byte present = ds.reset();
-//      ds.select(addr);
-//      ds.write(0xBE); // Read Scratchpad
-//      
-//      for (int i = 0; i < 9; i++) { // we need 9 bytes
-//      data[i] = ds.read();
-//      }
-//      
-//      ds.reset_search();
-//      
-//      byte MSB = data[1];
-//      byte LSB = data[0];
-//      
-//      float tempRead = ((MSB << 8) | LSB); //using two’s compliment
-//      float temperature = tempRead / 16;
-//      delay(1000);
-//      return temperature;
-//
-//}
+ // retrieve temperature
+float getTemp(){
+
+      byte data[12];
+      byte addr[8];
+      
+      if ( !ds.search(addr)) {
+      //no more sensors on chain, reset search
+      ds.reset_search();
+      return -1000;
+      }
+      
+      
+      if ( addr[0] != 0x10 && addr[0] != 0x28) {
+      Serial.print("Device is not recognized");
+      return -1000;
+      }
+      
+      ds.reset();
+      ds.select(addr);
+      ds.write(0x44,1); // start conversion, with parasite power on at the end
+      
+      byte present = ds.reset();
+      ds.select(addr);
+      ds.write(0xBE); // Read Scratchpad
+      
+      for (int i = 0; i < 9; i++) { // we need 9 bytes
+      data[i] = ds.read();
+      }
+      
+      ds.reset_search();
+      
+      byte MSB = data[1];
+      byte LSB = data[0];
+      
+      float tempRead = ((MSB << 8) | LSB); //using two’s compliment
+      float temperature = tempRead / 16;
+      delay(1000);
+      return temperature;
+
+}
 
 
 
