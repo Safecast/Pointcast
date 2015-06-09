@@ -33,7 +33,7 @@
 2015-05-31 V2.9.0 Sending data through indextest_extra.php on 107.161.164.166 with no timestamping and with extra information
 2015-06-04 V2.9.1 Setup for fast sens mode selectable from SDcard with the "trb" option
 2015-06-04 V2.9.2 Temperature setup truncated API key, battery/power setup changed.
-
+2015-06-04 V2.9.3 Added skip sdcard init on one time pass. uSv/H chnaged to uSH..menu stat prepared...
 
 
 contact rob@yr-design.biz
@@ -89,7 +89,7 @@ int red_ledPin=26;
 
 //setup Onewire for temp sensor
 #include <OneWire.h>
-OneWire  ds(32);  // on pin 10 (a 4.7K resistor is necessary)
+OneWire  ds(32);  // on pin 10 od extra header(a 4.7K resistor is necessary)
 
 //main menu variable
  boolean finished_startup = false;
@@ -130,7 +130,7 @@ static char strbuffer[32];
 
 
 //static
-    static char VERSION[] = "V2.9.2";
+    static char VERSION[] = "V2.9.3";
 
     #if ENABLE_3G
     static char path[LINE_SZ];
@@ -388,6 +388,12 @@ Menu_startup();
 /**************************************************************************/
 
 void Menu_startup(void){
+
+       float battery =((read_voltage(VOLTAGE_PIN)));
+       float temperature = getTemp();
+
+        
+        
      lcd.clear();
     // LED on delay (start speed diplay function by pressing down)
      previousMillis = millis();
@@ -453,22 +459,31 @@ void Menu_startup(void){
       #if ENABLE_3G
         a3gs.start();
       #endif
-        
-     // read battery     
-       float battery =((read_voltage(VOLTAGE_PIN)));
-       Serial.println("Battery Voltage =");
-       Serial.print(battery);
-       Serial.println("V");
-       
-      //get temperature 
-        //float temperature = 18.3;
-        float temperature = getTemp();
-        Serial.print("Temperature =");
-        Serial.println(temperature);
-        //Serial.println(temperature);
-        Serial.println("Celsius");
-       
       
+        #if ENABLE_ETHERNET
+          //setup time 
+          if (!network_startup){
+          //setup time 
+                  if (Ethernet.begin(macAddress) == 0) {
+                    {
+                      Ethernet.begin(macAddress, localIP);
+                    }
+                  }
+                  if (Ethernet.begin(macAddress) == 0) {
+                    {
+                      Ethernet.begin(macAddress, localIP);
+                    }
+                  }
+                Udp.begin(localPort);
+                setSyncProvider(getNtpTime);
+                Teensy3Clock.set(now()); 
+          }
+          network_startup=true;
+                
+        #endif
+        
+       float battery =((read_voltage(VOLTAGE_PIN)));
+       float temperature = getTemp();
       
     // Print system message to the LCD.
 	   lcd.clear();
@@ -491,14 +506,14 @@ void Menu_startup(void){
                lcd.print("V"); 
                lcd.setCursor(0, 2);
                lcd.print("Bat:");
-               int battery1=((battery-3.3)*100);
-                if (battery < 4.4) {
+               int battery1=((battery-2.9)*100);
+//                if (battery < 4.4) {
                    if (battery1 < 0) battery1=1;
                    if (battery1 > 100) battery1=100;
                    sprintf_P(strbuffer, PSTR("%02d"), battery1);
                    lcd.print(strbuffer);
                    lcd.print("%");
-                }
+//                }
                lcd.setCursor(11, 2);
                lcd.print("TNSY:");
                lcd.print("3.3");
@@ -521,8 +536,11 @@ void Menu_startup(void){
 void Menu_sdcard(void){
 
       #if ENABLE_3G
+        if(!sdcard_startup){
         a3gs.begin();
+        }
       #endif
+      
       if(!sdcard_startup){
       OpenLog.begin(9600);
       setupOpenLog();
@@ -530,7 +548,7 @@ void Menu_sdcard(void){
       
       lcd.clear();
       lcd.setCursor(0, 0);
-      lcd.print("SDCARD :");  
+      lcd.print("SDCARD ");  
     //Openlog setup
           if (openlog_ready) {
            previousMillis=millis() ;
@@ -541,7 +559,7 @@ void Menu_sdcard(void){
                         lcd.setCursor(8, 0);
                         lcd.print(" PASS"); 
                         lcd.setCursor(0, 1);
-                        lcd.print("PCAST  :");
+                        lcd.print("PNTCAST:");
                         Serial.println();
                         Serial.println("loading setup");
                         PointcastSetup.loadFromFile("PNTCAST.TXT");
@@ -574,14 +592,14 @@ void Menu_sdcard(void){
           //                lcd.print(" FAIL");
           //              }
                         
-                        sdcard_startup- true;
+                        sdcard_startup= true;
           
                     }   
                         // sdcard display status 
                         lcd.setCursor(8, 0);
                         lcd.print(" PASS"); 
                         lcd.setCursor(0, 1);
-                        lcd.print("PCAST  :");
+                        lcd.print("PNTCAST:");
                         lcd.print(" PASS");;
                         lcd.setCursor(0, 2);
                         lcd.print("SENSORS:");
@@ -612,8 +630,6 @@ void Menu_sdcard(void){
             }
           }
        }
-
-
                
   sdcard_startup = true;
   Menu_time();
@@ -624,27 +640,7 @@ void Menu_sdcard(void){
 /**************************************************************************/  
  void Menu_time(void){
  
-         #if ENABLE_ETHERNET
-          //setup time 
-          if (!network_startup){
-          //setup time 
-                  if (Ethernet.begin(macAddress) == 0) {
-                    {
-                      Ethernet.begin(macAddress, localIP);
-                    }
-                  }
-                  if (Ethernet.begin(macAddress) == 0) {
-                    {
-                      Ethernet.begin(macAddress, localIP);
-                    }
-                  }
-                Udp.begin(localPort);
-                setSyncProvider(getNtpTime);
-                Teensy3Clock.set(now()); 
-          }
-          network_startup=true;
-                
-        #endif
+
         
         
         #if ENABLE_3G
@@ -675,7 +671,7 @@ void Menu_sdcard(void){
 	sprintf_P(logfile_name, PSTR("%04d%02d%02d.log"),config.user_id, month(), day());
       }  
       
-      //display time
+   //display time
 
            lcd.clear();
             previousMillis = millis();
@@ -880,9 +876,9 @@ void Menu_sensors(void){
               lcd.print("S1-ID=");
               lcd.print(config.user_id2);
               lcd.setCursor(0, 3);
-              lcd.print("API-KEY=");
-              strncpy( strbuffer, config.api_key, 12);
-              lcd.print(strbuffer);
+              lcd.print("AK=");
+//              strncpy( strbuffer, config.api_key, 12);
+              lcd.print(config.api_key);
        }     
   
   Menu_network();
@@ -933,8 +929,7 @@ void Menu_network(void){
                               lcd.print(":");
                               lcd.print(macAddress[i],HEX);
                               } 
-                      }              
-                  
+                      }                   
       #endif
       
 
@@ -1026,13 +1021,13 @@ void Menu_network(void){
               lcd.print("0"); 
               lcd.print(" CPM ");  
               lcd.print("0"); 
-              lcd.print("uSv/h"); 
+              lcd.print("uSh"); 
               lcd.setCursor(0,1);    
               lcd.print("S2:");
               lcd.print("0"); 
               lcd.print(" CPM ");
               lcd.print("0"); 
-              lcd.print("uSv/h");
+              lcd.print("uSh");
               lcd.setCursor(0,2);
               lcd.print("API:");
               lcd.setCursor(4, 2);
@@ -1167,13 +1162,13 @@ void SendDataToServer(float CPM,float CPM2){
       lcd.print(CPM_string); 
       lcd.print(" CPM ");  
       lcd.print(uSv);
-      lcd.print("uSv/h"); 
+      lcd.print("uSh"); 
       lcd.setCursor(0,1);    
       lcd.print("S2:");
       lcd.print(CPM2_string); 
       lcd.print(" CPM ");
       lcd.print(uSv2);
-      lcd.print("uSv/h");
+      lcd.print("uSh");
       lcd.setCursor(0,2);
       lcd.print("API:");
       
@@ -1488,13 +1483,13 @@ lastConnectionTime = millis();
       lcd.print(CPM_string); 
       lcd.print(" CPM ");  
       lcd.print(uSv);
-      lcd.print("uSv/h"); 
+      lcd.print("uSh"); 
       lcd.setCursor(0,1);    
       lcd.print("S2:");
       lcd.print(CPM2_string); 
       lcd.print(" CPM ");
       lcd.print(uSv2);
-      lcd.print("uSv/h");
+      lcd.print("uSh");
       lcd.setCursor(0,2);
       lcd.print("API:");
 
@@ -1698,6 +1693,36 @@ lastConnectionTime = millis();
 #endif
 }
 
+
+
+
+
+void Menu_stat() {
+  
+//  
+//           lcd.clear();
+//           previousMillis=millis() ;
+//           while ((unsigned long)(millis() - previousMillis) <= display_interval) {
+//                     if (joyCntB){ Serial.println ("Up"); joyCntB=!joyCntB;joyCntA=false;lcd.clear();display_interval=3000;Menu_datalogger();return;}
+//                     if (joyCntA){ Serial.println ("Down"); joyCntA=!joyCntA;joyCntB=false;display_interval=500;loop();return;}
+//
+//      lcd.setCursor(0, 0);
+//      lcd.print("S1:");
+//      lcd.print(CPM_string); 
+//      lcd.print(" CPM ");  
+//      lcd.print(uSv);
+//      lcd.print("uSh"); 
+//      lcd.setCursor(0,1);    
+//      lcd.print("S2:");
+//      lcd.print(CPM2_string); 
+//      lcd.print(" CPM ");
+//      lcd.print(uSv2);
+//      lcd.print("uSh");
+      lcd.setCursor(0,2);
+      lcd.print("API:");
+//  
+}
+
 /**************************************************************************/
 // Main Loop
 /**************************************************************************/
@@ -1710,6 +1735,7 @@ void loop() {
       if (elapsedTime(lastConnectionTime) < updateIntervalInMillis)
       {
          if (joyCntB){ Serial.println ("Up"); joyCntB=!joyCntB;joyCntA=false;lcd.clear();display_interval=3000;Menu_datalogger(); return;}
+         if (joyCntC){ Serial.println ("Left"); joyCntC=!joyCntC;lcd.clear();display_interval=3000;Menu_stat(); return;}
           return;
       }
   
