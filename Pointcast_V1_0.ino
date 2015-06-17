@@ -32,9 +32,10 @@
 2015-05-31 V2.8.9 Logfile name fix
 2015-05-31 V2.9.0 Sending data through indextest_extra.php on 107.161.164.166 with no timestamping and with extra information
 2015-06-04 V2.9.1 Setup for fast sens mode selectable from SDcard with the "trb" option
-2015-06-04 V2.9.2 Temperature setup truncated API key, battery/power setup changed.
-2015-06-04 V2.9.3 Added skip sdcard init on one time pass. uSv/H chnaged to uSH..menu stat prepared...
-
+2015-06-08 V2.9.2 Temperature setup truncated API key, battery/power setup changed.
+2015-06-10 V2.9.3 Added skip sdcard init on one time pass. uSv/H chnaged to uSH..menu stat prepared...
+2015-06-17 V2.9.4  Fixed second line temperature and batter logging on SDcard
+2015-06-17 V2.9.5  3G secondline recodign for SDcard fixes
 
 contact rob@yr-design.biz
  */
@@ -130,7 +131,7 @@ static char strbuffer[32];
 
 
 //static
-    static char VERSION[] = "V2.9.3";
+    static char VERSION[] = "V2.9.5";
 
     #if ENABLE_3G
     static char path[LINE_SZ];
@@ -661,14 +662,16 @@ void Menu_sdcard(void){
   //Check if Time is setup
   
     setSyncProvider(getTeensy3Time);
+//    sprintf("%4d", x % 10000)
+
     if (timeStatus()!= timeSet) {
         Serial.println("Unable to sync with the RTC");
-        sprintf_P(logfile_name, PSTR("%04d1234.log"),config.user_id);
+        sprintf_P(logfile_name, PSTR("%04d1234.log"),config.user_id% 10000);
         
 
       } else {
         Serial.println("RTC has set the system time for GMT");                 
-	sprintf_P(logfile_name, PSTR("%04d%02d%02d.log"),config.user_id, month(), day());
+	sprintf_P(logfile_name, PSTR("%04d%02d%02d.log"),config.user_id% 10000, month(), day());
       }  
       
    //display time
@@ -1174,9 +1177,6 @@ void SendDataToServer(float CPM,float CPM2){
       
       
       float battery =((read_voltage(VOLTAGE_PIN)));
-      //test data temperature
-      //float temperature = getTemp();
-      //float temperature= 18.6;
       
 	
  //send first sensor  
@@ -1385,26 +1385,27 @@ void SendDataToServer(float CPM,float CPM2){
 
  
  
-//      float battery =((read_voltage(VOLTAGE_PIN)));
-//      //test data temperature
-//      float temperature= 18.6;
-float temperature = getTemp();
-      lcd.setCursor(0,3);
-      lcd.print("STS:");
-      lcd.setCursor(6,3);
-      lcd.print(battery);
-      lcd.print("V");
+      // get temperature
+          float temperature = getTemp();
+          lcd.setCursor(0,3);
+          lcd.print("STS:");
+          lcd.setCursor(6,3);
+          lcd.print(battery);
+          lcd.print("V");
       
-      
+          char temperature_string[0];
+          dtostrf(temperature, 0, 0, temperature_string);
+          char battery_string[0];
+          dtostrf(battery, 0, 2, battery_string);
  
      //add second line for addtional info
-       sprintf_P(buf + len, PSTR("*%X%s$%s,%d,%d,%d"), 
+       sprintf_P(buf + len, PSTR("*%X%s$%s,%d,%s,%s"), 
               (int)chk, \
               "\n", \
               HEADER_SENSOR,  \
                config.devid, \              
-              temperature, \
-              battery);
+              temperature_string, \
+              battery_string);
  
       Serial.println(buf);
  
@@ -1435,13 +1436,13 @@ float temperature = getTemp();
   
          
         //add second line for addtional info
-           sprintf_P(buf2 + len2, PSTR("*%X%s$%s,%d,%d,%d"), 
+           sprintf_P(buf2 + len2, PSTR("*%X%s$%s,%d,%s,%s"), 
               (int)chk, \
               "\n", \
               HEADER_SENSOR,  \
                config.devid, \
-               temperature, \
-               battery);
+              temperature_string, \
+              battery_string);
               
               
          Serial.println(buf2); 
@@ -1555,19 +1556,23 @@ lastConnectionTime = millis();
          
         //Get temp and Battery 
              float battery =((read_voltage(VOLTAGE_PIN)));
-            //test data temperature
-            //float temperature= 18.6;
              float temperature = getTemp();
-            
-       //add second line for addtional info
-           sprintf_P(buf2 + len2, PSTR("*%X%s$%s,%d,%d,%d,%d"), \
+     
+              char temperature_string[0];
+              dtostrf(temperature, 0, 0, temperature_string);
+              char battery_string[0];
+              dtostrf(battery, 0, 2, battery_string);
+ 
+        //add second line for addtional info
+           sprintf_P(buf2 + len2, PSTR("*%X%s$%s,%d,%s,%d,%s"), 
               (int)chk, \
               "\n", \
               HEADER_SENSOR,  \
                config.devid, \
-               temperature, \
+              temperature_string, \
                rssi, \
-               battery);
+              battery_string);
+              
             
         Serial.println(buf2);    
 
