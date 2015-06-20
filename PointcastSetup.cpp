@@ -137,7 +137,7 @@ void PointcastSetup::loadFromFile(char * setupFile) {
       if (mConfig.devid != (unsigned int)atoi(value)) {
         mConfig.devid = atoi(value);
         config_changed = true;
-        DEBUG_PRINTLN("   - Update user_id");
+        DEBUG_PRINTLN("   - Update dev_id");
       }
     }
     else if(strcmp(key, "uid1") == 0) {

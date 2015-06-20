@@ -28,7 +28,7 @@
 //		If You use Leonard, Mega or ADK(Mega2560) then you must change IEM_RXD_PIN and IEM_TXD_PIN for suitable.
 //***********************************************************
 
-#define	DEBUG				1		// Define if you want to debug
+#define	DEBUG				0		// Define if you want to debug
 
 #include "Arduino.h"
 #include "a3gim.h"

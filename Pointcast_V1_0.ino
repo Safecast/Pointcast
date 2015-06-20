@@ -36,6 +36,11 @@
 2015-06-10 V2.9.3 Added skip sdcard init on one time pass. uSv/H chnaged to uSH..menu stat prepared...
 2015-06-17 V2.9.4  Fixed second line temperature and batter logging on SDcard
 2015-06-17 V2.9.5  3G secondline recodign for SDcard fixes
+2015-06-19 V2.9.6  Changed filenaming SDCard
+2015-06-20 V2.9.7  more fixed 3G second line
+2015-06-21 V2.9.8  Switch between API and Dev sending through sdcard.
+
+
 
 contact rob@yr-design.biz
  */
@@ -131,7 +136,7 @@ static char strbuffer[32];
 
 
 //static
-    static char VERSION[] = "V2.9.5";
+    static char VERSION[] = "V2.9.8";
 
     #if ENABLE_3G
     static char path[LINE_SZ];
@@ -457,6 +462,7 @@ void Menu_startup(void){
 
 
  void Menu_system(void){
+
       #if ENABLE_3G
         a3gs.start();
       #endif
@@ -523,6 +529,7 @@ void Menu_startup(void){
                lcd.print("Tmp:"); 
                lcd.print(temperature);
                lcd.print("C");
+
            }
   
   Menu_sdcard();
@@ -631,8 +638,34 @@ void Menu_sdcard(void){
             }
           }
        }
-               
+     
+ //dev 
+   if (config.dev){
+   Serial.println ("setup for sending to dev.safecast.org");
+   }              
   sdcard_startup = true;
+    //Check if Time is setup
+  
+    setSyncProvider(getTeensy3Time);
+//    sprintf("%4d", x % 10000)
+
+    if (timeStatus()!= timeSet) {
+        Serial.println("Unable to sync with the RTC");
+        sprintf_P(logfile_name, PSTR("%04d1234.TXT"),config.user_id% 10000);
+        
+
+      } else {
+        Serial.println("RTC has set the system time for GMT");                 
+	sprintf_P(logfile_name, PSTR("%04d%02d%02d.TXT"),year(), month(), day());
+      }  
+  
+  // create SDcard filename
+  if (!finished_startup){
+      if (openlog_ready) {
+          logfile_ready = true;
+          createFile(logfile_name);
+      }
+    }
   Menu_time();
 }  
     
@@ -659,20 +692,7 @@ void Menu_sdcard(void){
             
          #endif
             
-  //Check if Time is setup
-  
-    setSyncProvider(getTeensy3Time);
-//    sprintf("%4d", x % 10000)
 
-    if (timeStatus()!= timeSet) {
-        Serial.println("Unable to sync with the RTC");
-        sprintf_P(logfile_name, PSTR("%04d1234.log"),config.user_id% 10000);
-        
-
-      } else {
-        Serial.println("RTC has set the system time for GMT");                 
-	sprintf_P(logfile_name, PSTR("%04d%02d%02d.log"),config.user_id% 10000, month(), day());
-      }  
       
    //display time
 
@@ -1073,12 +1093,6 @@ void Menu_network(void){
         nextExecuteMillis = now1 + updateIntervalInMillis;
      
     // create logfile name 
-    if (!finished_startup){
-      if (openlog_ready) {
-          logfile_ready = true;
-          createFile(logfile_name);
-      }
-    }
 
     //Serial.print("lastConnectionTime=");
     //Serial.println(lastConnectionTime);
@@ -1157,6 +1171,14 @@ void SendDataToServer(float CPM,float CPM2){
     float uSv2 = CPM2 * conversionCoefficient2;                   // convert CPM to Micro Sieverts Per Hour
      char CPM2_string[16];
     dtostrf(CPM2, 0, 0, CPM2_string);
+    
+    //Get temp and Battery 
+     float battery =((read_voltage(VOLTAGE_PIN)));
+     float temperature = getTemp();    
+//     char temperature_string[4];
+//     dtostrf(temperature, 0, 0, temperature_string);
+//     char battery_string[4];
+//     dtostrf(battery, 0, 2, battery_string);
 
     //display geiger info
       lcd.clear();
@@ -1174,9 +1196,6 @@ void SendDataToServer(float CPM,float CPM2){
       lcd.print("uSh");
       lcd.setCursor(0,2);
       lcd.print("API:");
-      
-      
-      float battery =((read_voltage(VOLTAGE_PIN)));
       
 	
  //send first sensor  
@@ -1214,7 +1233,7 @@ void SendDataToServer(float CPM,float CPM2){
     // prepare the log entry
 
 	memset(json_buf, 0, SENT_SZ);
-	sprintf_P(json_buf, PSTR("{\"longitude\":\"%s\",\"latitude\":\"%s\",\"device_id\":\"%d\",\"value\":\"%s\",\"unit\":\"cpm1\"}"),  \
+	sprintf_P(json_buf, PSTR("{\"longitude\":\"%s\",\"latitude\":\"%s\",\"device_id\":\"%d\",\"value\":\"%s\",\"unit\":\"cpm\"}"),  \
 	              config.longitude, \
 	              config.latitude, \
 	              config.user_id,  \
@@ -1224,13 +1243,22 @@ void SendDataToServer(float CPM,float CPM2){
 	json_buf[len] = '\0';
 	Serial.println(json_buf);
 
-        #if ENABLE_DEV
+//        #if ENABLE_DEV
+//        	client.print("POST /scripts/indextest.php?api_key=");
+//        #endif
+//        
+//        #if ENABLE_API
+//                client.print("POST /scripts/index.php?api_key=");
+//        #endif 
+
+        if (config.dev){
         	client.print("POST /scripts/indextest.php?api_key=");
-        #endif
+               Serial.println ("sending to dev.safecast.org");  
+        }else{
         
-        #if ENABLE_API
                 client.print("POST /scripts/index.php?api_key=");
-        #endif        
+                Serial.println ("sending to api.safecast.org");  
+        }
 	client.print(config.api_key);
 	client.println(" HTTP/1.1");
 	client.println("Accept: application/json");
@@ -1280,7 +1308,7 @@ void SendDataToServer(float CPM,float CPM2){
 
     // prepare the log entry
 	memset(json_buf2, 0, SENT_SZ);
-	sprintf_P(json_buf2, PSTR("{\"longitude\":\"%s\",\"latitude\":\"%s\",\"device_id\":\"%d\",\"value\":\"%s\",\"unit\":\"test\"}"),  \
+	sprintf_P(json_buf2, PSTR("{\"longitude\":\"%s\",\"latitude\":\"%s\",\"device_id\":\"%d\",\"value\":\"%s\",\"unit\":\"cpm\"}"),  \
 	              config.longitude, \
 	              config.latitude, \
 	              config.user_id2,  \
@@ -1291,13 +1319,22 @@ void SendDataToServer(float CPM,float CPM2){
 	Serial.println(json_buf2);
 
 
-        #if ENABLE_DEV
+//        #if ENABLE_DEV
+//        	client.print("POST /scripts/indextest.php?api_key=");
+//        #endif
+//        
+//        #if ENABLE_API
+//                client.print("POST /scripts/index.php?api_key=");
+//        #endif 
+
+        if (config.dev){
         	client.print("POST /scripts/indextest.php?api_key=");
-        #endif
+                Serial.println ("sending to dev.safecast.org");  
+        }else{
         
-        #if ENABLE_API
                 client.print("POST /scripts/index.php?api_key=");
-        #endif 
+                Serial.println ("sending to api.safecast.org");  
+        }
 	client.print(config.api_key);
 	client.println(" HTTP/1.1");
 	client.println("Accept: application/json");
@@ -1385,27 +1422,21 @@ void SendDataToServer(float CPM,float CPM2){
 
  
  
-      // get temperature
-          float temperature = getTemp();
+          //display battery
           lcd.setCursor(0,3);
           lcd.print("STS:");
           lcd.setCursor(6,3);
           lcd.print(battery);
           lcd.print("V");
       
-          char temperature_string[0];
-          dtostrf(temperature, 0, 0, temperature_string);
-          char battery_string[0];
-          dtostrf(battery, 0, 2, battery_string);
- 
      //add second line for addtional info
-       sprintf_P(buf + len, PSTR("*%X%s$%s,%d,%s,%s"), 
+       sprintf_P(buf + len, PSTR("*%X%s$%s,%d,%d,%d"), 
               (int)chk, \
               "\n", \
               HEADER_SENSOR,  \
                config.devid, \              
-              temperature_string, \
-              battery_string);
+              temperature, \
+              battery);
  
       Serial.println(buf);
  
@@ -1436,13 +1467,13 @@ void SendDataToServer(float CPM,float CPM2){
   
          
         //add second line for addtional info
-           sprintf_P(buf2 + len2, PSTR("*%X%s$%s,%d,%s,%s"), 
+           sprintf_P(buf2 + len2, PSTR("*%X%s$%s,%d,%d,%d"), 
               (int)chk, \
               "\n", \
               HEADER_SENSOR,  \
                config.devid, \
-              temperature_string, \
-              battery_string);
+              temperature, \
+              battery);
               
               
          Serial.println(buf2); 
@@ -1476,6 +1507,15 @@ lastConnectionTime = millis();
     float uSv2 = CPM2 * conversionCoefficient2;                   // convert CPM to Micro Sieverts Per Hour
     char CPM2_string[16];
     dtostrf(CPM2, 0, 0, CPM2_string);
+    
+    //Get temp and Battery 
+     float battery =((read_voltage(VOLTAGE_PIN)));
+     float temperature = getTemp();
+     
+//    char temperature_string[4];
+//    dtostrf(temperature, 0, 0, temperature_string);
+//    char battery_string[4];
+//    dtostrf(battery, 0, 2, battery_string);
 
     //display geiger info
       lcd.clear();
@@ -1484,16 +1524,26 @@ lastConnectionTime = millis();
       lcd.print(CPM_string); 
       lcd.print(" CPM ");  
       lcd.print(uSv);
-      lcd.print("uSh"); 
+      lcd.print("uSv/h"); 
       lcd.setCursor(0,1);    
       lcd.print("S2:");
       lcd.print(CPM2_string); 
       lcd.print(" CPM ");
       lcd.print(uSv2);
-      lcd.print("uSh");
+      lcd.print("uSv/h");
       lcd.setCursor(0,2);
       lcd.print("API:");
 
+      //check level
+
+        if (a3gs.getRSSI(rssi) == 0) {
+          Serial.print("RSSI = ");
+          Serial.print(rssi);
+          Serial.println(" dBm");
+          lcd.setCursor(12,3);
+          lcd.print(rssi);
+          lcd.print(" dBm");
+        }
 
 
         //convert time in correct format
@@ -1553,25 +1603,16 @@ lastConnectionTime = millis();
         else
             sprintf_P(buf2 + len2, PSTR("*%X"), (int)chk2);
             
-         
-        //Get temp and Battery 
-             float battery =((read_voltage(VOLTAGE_PIN)));
-             float temperature = getTemp();
-     
-              char temperature_string[0];
-              dtostrf(temperature, 0, 0, temperature_string);
-              char battery_string[0];
-              dtostrf(battery, 0, 2, battery_string);
- 
+            
         //add second line for addtional info
            sprintf_P(buf2 + len2, PSTR("*%X%s$%s,%d,%s,%d,%s"), 
               (int)chk, \
               "\n", \
               HEADER_SENSOR,  \
                config.devid, \
-              temperature_string, \
-               rssi, \
-              battery_string);
+              temperature, \
+              battery,  \
+              rssi);
               
             
         Serial.println(buf2);    
@@ -1581,16 +1622,6 @@ lastConnectionTime = millis();
         //write to sd card sensor 2 info
         OpenLog.println(buf2);
 
-      //check level
-
-        if (a3gs.getRSSI(rssi) == 0) {
-          Serial.print("RSSI = ");
-          Serial.print(rssi);
-          Serial.println(" dBm");
-          lcd.setCursor(12,3);
-          lcd.print(rssi);
-          lcd.print(" dBm");
-        }
 
 
     //send to server

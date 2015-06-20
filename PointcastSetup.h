@@ -19,8 +19,8 @@
 
 #define ENABLE_3G             0
 #define ENABLE_ETHERNET       1
-#define ENABLE_DEV            1
-#define ENABLE_API            0
+//#define ENABLE_DEV            1
+//#define ENABLE_API            0
 
 #define HEADER_SENSOR  "PNTXS"
 #define HEADER  "PNTDD"
