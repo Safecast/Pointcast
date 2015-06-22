@@ -39,7 +39,7 @@
 2015-06-19 V2.9.6  Changed filenaming SDCard
 2015-06-20 V2.9.7  more fixed 3G second line
 2015-06-21 V2.9.8  Switch between API and Dev sending through sdcard.
-
+2015-06-22 V2.9.9  DEV status is displed on LCD
 
 
 contact rob@yr-design.biz
@@ -136,7 +136,7 @@ static char strbuffer[32];
 
 
 //static
-    static char VERSION[] = "V2.9.8";
+    static char VERSION[] = "V2.9.9";
 
     #if ENABLE_3G
     static char path[LINE_SZ];
@@ -892,6 +892,12 @@ void Menu_sensors(void){
 
               lcd.setCursor(0, 0);
               lcd.print("API");
+              lcd.setCursor(5, 0);
+                 if (config.dev){
+                     lcd.print("DEVELOPMENT");
+                  } else {
+                     lcd.print("PRODUCTION");  
+                  } 
               lcd.setCursor(0, 1);
               lcd.print("S1-ID=");
               lcd.print(config.user_id); 
@@ -1062,7 +1068,10 @@ void Menu_network(void){
               lcd.print("STARTUP");
               lcd.setCursor(0,3);
               lcd.print("STS:");
-              lcd.setCursor(6,3);
+                  if (config.dev){
+                    lcd.print("DEV");
+                    }
+              lcd.setCursor(9,3);
               lcd.print(battery);
               lcd.print("V");
               #if ENABLE_3G
@@ -1196,7 +1205,7 @@ void SendDataToServer(float CPM,float CPM2){
       lcd.print("uSh");
       lcd.setCursor(0,2);
       lcd.print("API:");
-      
+
 	
  //send first sensor  
 	if (client.connected())
@@ -1425,7 +1434,10 @@ void SendDataToServer(float CPM,float CPM2){
           //display battery
           lcd.setCursor(0,3);
           lcd.print("STS:");
-          lcd.setCursor(6,3);
+            if (config.dev){
+                  lcd.print("DEV");
+            }
+          lcd.setCursor(9,3);
           lcd.print(battery);
           lcd.print("V");
       
