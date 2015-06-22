@@ -40,7 +40,7 @@
 2015-06-20 V2.9.7  more fixed 3G second line
 2015-06-21 V2.9.8  Switch between API and Dev sending through sdcard.
 2015-06-22 V2.9.9  DEV status is displed on LCD
-
+2015-06-22 V3.0.0  Second line for extra information fix (final)
 
 contact rob@yr-design.biz
  */
@@ -136,7 +136,7 @@ static char strbuffer[32];
 
 
 //static
-    static char VERSION[] = "V2.9.9";
+    static char VERSION[] = "V3.0.0";
 
     #if ENABLE_3G
     static char path[LINE_SZ];
@@ -1184,10 +1184,10 @@ void SendDataToServer(float CPM,float CPM2){
     //Get temp and Battery 
      float battery =((read_voltage(VOLTAGE_PIN)));
      float temperature = getTemp();    
-//     char temperature_string[4];
-//     dtostrf(temperature, 0, 0, temperature_string);
-//     char battery_string[4];
-//     dtostrf(battery, 0, 2, battery_string);
+     char temperature_string[5];
+     dtostrf(temperature, 0, 0, temperature_string);
+     char battery_string[5];
+     dtostrf(battery, 0, 2, battery_string);
 
     //display geiger info
       lcd.clear();
@@ -1252,13 +1252,6 @@ void SendDataToServer(float CPM,float CPM2){
 	json_buf[len] = '\0';
 	Serial.println(json_buf);
 
-//        #if ENABLE_DEV
-//        	client.print("POST /scripts/indextest.php?api_key=");
-//        #endif
-//        
-//        #if ENABLE_API
-//                client.print("POST /scripts/index.php?api_key=");
-//        #endif 
 
         if (config.dev){
         	client.print("POST /scripts/indextest.php?api_key=");
@@ -1328,14 +1321,6 @@ void SendDataToServer(float CPM,float CPM2){
 	Serial.println(json_buf2);
 
 
-//        #if ENABLE_DEV
-//        	client.print("POST /scripts/indextest.php?api_key=");
-//        #endif
-//        
-//        #if ENABLE_API
-//                client.print("POST /scripts/index.php?api_key=");
-//        #endif 
-
         if (config.dev){
         	client.print("POST /scripts/indextest.php?api_key=");
                 Serial.println ("sending to dev.safecast.org");  
@@ -1357,44 +1342,6 @@ void SendDataToServer(float CPM,float CPM2){
         lcd.setCursor(14,2);
         lcd.print("PASS");
 	Serial.println("Disconnecting");
-        
- 
-        
-        
-//        //send second string
-//        memset(json_buf2, 0, SENT_SZ);
-//	sprintf_P(json_buf2, PSTR("{\"longitude\":\"%s\",\"latitude\":\"%s\",\"device_id\":\"%d\",\"value\":\"%s\",\"unit\":\"Voltage\"}"),  \
-//	              config.longitude, \
-//	              config.latitude, \
-//	              config.user_id2,  \
-//	              CPM2_string);
-//
-//	int len3 = strlen(json_buf2);
-//	json_buf2[len3] = '\0';
-//	Serial.println(json_buf2);;
-//        #if ENABLE_DEV
-//        	client.print("POST /scripts/indextest.php?api_key=");
-//        #endif
-//        
-//        #if ENABLE_API
-//                client.print("POST /scripts/index.php?api_key=");
-//        #endif 
-//	client.print(config.api_key);
-//	client.println(" HTTP/1.1");
-//	client.println("Accept: application/json");
-//	client.print("Host:");
-//        client.println(server);
-//	client.print("Content-Length: ");
-//	client.println(strlen(json_buf2));
-//	client.println("Content-Type: application/json");
-//	client.println();
-//	client.println(json_buf2);
-//        lcd.setCursor(14,2);
-//        lcd.print("PASS");
-//	Serial.println("Disconnecting");
-//        
-//        client.stop();
-
 
 
       //convert time in correct format
@@ -1429,8 +1376,6 @@ void SendDataToServer(float CPM,float CPM2){
           else
               sprintf_P(buf + len, PSTR("*%X"), (int)chk);
 
- 
- 
           //display battery
           lcd.setCursor(0,3);
           lcd.print("STS:");
@@ -1442,13 +1387,13 @@ void SendDataToServer(float CPM,float CPM2){
           lcd.print("V");
       
      //add second line for addtional info
-       sprintf_P(buf + len, PSTR("*%X%s$%s,%d,%d,%d"), 
+       sprintf_P(buf + len, PSTR("*%X%s$%s,%d,%s,%s"), 
               (int)chk, \
               "\n", \
               HEADER_SENSOR,  \
                config.devid, \              
-              temperature, \
-              battery);
+              temperature_string, \
+              battery_string);
  
       Serial.println(buf);
  
@@ -1479,13 +1424,13 @@ void SendDataToServer(float CPM,float CPM2){
   
          
         //add second line for addtional info
-           sprintf_P(buf2 + len2, PSTR("*%X%s$%s,%d,%d,%d"), 
+           sprintf_P(buf2 + len2, PSTR("*%X%s$%s,%d,%s,%s"), 
               (int)chk, \
               "\n", \
               HEADER_SENSOR,  \
-               config.devid, \
-              temperature, \
-              battery);
+               config.devid, \              
+              temperature_string, \
+              battery_string);
               
               
          Serial.println(buf2); 
@@ -1524,10 +1469,10 @@ lastConnectionTime = millis();
      float battery =((read_voltage(VOLTAGE_PIN)));
      float temperature = getTemp();
      
-//    char temperature_string[4];
-//    dtostrf(temperature, 0, 0, temperature_string);
-//    char battery_string[4];
-//    dtostrf(battery, 0, 2, battery_string);
+    char temperature_string[5];
+    dtostrf(temperature, 0, 0, temperature_string);
+    char battery_string[5];
+    dtostrf(battery, 0, 2, battery_string);
 
     //display geiger info
       lcd.clear();
@@ -1622,9 +1567,9 @@ lastConnectionTime = millis();
               "\n", \
               HEADER_SENSOR,  \
                config.devid, \
-              temperature, \
-              battery,  \
-              rssi);
+              temperature_string, \
+              rssi,  \
+              battery_string);
               
             
         Serial.println(buf2);    
