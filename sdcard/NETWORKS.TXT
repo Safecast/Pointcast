@@ -1,9 +1,9 @@
-uid1=94
-uid2=95
+uid1=100011
+uid2=100012
 intf=EN
 gw2=107.161.164.166
 gw1=107.161.164.163
 ssid=mywifi
 pwd=12345678
 gwn=test	
-dev=0
+dev=1

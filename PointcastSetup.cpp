@@ -140,7 +140,21 @@ void PointcastSetup::loadFromFile(char * setupFile) {
         DEBUG_PRINTLN("   - Update dev_id");
       }
     }
-    else if(strcmp(key, "uid1") == 0) {
+    else if(strcmp(key, "devt1") == 0) {
+      if (mConfig.devt1 != (unsigned int)atoi(value)) {
+        mConfig.devt1 = atoi(value);
+        config_changed = true;
+        DEBUG_PRINTLN("   - Update Device Type 1");
+      }
+    }
+    else if(strcmp(key, "devt2") == 0) {
+      if (mConfig.devt2 != (unsigned int)atoi(value)) {
+        mConfig.devt2 = atoi(value);
+        config_changed = true;
+        DEBUG_PRINTLN("   - Update Device Type 2");
+      }
+    }
+        else if(strcmp(key, "uid1") == 0) {
       if (mConfig.user_id != (unsigned int)atoi(value)) {
         mConfig.user_id = atoi(value);
         config_changed = true;

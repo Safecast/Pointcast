@@ -17,10 +17,8 @@
 #define BMRDD_EEPROM_SETUP 500
 #define BMRDD_EEPROM_MARKER 0x5afeF00d
 
-#define ENABLE_3G             0
-#define ENABLE_ETHERNET       1
-//#define ENABLE_DEV            1
-//#define ENABLE_API            0
+#define ENABLE_3G             1
+#define ENABLE_ETHERNET       0
 
 #define HEADER_SENSOR  "PNTXS"
 #define HEADER  "PNTDD"
@@ -35,6 +33,8 @@ typedef struct {
   unsigned int devid;     // did
   unsigned int user_id;     // uid
   unsigned int user_id2;     // uid
+  unsigned int devt1;     // device type 1 (see devcies Pointcast_XX) on api  
+  unsigned int devt2;     // device type 2(see devcies Pointcast_XX) on api  
   char api_key[24];         // api
   char latitude[16];        // lat
   char longitude[16];       // lon
