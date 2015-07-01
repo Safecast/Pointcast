@@ -1,12 +1,12 @@
-devid=10001
-lat=37.6590
-lon=140.459
+devid=10004
+lat=34.4883
+lon=136.165
 api=AzQLKPwQqkyCTDGZHSdy
 tws=300
-alt=209
+alt=100
 ups=300
 autow=1
 rst=0
 alm=150
-tz=+9
+tz=-9
 trb=0

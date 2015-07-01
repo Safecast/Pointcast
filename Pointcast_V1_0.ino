@@ -43,6 +43,8 @@
 2015-06-22 V3.0.0  Second line for extra information fix (final)
 2015-06-25 V3.0.1  Device Type ID on SDCard and the API setup for Device typing LND7317 is 129 and LND712 is 130
 2015-06-25 V3.0.2  Added height for dev to measurements.
+2015-06-25 V3.0.3  Fixes for SDcard reading and Network startup
+2015-06-25 V3.0.4  RTC tests moved after network startup
 
 
 contact rob@yr-design.biz
@@ -139,7 +141,7 @@ static char strbuffer[32];
 
 
 //static
-    static char VERSION[] = "V3.0.2";
+    static char VERSION[] = "V3.0.4";
 
     #if ENABLE_3G
     static char path[LINE_SZ];
@@ -477,31 +479,7 @@ void Menu_startup(void){
 
  void Menu_system(void){
 
-      #if ENABLE_3G
-        a3gs.start();
-      #endif
       
-        #if ENABLE_ETHERNET
-          //setup time 
-          if (!network_startup){
-          //setup time 
-                  if (Ethernet.begin(macAddress) == 0) {
-                    {
-                      Ethernet.begin(macAddress, localIP);
-                    }
-                  }
-                  if (Ethernet.begin(macAddress) == 0) {
-                    {
-                      Ethernet.begin(macAddress, localIP);
-                    }
-                  }
-                Udp.begin(localPort);
-                setSyncProvider(getNtpTime);
-                Teensy3Clock.set(now()); 
-          }
-          network_startup=true;
-                
-        #endif
         
        float battery =((read_voltage(VOLTAGE_PIN)));
        float temperature = getTemp();
@@ -557,12 +535,6 @@ void Menu_startup(void){
 
 void Menu_sdcard(void){
 
-      #if ENABLE_3G
-        if(!sdcard_startup){
-        a3gs.begin();
-        }
-      #endif
-      
       if(!sdcard_startup){
       OpenLog.begin(9600);
       setupOpenLog();
@@ -628,7 +600,6 @@ void Menu_sdcard(void){
                         lcd.print(" PASS");;
                         lcd.setCursor(0, 3);
                         lcd.print("NETWORK:");
-
                         lcd.print(" PASS");;
 
 
@@ -644,24 +615,28 @@ void Menu_sdcard(void){
                     }
                   lcd.setCursor(8, 0);
                   lcd.print("FAIL");
+                  delay(2000);
                   //Red LED on
                   digitalWrite(26, HIGH);
                   Serial.println();
                   Serial.println("No SD card.. ");
+
                  }
             }
           }
        }
      
- //dev 
-   if (config.dev){
-   Serial.println ("setup for sending to dev.safecast.org");
-   }              
-  sdcard_startup = true;
-    //Check if Time is setup
-  
-    setSyncProvider(getTeensy3Time);
-//    sprintf("%4d", x % 10000)
+
+  Menu_time();
+}  
+    
+/**************************************************************************/
+// Time Screen
+/**************************************************************************/  
+ void Menu_time(void){
+   
+       setSyncProvider(getTeensy3Time);
+
 
     if (timeStatus()!= timeSet) {
         Serial.println("Unable to sync with the RTC");
@@ -671,40 +646,7 @@ void Menu_sdcard(void){
       } else {
         Serial.println("RTC has set the system time for GMT");                 
 	sprintf_P(logfile_name, PSTR("%04d%02d%02d.TXT"),year(), month(), day());
-      }  
-  
-  // create SDcard filename
-  if (!finished_startup){
-      if (openlog_ready) {
-          logfile_ready = true;
-          createFile(logfile_name);
-      }
-    }
-  Menu_time();
-}  
-    
-/**************************************************************************/
-// Time Screen
-/**************************************************************************/  
- void Menu_time(void){
- 
-
-        
-        
-        #if ENABLE_3G
-              uint32_t seconds;
-              
-             if (a3gs.getTime2(seconds) == 0) {
-                  setTime(seconds);
-                  adjustTime(-28800);
-                  Teensy3Clock.set(now());
-                  Serial.print(seconds);
-                  Serial.println(" Sec.");
-                }
-                else
-                  Serial.println("Can't get seconds.");  
-            
-         #endif
+      }   
             
 
       
@@ -732,6 +674,35 @@ void Menu_sdcard(void){
                     lcd.print("Zone:");
                     lcd.print(config.tz);  
           } 
+          
+    //dev 
+   if (config.dev){
+   Serial.println ("setup for sending to dev.safecast.org");
+   }              
+  sdcard_startup = true;
+    //Check if Time is setup
+  
+    setSyncProvider(getTeensy3Time);
+//    sprintf("%4d", x % 10000)
+
+    if (timeStatus()!= timeSet) {
+        Serial.println("Unable to sync with the RTC");
+        sprintf_P(logfile_name, PSTR("%04d1234.TXT"),config.user_id% 10000);
+        
+
+      } else {
+        Serial.println("RTC has set the system time for GMT");                 
+	sprintf_P(logfile_name, PSTR("%04d%02d%02d.TXT"),year(), month(), day());
+      }  
+  
+  // create SDcard filename
+  if (!finished_startup){
+      if (openlog_ready) {
+          logfile_ready = true;
+          createFile(logfile_name);
+      }
+    }
+          
           
   
   Menu_pointcast1();
@@ -829,10 +800,6 @@ void Menu_pointcast1(void){
 /**************************************************************************/   
 void Menu_sensors(void){
   
-  
-  
-  
-  
         lcd.clear();
            previousMillis=millis() ;
            while ((unsigned long)(millis() - previousMillis) <= display_interval) {
@@ -924,7 +891,7 @@ void Menu_sensors(void){
               lcd.print("S1-ID=");
               lcd.print(config.user_id2);
               lcd.setCursor(0, 3);
-              lcd.print("AK=");
+              //lcd.print("AK=");
 //              strncpy( strbuffer, config.api_key, 12);
               lcd.print(config.api_key);
        }     
@@ -936,6 +903,48 @@ void Menu_sensors(void){
 // Network Screen
 /**************************************************************************/   
 void Menu_network(void){
+  
+  
+      #if ENABLE_3G
+        a3gs.start();
+      #endif
+      
+        #if ENABLE_ETHERNET
+          //setup time 
+          if (!network_startup){
+          //setup time 
+                  if (Ethernet.begin(macAddress) == 0) {
+                    {
+                      Ethernet.begin(macAddress, localIP);
+                    }
+                  }
+                  if (Ethernet.begin(macAddress) == 0) {
+                    {
+                      Ethernet.begin(macAddress, localIP);
+                    }
+                  }
+//                Udp.begin(localPort);
+//                setSyncProvider(getNtpTime);
+//                Teensy3Clock.set(now()); 
+          }
+          network_startup=true;
+                
+        #endif
+        
+        #if ENABLE_3G
+//              uint32_t seconds;
+//              
+//             if (a3gs.getTime2(seconds) == 0) {
+//                  setTime(seconds);
+//                  adjustTime(-28800);
+//                  Teensy3Clock.set(now());
+//                  Serial.print(seconds);
+//                  Serial.println(" Sec.");
+//                }
+//                else
+//                  Serial.println("Can't get seconds.");  
+            
+         #endif
       #if ENABLE_ETHERNET
       
             // random gateway array setup
@@ -951,12 +960,12 @@ void Menu_network(void){
               lcd.clear();
               lcd.setCursor(0, 0);
               lcd.print("NETWORK ETHER (DHCP)");
-//              if (Ethernet.begin(macAddress) == 0)
-//      	{
-//             		Serial.println("Failed DHCP");
-//              	Ethernet.begin(macAddress, localIP);
-//      	}
-//      
+                  if (Ethernet.begin(macAddress) == 0)
+          	{
+                 		Serial.println("Failed DHCP");
+                  	Ethernet.begin(macAddress, localIP);
+          	}
+          
                  previousMillis=millis() ;
                  while ((unsigned long)(millis() - previousMillis) <= display_interval) {
                     if (joyCntB){ Serial.println ("Up"); joyCntB=!joyCntB;joyCntA=false;lcd.clear();display_interval=3000;Menu_api();return;}
