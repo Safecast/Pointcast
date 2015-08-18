@@ -48,6 +48,10 @@
 2015-07-27 V3.0.5  Setup for kcpm
 2015-07-30 V3.0.6  Setup for logic for sending data with deviceType ID 
 2015-08-15 V3.0.7  Fixed CPM2 bug in display
+2015-08-16 V3.0.8  3G RTC and display setup changed
+2015-08-18 V3.0.9  Voltage display adjusted for volage drop over D103 lower board
+
+
 
 contact rob@yr-design.biz
  */
@@ -102,7 +106,7 @@ int red_ledPin=26;
 
 //setup Onewire for temp sensor
 #include <OneWire.h>
-OneWire  ds(32);  // on pin 10 od extra header(a 4.7K resistor is necessary)
+OneWire  ds(32);  // on pin 10 of extra header(a 4.7K resistor is necessary)
 
 //main menu variable
  boolean finished_startup = false;
@@ -144,7 +148,7 @@ static char strbuffer1[32];
 
 
 //static
-    static char VERSION[] = "V3.0.7";
+    static char VERSION[] = "V3.0.9";
 
     #if ENABLE_3G
     static char path[LINE_SZ];
@@ -900,6 +904,7 @@ void Menu_network(void){
   
       #if ENABLE_3G
         a3gs.start();
+        Serial.print("setting up 3G");
       #endif
       
         #if ENABLE_ETHERNET
@@ -938,21 +943,8 @@ void Menu_network(void){
    
                 
         #endif
-        
-        #if ENABLE_3G
-//              uint32_t seconds;
-//              
-//             if (a3gs.getTime2(seconds) == 0) {
-//                  setTime(seconds);
-//                  adjustTime(-28800);
-//                  Teensy3Clock.set(now());
-//                  Serial.print(seconds);
-//                  Serial.println(" Sec.");
-//                }
-//                else
-//                  Serial.println("Can't get seconds.");  
-            
-         #endif
+   
+
       #if ENABLE_ETHERNET
       
             // random gateway array setup
@@ -1007,12 +999,27 @@ void Menu_network(void){
       #if ENABLE_3G
       
                 //Get RSSI level
+                    lcd.clear();
+                    lcd.setCursor(0, 0);
+                    lcd.print("NETWORK 3G startup");
+                    if (a3gs.start() == 0 && a3gs.begin() == 0) {
                     a3gs.getRSSI(rssi);
                     Serial.print("RSSI = ");
                     Serial.print(rssi);
                     Serial.println(" dBm");
-      
-              
+                     }
+                uint32_t seconds;
+             
+                if (a3gs.getTime2(seconds) == 0) {
+                     setTime(seconds);
+                     adjustTime(-28800);
+                     Teensy3Clock.set(now());
+                     Serial.print(seconds);
+                     Serial.println(" Sec.");
+                   }
+                   else
+                     Serial.println("Can't get seconds.");  
+                  
       
                 // random gateway array setup
                       gateway[0] = config.gw1;
@@ -1124,6 +1131,7 @@ void Menu_network(void){
                          //a3gs.restart();
                          lcd.setCursor(14,2);
                          lcd.print("FAILED");
+                         Serial.println ("Can not connect to 3G server");
                      }
 
                 #endif
@@ -1617,20 +1625,45 @@ lastConnectionTime = millis();
     char battery_string[5];
     dtostrf(battery, 0, 2, battery_string);
 
-    //display geiger info
       lcd.clear();
       lcd.setCursor(0, 0);
-      lcd.print("S1:");
-      lcd.print(CPM_string); 
-      lcd.print(" CPM ");  
+      lcd.print("S1:");   
+          if(CPM >= 1000) {
+                dtostrf((float)(CPM/1000.0), 4, 3, strbuffer);
+                strncpy (strbuffer1, strbuffer, 4);
+                if (strbuffer1[strlen(strbuffer1)-1] == '.') {
+                  strbuffer1[strlen(strbuffer1)-1] = 0;
+                }
+                lcd.print(strbuffer1);
+                sprintf_P(strbuffer, PSTR("kCPM "));
+                lcd.print(strbuffer);
+              } else {
+                dtostrf((float)CPM, 0, 0, strbuffer);
+                lcd.print(strbuffer);
+                sprintf_P(strbuffer, PSTR(" CPM "));
+                lcd.print(strbuffer);
+              }   
       lcd.print(uSv);
-      lcd.print("uSv/h"); 
+      lcd.print("uSh"); 
       lcd.setCursor(0,1);    
       lcd.print("S2:");
-      lcd.print(CPM2_string); 
-      lcd.print(" CPM ");
+          if(CPM2 >= 1000) {
+                dtostrf((float)(CPM2/1000.0), 4, 3, strbuffer);
+                strncpy (strbuffer1, strbuffer, 4);
+                if (strbuffer1[strlen(strbuffer1)-1] == '.') {
+                  strbuffer1[strlen(strbuffer1)-1] = 0;
+                }
+                lcd.print(strbuffer1);
+                sprintf_P(strbuffer, PSTR("kCPM "));
+                lcd.print(strbuffer);
+              } else {
+                dtostrf((float)CPM2, 0, 0, strbuffer);
+                lcd.print(strbuffer);
+                sprintf_P(strbuffer, PSTR(" CPM "));
+                lcd.print(strbuffer);
+              }  
       lcd.print(uSv2);
-      lcd.print("uSv/h");
+      lcd.print("uSh");
       lcd.setCursor(0,2);
       lcd.print("API:");
 
@@ -2085,7 +2118,7 @@ void createFile(char *fileName) {
     float read_voltage(int pin)
     {
       static float voltage_divider = (float)VOLTAGE_R2 / (VOLTAGE_R1 + VOLTAGE_R2);
-      float result = (float)analogRead(pin)/4096*10  / voltage_divider;
+      float result = ((float)analogRead(pin)/4096*10  / voltage_divider + 0.3);
       return result;
     }
 
