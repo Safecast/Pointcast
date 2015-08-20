@@ -50,7 +50,7 @@
 2015-08-15 V3.0.7  Fixed CPM2 bug in display
 2015-08-16 V3.0.8  3G RTC and display setup changed
 2015-08-18 V3.0.9  Voltage display adjusted for volage drop over D103 lower board
-
+2015-08-18 V3.1.0  Switched Teensy to internal ref mode for voltage measurements
 
 
 contact rob@yr-design.biz
@@ -101,7 +101,7 @@ int red_ledPin=26;
 
 //setup Power detection
 #define VOLTAGE_PIN A13
-#define VOLTAGE_R1 150000
+#define VOLTAGE_R1 100000
 #define VOLTAGE_R2 10000
 
 //setup Onewire for temp sensor
@@ -148,7 +148,7 @@ static char strbuffer1[32];
 
 
 //static
-    static char VERSION[] = "V3.0.9";
+    static char VERSION[] = "V3.1.0";
 
     #if ENABLE_3G
     static char path[LINE_SZ];
@@ -360,7 +360,7 @@ static char strbuffer1[32];
 /**************************************************************************/
 
 void setup() {  
-
+     analogReference(INTERNAL);
 
    //set device type of sensors to sens only one time
         devt1_send = 0;
@@ -2118,7 +2118,7 @@ void createFile(char *fileName) {
     float read_voltage(int pin)
     {
       static float voltage_divider = (float)VOLTAGE_R2 / (VOLTAGE_R1 + VOLTAGE_R2);
-      float result = ((float)analogRead(pin)/4096*10  / voltage_divider + 0.3);
+      float result =((float)analogRead(pin)/1023*1.2/ voltage_divider + 0.82);
       return result;
     }
 
