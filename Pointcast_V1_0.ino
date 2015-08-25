@@ -53,14 +53,14 @@
 2015-08-20 V3.1.0  Switched Teensy to internal ref mode for voltage measurements
 2015-08-21 V3.1.1  Added devicetype_id to send sting inside measurement
 2015-08-25 V3.1.2  MACid reading from SDcard and programming
-
+2015-08-25 V3.1.3  SDcard fail lcd display
 
 contact rob@yr-design.biz
  */
  
- /**************************************************************************/
+//**************************************************************************/
 // Init
-/**************************************************************************/
+//**************************************************************************/
  
 #include <SPI.h>         // needed for Arduino versions later than 0018
 #include <Ethernet.h>
@@ -79,22 +79,58 @@ contact rob@yr-design.biz
 #include "PointcastSetup.h"
 #include "PointcastDebug.h"
 
-//setup LCD I2C
-#define I2C_ADDR    0x27  // Define I2C Address where the PCF8574A is for LCD2004 form http://www.sainsmart.com
-#define BACKLIGHT_PIN     3
-#define En_pin  2
-#define Rw_pin  1
-#define Rs_pin  0
-#define D4_pin  4
-#define D5_pin  5
-#define D6_pin  6
-#define D7_pin  7
 
-int n = 1;
-LiquidCrystal_I2C lcd(I2C_ADDR,En_pin,Rw_pin,Rs_pin,D4_pin,D5_pin,D6_pin,D7_pin);
-int backlightPin = 2;
-int green_ledPin=31;
-int red_ledPin=26;
+#define ENABLE_DEBUG 
+#define LINE_SZ 128
+// SENT_SZ is used for sending data for 3G
+#define SENT_SZ 120
+//OLINE_SZ is used for OpenLog buffers
+#define OLINE_SZ 1024
+//GATEWAY_sz is array for gateways
+#define GATEWAY_SZ 2
+
+//static
+    static char VERSION[] = "V3.1.3";
+    
+    static char obuf[OLINE_SZ];
+    static char buf[LINE_SZ];
+    static char buf2[LINE_SZ];
+    static char lat_buf[16];
+    static char lon_buf[16];
+    static char strbuffer[32];
+    static char strbuffer1[32];
+
+    #if ENABLE_3G
+    static char path[LINE_SZ];
+    static char path2[LINE_SZ];
+    char datedisplay[8];
+    char coordinate[16];
+    #endif
+
+    #if ENABLE_ETHERNET
+    static char json_buf[SENT_SZ];
+    static char json_buf2[SENT_SZ];
+    #endif
+
+
+//setup LCD I2C
+    #define I2C_ADDR    0x27  // Define I2C Address where the PCF8574A is for LCD2004 form http://www.sainsmart.com
+    #define BACKLIGHT_PIN     3
+    #define En_pin  2
+    #define Rw_pin  1
+    #define Rs_pin  0
+    #define D4_pin  4
+    #define D5_pin  5
+    #define D6_pin  6
+    #define D7_pin  7
+
+  int n = 1;
+  LiquidCrystal_I2C lcd(I2C_ADDR,En_pin,Rw_pin,Rs_pin,D4_pin,D5_pin,D6_pin,D7_pin);
+
+//setup LEDs  
+  int backlightPin = 2;
+  int green_ledPin=31;
+  int red_ledPin=26;
 
 // 3G signal strengh
  int rssi=-125;
@@ -113,22 +149,6 @@ OneWire  ds(32);  // on pin 10 of extra header(a 4.7K resistor is necessary)
  boolean network_startup = false;
  boolean sdcard_startup = false;
 
-#define ENABLE_DEBUG 
-#define LINE_SZ 128
-// SENT_SZ is used for sending data for 3G
-#define SENT_SZ 120
-//OLINE_SZ is used for OpenLog buffers
-#define OLINE_SZ 1024
-//GATEWAY_sz is array for gateways
-#define GATEWAY_SZ 2
-
-static char obuf[OLINE_SZ];
-static char buf[LINE_SZ];
-static char buf2[LINE_SZ];
-static char lat_buf[16];
-static char lon_buf[16];
-static char strbuffer[32];
-static char strbuffer1[32];
 
 
 // OpenLog Settings --------------------------------------------------------------
@@ -147,20 +167,7 @@ static char strbuffer1[32];
     PointcastSetup PointcastSetup(OpenLog, config, obuf, OLINE_SZ);
 
 
-//static
-    static char VERSION[] = "V3.1.2";
 
-    #if ENABLE_3G
-    static char path[LINE_SZ];
-    static char path2[LINE_SZ];
-    char datedisplay[8];
-    char coordinate[16];
-    #endif
-
-    #if ENABLE_ETHERNET
-    static char json_buf[SENT_SZ];
-    static char json_buf2[SENT_SZ];
-    #endif
 
 
 //Struct setup
@@ -199,7 +206,6 @@ static char strbuffer1[32];
     bool devt1_send =false;
     bool devt2_send =false; 
     
-
 //int
     int MAX_FAILED_CONNS = 3;
     int len;
@@ -489,8 +495,6 @@ void Menu_startup(void){
 
  void Menu_system(void){
 
-      
-        
        float battery =((read_voltage(VOLTAGE_PIN)));
        float temperature = getTemp();
       
@@ -544,16 +548,28 @@ void Menu_startup(void){
 /**************************************************************************/  
 
 void Menu_sdcard(void){
-
-      if(!sdcard_startup){
-      OpenLog.begin(9600);
-      setupOpenLog();
-      }
       
       lcd.clear();
       lcd.setCursor(0, 0);
-      lcd.print("SDCARD ");  
+      lcd.print("SDCARD "); 
+      
+      if(!sdcard_startup){
+          OpenLog.begin(9600);
+          setupOpenLog();
+      }
+
+
     //Openlog setup
+            if (!openlog_ready) {
+                  lcd.setCursor(8, 0);
+                  lcd.print("FAIL");
+                  delay(2000);
+                  //Red LED on
+                  digitalWrite(26, HIGH);
+                  Serial.println();
+                  Serial.println("No SD card.. ");
+
+            }
           if (openlog_ready) {
            previousMillis=millis() ;
            while ((unsigned long)(millis() - previousMillis) <= display_interval) {
@@ -612,29 +628,9 @@ void Menu_sdcard(void){
                         lcd.print("NETWORK:");
                         lcd.print(" PASS");;
 
-
-                    
-         if (!openlog_ready) {
-          lcd.clear();
-           previousMillis=millis() ;
-           while ((unsigned long)(millis() - previousMillis) <= display_interval) {
-               if (joyCntA){
-                        display_interval=1000;
-                        joyCntA=!joyCntA;
-                        Serial.println ("joystick down");
-                    }
-                  lcd.setCursor(8, 0);
-                  lcd.print("FAIL");
-                  delay(2000);
-                  //Red LED on
-                  digitalWrite(26, HIGH);
-                  Serial.println();
-                  Serial.println("No SD card.. ");
-
-                 }
-            }
           }
        }
+       
      
 
   Menu_time();
@@ -1075,7 +1071,7 @@ void Menu_network(void){
            lcd.clear();
            previousMillis=millis() ;
            while ((unsigned long)(millis() - previousMillis) <= display_interval) {
-                     if (joyCntB){ Serial.println ("Up"); joyCntB=!joyCntB;joyCntA=false;lcd.clear();display_interval=3000;Menu_network();return;}
+                     if (joyCntB){ Serial.println ("Up"); joyCntB=!joyCntB;joyCntA=false;lcd.clear();network_startup=true;display_interval=3000;Menu_network();return;}
                      if (joyCntA){ Serial.println ("Down"); joyCntA=!joyCntA;joyCntB=false;lcd.clear();display_interval=3000;Menu_counting();return;}
 
                 lcd.setCursor(0, 0);
