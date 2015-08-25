@@ -55,7 +55,7 @@
 2015-08-25 V3.1.2  MACid reading from SDcard and programming
 2015-08-25 V3.1.3  SDcard fail lcd display
 2015-08-25 V3.1.4  Voltage display direct without diode compensation and  3G displays carrier
-
+2015-08-25 V3.1.5  Fixed always two digit display ethernet Mac
 
 contact rob@yr-design.biz
  */
@@ -92,7 +92,7 @@ contact rob@yr-design.biz
 #define GATEWAY_SZ 2
 
 //static
-    static char VERSION[] = "V3.1.4";
+    static char VERSION[] = "V3.1.5";
     
     static char obuf[OLINE_SZ];
     static char buf[LINE_SZ];
@@ -107,11 +107,13 @@ contact rob@yr-design.biz
     static char path2[LINE_SZ];
     char datedisplay[8];
     char coordinate[16];
+
     #endif
 
     #if ENABLE_ETHERNET
     static char json_buf[SENT_SZ];
     static char json_buf2[SENT_SZ];
+    char macstr[18];
     #endif
 
 
@@ -996,12 +998,15 @@ void Menu_network(void){
                         lcd.print("GW:");
                         lcd.print(server);
                         lcd.setCursor(0, 3);
-                        lcd.print("ID");
-                            for (int i=0; i<6; ++i)
-                                {
-                              lcd.print(":");
-                              lcd.print(macAddress[i],HEX);
-                              } 
+                        lcd.print("ID:");
+                        
+                        snprintf(macstr, 18, "%02x:%02x:%02x:%02x:%02x:%02x", macAddress[0], macAddress[1], macAddress[2], macAddress[3], macAddress[4], macAddress[5]);
+                        lcd.print(macstr); 
+//                            for (int i=0; i<6; ++i)
+//                                {
+//                              lcd.print(":");
+//                              lcd.print(macAddress[i],HEX);
+//                              } 
                       }                   
       #endif
       
