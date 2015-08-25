@@ -273,6 +273,14 @@ void PointcastSetup::loadFromFile(char * setupFile) {
         DEBUG_PRINTLN("   - Update SSID for WiFi");
       }
     }
+    else if(strcmp(key, "apn") == 0) {
+     if (strcmp(mConfig.apn, value) != 0 ) {
+        strcpy(mConfig.apn, value);
+        config_changed = true;
+        DEBUG_PRINTLN("   - Update apn");
+      }
+    }
+    
      else if(strcmp(key, "pwd") == 0) {
       if (strcmp(mConfig.pwd, value) != 0 ) {
         strcpy(mConfig.pwd, value);
@@ -322,7 +330,7 @@ void PointcastSetup::loadFromFile(char * setupFile) {
         DEBUG_PRINTLN("   - Update MACid");
       }
     }
-    
+
   }
   DEBUG_PRINTLN("   - Done.");
 

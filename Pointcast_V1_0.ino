@@ -54,6 +54,8 @@
 2015-08-21 V3.1.1  Added devicetype_id to send sting inside measurement
 2015-08-25 V3.1.2  MACid reading from SDcard and programming
 2015-08-25 V3.1.3  SDcard fail lcd display
+2015-08-25 V3.1.4  Voltage display direct without diode compensation and  3G displays carrier
+
 
 contact rob@yr-design.biz
  */
@@ -90,7 +92,7 @@ contact rob@yr-design.biz
 #define GATEWAY_SZ 2
 
 //static
-    static char VERSION[] = "V3.1.3";
+    static char VERSION[] = "V3.1.4";
     
     static char obuf[OLINE_SZ];
     static char buf[LINE_SZ];
@@ -1053,7 +1055,7 @@ void Menu_network(void){
       //                  lcd.print("[000000]"); 
                         lcd.setCursor(0, 2);        
                         lcd.print("Carrier:");
-                        lcd.print("NTT Docomo");
+                        lcd.print(config.apn);
                         lcd.setCursor(0, 3);
                         lcd.print("Phone: ");
                         lcd.print("080XXXXYYYY");
@@ -2129,7 +2131,7 @@ void createFile(char *fileName) {
     float read_voltage(int pin)
     {
       static float voltage_divider = (float)VOLTAGE_R2 / (VOLTAGE_R1 + VOLTAGE_R2);
-      float result =((float)analogRead(pin)/1023*1.2/ voltage_divider + 0.82);
+      float result =((float)analogRead(pin)/1023*1.2/ voltage_divider);
       return result;
     }
 
