@@ -3,6 +3,7 @@ uid2=100042
 devt1=129
 devt2=130
 intf=EN
+macid=90:A2:DA:0E:E0:5D
 gw2=107.161.164.166
 gw1=107.161.164.163
 ssid=mywifi

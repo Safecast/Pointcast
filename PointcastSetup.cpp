@@ -315,6 +315,13 @@ void PointcastSetup::loadFromFile(char * setupFile) {
         DEBUG_PRINTLN("   - Update trouble shooting active");
       }
     }
+     else if(strcmp(key, "macid") == 0) {
+     if (strcmp(mConfig.macid, value) != 0 ) {
+        strcpy(mConfig.macid, value);
+        config_changed = true;
+        DEBUG_PRINTLN("   - Update MACid");
+      }
+    }
     
   }
   DEBUG_PRINTLN("   - Done.");

@@ -50,7 +50,9 @@
 2015-08-15 V3.0.7  Fixed CPM2 bug in display
 2015-08-16 V3.0.8  3G RTC and display setup changed
 2015-08-18 V3.0.9  Voltage display adjusted for volage drop over D103 lower board
-2015-08-18 V3.1.0  Switched Teensy to internal ref mode for voltage measurements
+2015-08-20 V3.1.0  Switched Teensy to internal ref mode for voltage measurements
+2015-08-21 V3.1.1  Added devicetype_id to send sting inside measurement
+2015-08-25 V3.1.2  MACid reading from SDcard and programming
 
 
 contact rob@yr-design.biz
@@ -97,8 +99,6 @@ int red_ledPin=26;
 // 3G signal strengh
  int rssi=-125;
  
-
-
 //setup Power detection
 #define VOLTAGE_PIN A13
 #define VOLTAGE_R1 100000
@@ -148,7 +148,7 @@ static char strbuffer1[32];
 
 
 //static
-    static char VERSION[] = "V3.1.0";
+    static char VERSION[] = "V3.1.2";
 
     #if ENABLE_3G
     static char path[LINE_SZ];
@@ -916,7 +916,23 @@ void Menu_network(void){
             lcd.setCursor(0, 1);
             lcd.print("setting up Ethernet.");
             Serial.print("setting up Ethernet");
-            Serial.print("ID");
+            Serial.print("Eherenet MAC: ");
+                for (int i=0; i<6; ++i)
+                    {
+                  Serial.print(":");
+                  Serial.print(macAddress[i],HEX);
+                  } 
+            Serial.println();
+            sscanf(config.macid,"%2x:%2x:%2x:%2x:%2x:%2x",&macAddress[0],&macAddress[1],&macAddress[2],&macAddress[3],&macAddress[4],&macAddress[5]);
+
+            Serial.print("SDcard MAC: ");
+                for (int i=0; i<18; ++i)
+                    {
+                  Serial.print(config.macid[i]);
+                  } 
+            Serial.println();
+
+            Serial.print("Set MAC");
                 for (int i=0; i<6; ++i)
                     {
                   Serial.print(":");
@@ -925,11 +941,6 @@ void Menu_network(void){
             Serial.println();
 
           //setup time 
-                  if (Ethernet.begin(macAddress) == 0) {
-                    {
-                      Ethernet.begin(macAddress, localIP);
-                    }
-                  }
                   if (Ethernet.begin(macAddress) == 0) {
                     {
                       Ethernet.begin(macAddress, localIP);
@@ -948,6 +959,7 @@ void Menu_network(void){
       #if ENABLE_ETHERNET
       
             // random gateway array setup
+            
                   gateway[0] = config.gw1;
                   gateway[1] = config.gw2;
                   randomSeed(analogRead(0));
@@ -1343,12 +1355,14 @@ void SendDataToServer(float CPM,float CPM2){
             // prepare the log entry for sensor 1
             if (devt1_send){
                   memset(json_buf, 0, SENT_SZ);
-                  sprintf_P(json_buf, PSTR("{\"longitude\":\"%s\",\"latitude\":\"%s\",\"device_id\":\"%d\",\"value\":\"%s\",\"unit\":\"cpm\",\"height\":\"%d\"}"),  \
+                  sprintf_P(json_buf, PSTR("{\"longitude\":\"%s\",\"latitude\":\"%s\",\"device_id\":\"%d\",\"value\":\"%s\",\"unit\":\"cpm\",\"height\":\"%d\",\"devicetype_id\":\"%d\"}"),  \
                                 config.longitude, \
                                 config.latitude, \
                                 config.user_id,  \
                                 CPM_string, \
-                                config.alt);
+                                config.alt, \
+                                config.devt1);
+                                
 
                   int len = strlen(json_buf);
                   json_buf[len] = '\0';
@@ -1444,16 +1458,17 @@ void SendDataToServer(float CPM,float CPM2){
                                   
                  }
 
-     
+
                 if (devt2_send){
                           // prepare the log entry for sensor 2
                         memset(json_buf2, 0, SENT_SZ);
-                        sprintf_P(json_buf2, PSTR("{\"longitude\":\"%s\",\"latitude\":\"%s\",\"device_id\":\"%d\",\"value\":\"%s\",\"unit\":\"cpm\",\"height\":\"%d\"}"),  \
+                        sprintf_P(json_buf2, PSTR("{\"longitude\":\"%s\",\"latitude\":\"%s\",\"device_id\":\"%d\",\"value\":\"%s\",\"unit\":\"cpm\",\"height\":\"%d\",\"devicetype_id\":\"%d\"}"),  \
                                       config.longitude, \
                                       config.latitude, \
                                       config.user_id2,  \
                                       CPM2_string, \
-                                      config.alt);
+                                      config.alt, \
+                                      config.devt2);
 
                         int len2 = strlen(json_buf2);
                         json_buf2[len2] = '\0';
