@@ -56,10 +56,10 @@ typedef struct {
   char gwn[16];             //name of gateway
   char s1i[8];              //Sensor 1 Isotope
   char s2i[8];              //Sensor 2 Isotope
-  char macid[18];            //MAC id for Ethernet card
   byte aux;                 //auto
   byte trb;                 //troubleshooting
   char apn[3];              //APN name
+  char macid[18];           //MAC id for Ethernet card
 
   
 } ConfigType;

@@ -50,19 +50,25 @@
 2015-08-15 V3.0.7  Fixed CPM2 bug in display
 2015-08-16 V3.0.8  3G RTC and display setup changed
 2015-08-18 V3.0.9  Voltage display adjusted for volage drop over D103 lower board
-2015-08-20 V3.1.0  Switched Teensy to internal ref mode for voltage measurements
+2015-08-18 V3.1.0  Switched Teensy to internal ref mode for voltage measurements
 2015-08-21 V3.1.1  Added devicetype_id to send sting inside measurement
 2015-08-25 V3.1.2  MACid reading from SDcard and programming
 2015-08-25 V3.1.3  SDcard fail lcd display
 2015-08-25 V3.1.4  Voltage display direct without diode compensation and  3G displays carrier
-2015-08-25 V3.1.5  Fixed always two digit display ethernet Mac
+2015-08-25 V3.1.5  Fixed always two digit display Ethernet Mac
+2015-08-25 V3.1.6  Fixed Ethernet hang bug.
+2015-08-25 V3.1.7  Fixed RTC bug.
+2015-08-26 V3.1.8  Fixed Ethernet display hang on scroll back bug
+2015-08-27 V3.1.9  Fixes for sending Ethernet
+2015-09-01 V3.2.0  Fixes for variables listing data. 
+
 
 contact rob@yr-design.biz
  */
  
-//**************************************************************************/
+ /**************************************************************************/
 // Init
-//**************************************************************************/
+/**************************************************************************/
  
 #include <SPI.h>         // needed for Arduino versions later than 0018
 #include <Ethernet.h>
@@ -81,64 +87,28 @@ contact rob@yr-design.biz
 #include "PointcastSetup.h"
 #include "PointcastDebug.h"
 
-
-#define ENABLE_DEBUG 
-#define LINE_SZ 128
-// SENT_SZ is used for sending data for 3G
-#define SENT_SZ 120
-//OLINE_SZ is used for OpenLog buffers
-#define OLINE_SZ 1024
-//GATEWAY_sz is array for gateways
-#define GATEWAY_SZ 2
-
-//static
-    static char VERSION[] = "V3.1.5";
-    
-    static char obuf[OLINE_SZ];
-    static char buf[LINE_SZ];
-    static char buf2[LINE_SZ];
-    static char lat_buf[16];
-    static char lon_buf[16];
-    static char strbuffer[32];
-    static char strbuffer1[32];
-
-    #if ENABLE_3G
-    static char path[LINE_SZ];
-    static char path2[LINE_SZ];
-    char datedisplay[8];
-    char coordinate[16];
-
-    #endif
-
-    #if ENABLE_ETHERNET
-    static char json_buf[SENT_SZ];
-    static char json_buf2[SENT_SZ];
-    char macstr[18];
-    #endif
-
-
 //setup LCD I2C
-    #define I2C_ADDR    0x27  // Define I2C Address where the PCF8574A is for LCD2004 form http://www.sainsmart.com
-    #define BACKLIGHT_PIN     3
-    #define En_pin  2
-    #define Rw_pin  1
-    #define Rs_pin  0
-    #define D4_pin  4
-    #define D5_pin  5
-    #define D6_pin  6
-    #define D7_pin  7
+#define I2C_ADDR    0x27  // Define I2C Address where the PCF8574A is for LCD2004 form http://www.sainsmart.com
+#define BACKLIGHT_PIN     3
+#define En_pin  2
+#define Rw_pin  1
+#define Rs_pin  0
+#define D4_pin  4
+#define D5_pin  5
+#define D6_pin  6
+#define D7_pin  7
 
-  int n = 1;
-  LiquidCrystal_I2C lcd(I2C_ADDR,En_pin,Rw_pin,Rs_pin,D4_pin,D5_pin,D6_pin,D7_pin);
-
-//setup LEDs  
-  int backlightPin = 2;
-  int green_ledPin=31;
-  int red_ledPin=26;
+int n = 1;
+LiquidCrystal_I2C lcd(I2C_ADDR,En_pin,Rw_pin,Rs_pin,D4_pin,D5_pin,D6_pin,D7_pin);
+int backlightPin = 2;
+int green_ledPin=31;
+int red_ledPin=26;
 
 // 3G signal strengh
  int rssi=-125;
  
+
+
 //setup Power detection
 #define VOLTAGE_PIN A13
 #define VOLTAGE_R1 100000
@@ -153,6 +123,22 @@ OneWire  ds(32);  // on pin 10 of extra header(a 4.7K resistor is necessary)
  boolean network_startup = false;
  boolean sdcard_startup = false;
 
+#define ENABLE_DEBUG 
+#define LINE_SZ 128
+// SENT_SZ is used for sending data for 3G
+#define SENT_SZ 120
+//OLINE_SZ is used for OpenLog buffers
+#define OLINE_SZ 512
+//GATEWAY_sz is array for gateways
+#define GATEWAY_SZ 2
+
+static char obuf[OLINE_SZ];
+static char buf[LINE_SZ];
+static char buf2[LINE_SZ];
+static char lat_buf[16];
+static char lon_buf[16];
+static char strbuffer[32];
+static char strbuffer1[32];
 
 
 // OpenLog Settings --------------------------------------------------------------
@@ -171,7 +157,20 @@ OneWire  ds(32);  // on pin 10 of extra header(a 4.7K resistor is necessary)
     PointcastSetup PointcastSetup(OpenLog, config, obuf, OLINE_SZ);
 
 
+//static
+    static char VERSION[] = "V3.2.0";
 
+    #if ENABLE_3G
+    static char path[LINE_SZ];
+    static char path2[LINE_SZ];
+    char datedisplay[8];
+    char coordinate[16];
+    #endif
+
+    #if ENABLE_ETHERNET
+    static char json_buf[SENT_SZ];
+    static char json_buf2[SENT_SZ];
+    #endif
 
 
 //Struct setup
@@ -179,8 +178,6 @@ OneWire  ds(32);  // on pin 10 of extra header(a 4.7K resistor is necessary)
     {
         unsigned char state;
         unsigned char conn_fail_cnt;
-//        unsigned char devt1_send;        
-//        unsigned char devt2_send;
     } devctrl_t;
     static devctrl_t ctrl;
 
@@ -196,20 +193,20 @@ OneWire  ds(32);  // on pin 10 of extra header(a 4.7K resistor is necessary)
       EthernetClient client;
       IPAddress localIP (192, 168, 100, 40);  
       //IPAddress server(107, 161, 164, 163 ); 
-      IPAddress timeServer(132, 163, 4, 101); // time-a.timefreq.bldrdoc.gov
+      IPAddress timeServer(129, 6, 15, 29); // time-b.nist.gov
       int resetPin = A1;   //
       int ethernet_powerdonwPin = 7;
       const int timeZone = 1;
       boolean timeset_on =false;
       EthernetUDP Udp;
       unsigned int localPort = 8888;  // local port to listen for UDP packets
+      char macstr[19];
     #endif
   
   //Boolean
 
-    bool devt1_send =false;
-    bool devt2_send =false; 
     
+
 //int
     int MAX_FAILED_CONNS = 3;
     int len;
@@ -372,9 +369,6 @@ OneWire  ds(32);  // on pin 10 of extra header(a 4.7K resistor is necessary)
 void setup() {  
      analogReference(INTERNAL);
 
-   //set device type of sensors to sens only one time
-        devt1_send = 0;
-        devt2_send = 0;
         
   //print last reset message and setup the patting of the dog
          delay(100);
@@ -499,6 +493,8 @@ void Menu_startup(void){
 
  void Menu_system(void){
 
+      
+        
        float battery =((read_voltage(VOLTAGE_PIN)));
        float temperature = getTemp();
       
@@ -552,18 +548,16 @@ void Menu_startup(void){
 /**************************************************************************/  
 
 void Menu_sdcard(void){
-      
+
       lcd.clear();
       lcd.setCursor(0, 0);
       lcd.print("SDCARD "); 
       
+    //Openlog setup
       if(!sdcard_startup){
           OpenLog.begin(9600);
           setupOpenLog();
       }
-
-
-    //Openlog setup
             if (!openlog_ready) {
                   lcd.setCursor(8, 0);
                   lcd.print("FAIL");
@@ -572,7 +566,6 @@ void Menu_sdcard(void){
                   digitalWrite(26, HIGH);
                   Serial.println();
                   Serial.println("No SD card.. ");
-
             }
           if (openlog_ready) {
            previousMillis=millis() ;
@@ -634,7 +627,6 @@ void Menu_sdcard(void){
 
           }
        }
-       
      
 
   Menu_time();
@@ -907,7 +899,7 @@ void Menu_network(void){
         Serial.print("setting up 3G");
       #endif
       
-        #if ENABLE_ETHERNET
+         #if ENABLE_ETHERNET
             lcd.clear();
             lcd.setCursor(0, 0);
             lcd.print("NETWORK ETHER (DHCP)");
@@ -916,23 +908,9 @@ void Menu_network(void){
             lcd.setCursor(0, 1);
             lcd.print("setting up Ethernet.");
             Serial.print("setting up Ethernet");
-            Serial.print("Eherenet MAC: ");
-                for (int i=0; i<6; ++i)
-                    {
-                  Serial.print(":");
-                  Serial.print(macAddress[i],HEX);
-                  } 
-            Serial.println();
             sscanf(config.macid,"%2x:%2x:%2x:%2x:%2x:%2x",&macAddress[0],&macAddress[1],&macAddress[2],&macAddress[3],&macAddress[4],&macAddress[5]);
 
-            Serial.print("SDcard MAC: ");
-                for (int i=0; i<18; ++i)
-                    {
-                  Serial.print(config.macid[i]);
-                  } 
-            Serial.println();
-
-            Serial.print("Set MAC");
+            Serial.print("ID");
                 for (int i=0; i<6; ++i)
                     {
                   Serial.print(":");
@@ -946,20 +924,24 @@ void Menu_network(void){
                       Ethernet.begin(macAddress, localIP);
                     }
                   }
+                  if (Ethernet.begin(macAddress) == 0) {
+                    {
+                      Ethernet.begin(macAddress, localIP);
+                    }
+                  }
                Udp.begin(localPort);
                setSyncProvider(getNtpTime);
                Teensy3Clock.set(now()); 
 
           }
-   
                 
-        #endif
+      #endif
    
 
       #if ENABLE_ETHERNET
       
             // random gateway array setup
-            
+          if (!network_startup){
                   gateway[0] = config.gw1;
                   gateway[1] = config.gw2;
                   randomSeed(analogRead(0));
@@ -970,6 +952,7 @@ void Menu_network(void){
                   Serial.println(server);
                   Serial.print("LocalIP =");
                   Serial.println(Ethernet.localIP()); 
+            }
         
             // Initiate a DHCP session
             if (!network_startup){
@@ -999,15 +982,14 @@ void Menu_network(void){
                         lcd.print(server);
                         lcd.setCursor(0, 3);
                         lcd.print("ID:");
-                        
                         snprintf(macstr, 18, "%02x:%02x:%02x:%02x:%02x:%02x", macAddress[0], macAddress[1], macAddress[2], macAddress[3], macAddress[4], macAddress[5]);
-                        lcd.print(macstr); 
-//                            for (int i=0; i<6; ++i)
-//                                {
-//                              lcd.print(":");
-//                              lcd.print(macAddress[i],HEX);
-//                              } 
-                      }                   
+                        lcd.print(macstr);  
+
+                      } 
+                      if (!network_startup){
+                        Serial.print("MACid stored:");
+                        Serial.println(macstr); 
+                        }                 
       #endif
       
 
@@ -1060,7 +1042,7 @@ void Menu_network(void){
       //                  lcd.print("[000000]"); 
                         lcd.setCursor(0, 2);        
                         lcd.print("Carrier:");
-                        lcd.print(config.apn);
+                        lcd.print("NTT Docomo");
                         lcd.setCursor(0, 3);
                         lcd.print("Phone: ");
                         lcd.print("080XXXXYYYY");
@@ -1078,7 +1060,7 @@ void Menu_network(void){
            lcd.clear();
            previousMillis=millis() ;
            while ((unsigned long)(millis() - previousMillis) <= display_interval) {
-                     if (joyCntB){ Serial.println ("Up"); joyCntB=!joyCntB;joyCntA=false;lcd.clear();network_startup=true;display_interval=3000;Menu_network();return;}
+                     if (joyCntB){ Serial.println ("Up"); joyCntB=!joyCntB;joyCntA=false;lcd.clear();display_interval=3000;network_startup=true;Menu_network();return;}
                      if (joyCntA){ Serial.println ("Down"); joyCntA=!joyCntA;joyCntB=false;lcd.clear();display_interval=3000;Menu_counting();return;}
 
                 lcd.setCursor(0, 0);
@@ -1225,18 +1207,19 @@ void SendDataToServer(float CPM,float CPM2){
 
 // Convert from cpm to µSv/h with the pre-defined coefficient
 
-    if (config.sensor1_enabled) {
-                  conversionCoefficient = 1/config.sensor1_cpm_factor; 
-    }
+    conversionCoefficient = 1/config.sensor1_cpm_factor; // 0.0029;
     float uSv = CPM * conversionCoefficient;                   // convert CPM to Micro Sievers Per Hour
     char CPM_string[16];
     dtostrf(CPM, 0, 0, CPM_string);
-    if (config.sensor2_enabled) {
-                  conversionCoefficient2 = 1/config.sensor2_cpm_factor; 
-    }
+    conversionCoefficient2 = 1/config.sensor2_cpm_factor; // 0.0029;
     float uSv2 = CPM2 * conversionCoefficient2;                // convert CPM to Micro Sievers Per Hour
     char CPM2_string[16];
     dtostrf(CPM2, 0, 0, CPM2_string);
+
+    //test variable
+    Serial.print("conversionCoefficient2=");
+    Serial.print(conversionCoefficient2);
+
     
     //Get temp and Battery 
      float battery =((read_voltage(VOLTAGE_PIN)));
@@ -1289,83 +1272,47 @@ void SendDataToServer(float CPM,float CPM2){
       lcd.setCursor(0,2);
       lcd.print("API:");
 
-  
- //send first sensor  
-  if (client.connected())
-  {
-    Serial.println("Disconnecting");
-    client.stop();
-  }
 
-  // Try to connect to the server
-  Serial.println("Connecting");
-  if (client.connect(server, 80))
-  {
-    Serial.println("Connected");
-    lastConnectionTime = millis();
+//send second sensor  1
 
-    // clear the connection fail count if we have at least one successful connection
-    ctrl.conn_fail_cnt = 0;
-  }
-  else
-  {
-     ctrl.conn_fail_cnt++;
-     lcd.setCursor(14,2);
-     lcd.print("FAIL=");
-     lcd.print(ctrl.conn_fail_cnt);
-    if (ctrl.conn_fail_cnt >= MAX_FAILED_CONNS)
-    {
-                CPU_RESTART;
-    }
-    lastConnectionTime = millis();
-    return;
-  }
+          if (client.connected())
+              {
+                Serial.println("Disconnecting");
+                client.stop();
+              }
 
-         //send device type id information for sensor 1
-        if (!devt1_send){
-                  memset(json_buf, 0, SENT_SZ);
-                  sprintf_P(json_buf, PSTR("{\"longitude\":\"%s\",\"latitude\":\"%s\",\"device_id\":\"%d\",\"value\":\"%d\",\"unit\":\"DeviceType1\",\"height\":\"%d\"}"),  \
-                        config.longitude, \
-                        config.latitude, \
-                        config.user_id,  \
-                        config.devt1, \
-                        config.alt);
+              // Try to connect to the server
+              Serial.println("Connecting");
+              if (client.connect(server, 80))
+              {
+                Serial.println("Connected");
+                lastConnectionTime = millis();
 
-                          if (config.dev){
-                                client.print("POST /scripts/indextest.php?api_key=");
-                                Serial.println ("sending device type from sensor 1 to dev.safecast.org");  
-                              }else{
-                                client.print("POST /scripts/index.php?api_key=");
-                                Serial.println ("sending device type from sensor 1 to api.safecast.org");  
-                              }   
-                      client.print(config.api_key);
-                      client.println(" HTTP/1.1");
-                      client.println("Accept: application/json");
-                      client.print("Host:");
-                      client.println(server);
-                      client.print("Content-Length: ");
-                      client.println(strlen(json_buf));
-                      client.println("Content-Type: application/json");
-                      client.println();
-                      client.println(json_buf);
-                      Serial.println(json_buf);
-                      Serial.println("Disconnecting");
-                      //client.stop();
-                            
-           }
-   
+                // clear the connection fail count if we have at least one successful connection
+                ctrl.conn_fail_cnt = 0;
+              }
+              else
+              {
+                 ctrl.conn_fail_cnt++;
+                 lcd.setCursor(14,2);
+                 lcd.print("FAIL=");
+                 lcd.print(ctrl.conn_fail_cnt);
+                if (ctrl.conn_fail_cnt >= MAX_FAILED_CONNS)
+                {
+                            CPU_RESTART;
+                }
+                lastConnectionTime = millis();
+                return;
+              }
 
             // prepare the log entry for sensor 1
-            if (devt1_send){
-                  memset(json_buf, 0, SENT_SZ);
-                  sprintf_P(json_buf, PSTR("{\"longitude\":\"%s\",\"latitude\":\"%s\",\"device_id\":\"%d\",\"value\":\"%s\",\"unit\":\"cpm\",\"height\":\"%d\",\"devicetype_id\":\"%d\"}"),  \
+                 memset(json_buf, 0, SENT_SZ);
+                  sprintf_P(json_buf, PSTR("{\"longitude\":\"%s\",\"latitude\":\"%s\",\"device_id\":\"%d\",\"value\":\"%s\",\"unit\":\"cpm\",\"height\":\"%d\"}"),  \
                                 config.longitude, \
                                 config.latitude, \
                                 config.user_id,  \
                                 CPM_string, \
-                                config.alt, \
-                                config.devt1);
-                                
+                                config.alt);
 
                   int len = strlen(json_buf);
                   json_buf[len] = '\0';
@@ -1389,89 +1336,51 @@ void SendDataToServer(float CPM,float CPM2){
                   client.println();
                   client.println(json_buf);
                   Serial.println("Disconnecting");
-                  //client.stop();
-   }
-            
-  devt1_send = true;  
+                  client.stop();
+
+
+
       
   //send second sensor  
-        if (client.connected())
-        {
-          Serial.println("Disconnecting");
-          client.stop();
-        }
 
-        // Try to connect to the server
-            Serial.println("Connecting");
-            if (client.connect(server, 80))
-            {
-              Serial.println("Connected");
-              lastConnectionTime = millis();
-
-              // clear the connection fail count if we have at least one successful connection
-              ctrl.conn_fail_cnt = 0;
-            }
-            else
-            {
-                   ctrl.conn_fail_cnt++;
-                     lcd.setCursor(14,2);
-                     lcd.print("FAIL=");
-                     lcd.print(ctrl.conn_fail_cnt);
-              if (ctrl.conn_fail_cnt >= MAX_FAILED_CONNS)
+              if (client.connected())
               {
-                          CPU_RESTART;
+                Serial.println("Disconnecting");
+                client.stop();
               }
+
+              // Try to connect to the server
+              Serial.println("Connecting");
+              if (client.connect(server, 80))
+              {
+                Serial.println("Connected");
+                lastConnectionTime = millis();
+
+                // clear the connection fail count if we have at least one successful connection
+                ctrl.conn_fail_cnt = 0;
+              }
+              else
+              {
+                 ctrl.conn_fail_cnt++;
+                 lcd.setCursor(14,2);
+                 lcd.print("FAIL=");
+                 lcd.print(ctrl.conn_fail_cnt);
+                if (ctrl.conn_fail_cnt >= MAX_FAILED_CONNS)
+                {
+                            CPU_RESTART;
+                }
                 lastConnectionTime = millis();
                 return;
-            }
-
-            //send device type id information for sensor 2 
-
-
-            if (!devt2_send){                 
-                memset(json_buf, 0, SENT_SZ);
-                sprintf_P(json_buf, PSTR("{\"longitude\":\"%s\",\"latitude\":\"%s\",\"device_id\":\"%d\",\"value\":\"%d\",\"unit\":\"DeviceType2\",\"height\":\"%d\"}}"),  \
-                              config.longitude, \
-                              config.latitude, \
-                              config.user_id2,  \
-                              config.devt2, \
-                              config.alt);
-                
-                              if (config.dev){
-                                        client.print("POST /scripts/indextest.php?api_key=");
-                                             Serial.println ("sending device type from sensor 2 to dev.safecast.org");  
-                                      }else{
-                                      
-                                              client.print("POST /scripts/index.php?api_key=");
-                                              Serial.println ("sending device type from sensor 2 to dev.safecast.org");  
-                                      }
-                              client.print(config.api_key);
-                              client.println(" HTTP/1.1");
-                              client.println("Accept: application/json");
-                              client.print("Host:");
-                              client.println(server);
-                              client.print("Content-Length: ");
-                              client.println(strlen(json_buf));
-                              client.println("Content-Type: application/json");
-                              client.println();
-                              client.println(json_buf);
-                              Serial.println(json_buf);
-                              Serial.println("Disconnecting");
-                              //client.stop();
-                                  
-                 }
-
-
-                if (devt2_send){
-                          // prepare the log entry for sensor 2
+              }
+                        
+                  // prepare the log entry for sensor 2
                         memset(json_buf2, 0, SENT_SZ);
-                        sprintf_P(json_buf2, PSTR("{\"longitude\":\"%s\",\"latitude\":\"%s\",\"device_id\":\"%d\",\"value\":\"%s\",\"unit\":\"cpm\",\"height\":\"%d\",\"devicetype_id\":\"%d\"}"),  \
+                        sprintf_P(json_buf2, PSTR("{\"longitude\":\"%s\",\"latitude\":\"%s\",\"device_id\":\"%d\",\"value\":\"%s\",\"unit\":\"cpm\",\"height\":\"%d\"}"),  \
                                       config.longitude, \
                                       config.latitude, \
                                       config.user_id2,  \
                                       CPM2_string, \
-                                      config.alt, \
-                                      config.devt2);
+                                      config.alt);
 
                         int len2 = strlen(json_buf2);
                         json_buf2[len2] = '\0';
@@ -1500,21 +1409,18 @@ void SendDataToServer(float CPM,float CPM2){
                         lcd.print("PASS");
                         Serial.println("Disconnecting");
                         //client.stop();
-                   }
 
-
- devt2_send = true;  
-
-
-//convert time in correct format
+                        //convert time in correct format
   memset(timestamp, 0, LINE_SZ);
   sprintf_P(timestamp, PSTR("%02d-%02d-%02dT%02d:%02d:%02dZ"),  \
     year(), month(), day(),  \
               hour(), minute(), second());
 
+Serial.println("end of sending");
 
 // convert degree to NMAE
 deg2nmae (config.latitude,config.longitude, lat_lon_nmea);
+
 
 
 
@@ -1560,8 +1466,9 @@ deg2nmae (config.latitude,config.longitude, lat_lon_nmea);
                     battery_string);
        
             Serial.println(buf);
- 
-       
+
+
+
   //sensor 2 sd card string setup
           memset(buf2, 0, LINE_SZ);     
           sprintf_P(buf2, PSTR("$%s,%d,%s,,,%s,A,%s,%d,A,,"),  \
@@ -1596,7 +1503,6 @@ deg2nmae (config.latitude,config.longitude, lat_lon_nmea);
               temperature_string, \
               battery_string);
               
-              
          Serial.println(buf2); 
 
         //write to sd card sensor 1 info
@@ -1604,19 +1510,43 @@ deg2nmae (config.latitude,config.longitude, lat_lon_nmea);
         //write to sd card sensor 2 info
           OpenLog.println(buf2);
 
-    
-    // report to LCD     
-          lcd.setCursor(4, 2);
-          printDigits(hour());
-          lcd.print(":");
-          printDigits(minute());
-          lcd.print("GMT");
-          
+ //send first sensor  
+            if (client.connected())
+            {
+              Serial.println("Disconnecting");
+              client.stop();
+            }
 
-     // Reset last 
+            // Try to connect to the server
+            Serial.println("Connecting");
+            if (client.connect(server, 80))
+            {
+              Serial.println("Connected");
+              lastConnectionTime = millis();
+
+              // clear the connection fail count if we have at least one successful connection
+              ctrl.conn_fail_cnt = 0;
+            }
+            else
+            {
+               ctrl.conn_fail_cnt++;
+               lcd.setCursor(14,2);
+               lcd.print("FAIL=");
+               lcd.print(ctrl.conn_fail_cnt);
+               //set fail red LED
+               digitalWrite(26, HIGH);
+
+              if (ctrl.conn_fail_cnt >= MAX_FAILED_CONNS)
+              {
+                          CPU_RESTART;
+              }
+              lastConnectionTime = millis();
+              return;
+            }
+  
 
 
-lastConnectionTime = millis();
+
 #endif
 
 /**************************************************************************/
@@ -1627,10 +1557,12 @@ lastConnectionTime = millis();
 #if ENABLE_3G
 // Convert from cpm to µSv/h with the pre-defined coefficient
 
-    float uSv = CPM * conversionCoefficient;                   // convert CPM to Micro Sieverts Per Hour
+    conversionCoefficient = 1/config.sensor1_cpm_factor; // 0.0029;
+    float uSv = CPM * conversionCoefficient;                   // convert CPM to Micro Sievers Per Hour
     char CPM_string[16];
     dtostrf(CPM, 0, 0, CPM_string);
-    float uSv2 = CPM2 * conversionCoefficient2;                   // convert CPM to Micro Sieverts Per Hour
+    conversionCoefficient2 = 1/config.sensor2_cpm_factor; // 0.0029;
+    float uSv2 = CPM2 * conversionCoefficient2;                // convert CPM to Micro Sievers Per Hour
     char CPM2_string[16];
     dtostrf(CPM2, 0, 0, CPM2_string);
     
@@ -1824,7 +1756,6 @@ lastConnectionTime = millis();
                    Serial.print(">Response=[");
                    Serial.print(res);
                    Serial.println("]");
-                   devt1_send= true;
                   
 
             a3gs.httpGET(server, port, path2, res, len);
@@ -1833,7 +1764,6 @@ lastConnectionTime = millis();
                    Serial.print(">Response=[");
                    Serial.print(res);
                    Serial.println("]");
-                   devt2_send++;
                    conn_fail_cnt = 0;     
              
              
@@ -1856,44 +1786,79 @@ lastConnectionTime = millis();
             Serial.println("No connection to API!");
             Serial.println("saving to SDcard only");
             
-                conn_fail_cnt++;
-    if (conn_fail_cnt >= MAX_FAILED_CONNS)
-    {
-                      //first shut down 3G before reset
-                      a3gs.end();
-                      a3gs.shutdown();
-          
-                      CPU_RESTART;
-    }
-                 lcd.setCursor(14,2);
-                 lcd.print("FAIL=");
-                 
-                 lcd.print(MAX_FAILED_CONNS - conn_fail_cnt);
-                  Serial.print("NC. Retries left:");
-                  Serial.println(MAX_FAILED_CONNS - conn_fail_cnt);
-    lastConnectionTime = millis();
-    return;
-        }
-
-    memset(buf, 0, sizeof(buf));
-    memset(path, 0, sizeof(path));
-    lastConnectionTime = millis();
+            conn_fail_cnt++;
+            if (conn_fail_cnt >= MAX_FAILED_CONNS)
+            {
+                              //first shut down 3G before reset
+                              a3gs.end();
+                              a3gs.shutdown();
+                  
+                              CPU_RESTART;
+            }
+                         lcd.setCursor(14,2);
+                         lcd.print("FAIL=");
+                         
+                         lcd.print(MAX_FAILED_CONNS - conn_fail_cnt);
+                          Serial.print("NC. Retries left:");
+                          Serial.println(MAX_FAILED_CONNS - conn_fail_cnt);
+                          lastConnectionTime = millis();
+            return;
+                }
 
 
-    // report to LCD     
-          lcd.setCursor(4, 2);
-          printDigits(hour());
-          lcd.print(":");
-          printDigits(minute());
-          lcd.print("GMT");
-       
+     #endif    
+//   end of 3G send
 
-#endif
+
+//for all modules
+  lastConnectionTime = millis();
+
+
+// report to LCD     
+  lcd.setCursor(4, 2);
+  printDigits(hour());
+  lcd.print(":");
+  printDigits(minute());
+  lcd.print("GMT");
+
 }
 
 
 
 
+
+
+
+/**************************************************************************/
+// Main Loop
+/**************************************************************************/
+void loop() {
+
+    // Main Loop
+    
+    
+       finished_startup = true;
+      if (elapsedTime(lastConnectionTime) < updateIntervalInMillis)
+      {
+         if (joyCntB){ Serial.println ("Up"); joyCntB=!joyCntB;joyCntA=false;joyCntC=false;lcd.clear();display_interval=3000;Menu_datalogger(); return;}
+         if (joyCntA){ Serial.println ("Down"); joyCntA=!joyCntA;joyCntC=false;joyCntB=false;lcd.clear();display_interval=3000;Menu_stat(); return;}
+         if (joyCntC){ Serial.println ("Left"); joyCntC=!joyCntC;joyCntA=false;joyCntB=false;lcd.clear();display_interval=3000;Menu_term(); return;}
+
+          return;
+      }
+  
+      float CPM = (float)counts_per_sample / (float)updateIntervalInMinutes/5;
+      counts_per_sample = 0;
+      float CPM2 = (float)counts_per_sample2 / (float)updateIntervalInMinutes/5;
+      counts_per_sample2 = 0;
+      
+      SendDataToServer(CPM,CPM2);
+  }
+
+
+///**************************************************************************/
+// Menus for stat etc..
+//**************************************************************************/
 
 void Menu_stat() {
  
@@ -1955,32 +1920,6 @@ void Menu_term() {
       }
  Menu_counting();
 }
-
-/**************************************************************************/
-// Main Loop
-/**************************************************************************/
-void loop() {
-
-    // Main Loop
-    
-    
-       finished_startup = true;
-      if (elapsedTime(lastConnectionTime) < updateIntervalInMillis)
-      {
-         if (joyCntB){ Serial.println ("Up"); joyCntB=!joyCntB;joyCntA=false;joyCntC=false;lcd.clear();display_interval=3000;Menu_datalogger(); return;}
-         if (joyCntA){ Serial.println ("Down"); joyCntA=!joyCntA;joyCntC=false;joyCntB=false;lcd.clear();display_interval=3000;Menu_stat(); return;}
-         if (joyCntC){ Serial.println ("Left"); joyCntC=!joyCntC;joyCntA=false;joyCntB=false;lcd.clear();display_interval=3000;Menu_term(); return;}
-
-          return;
-      }
-  
-      float CPM = (float)counts_per_sample / (float)updateIntervalInMinutes/5;
-      counts_per_sample = 0;
-      float CPM2 = (float)counts_per_sample2 / (float)updateIntervalInMinutes/5;
-      counts_per_sample2 = 0;
-      
-      SendDataToServer(CPM,CPM2);
-  }
 
 
 /**************************************************************************/
@@ -2206,6 +2145,8 @@ void green_led_blink() {
 
 /*-------- NTP code ----------*/
 #if ENABLE_ETHERNET
+
+
 const int NTP_PACKET_SIZE = 48; // NTP time is in the first 48 bytes of message
 byte packetBuffer[NTP_PACKET_SIZE]; //buffer to hold incoming & outgoing packets
 
@@ -2281,4 +2222,3 @@ void printDouble( double val, unsigned int precision){
 
    Serial.println(frac,DEC) ;
 }
-
