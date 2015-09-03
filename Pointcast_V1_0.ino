@@ -100,7 +100,6 @@ contact rob@yr-design.biz
 
 int n = 1;
 LiquidCrystal_I2C lcd(I2C_ADDR,En_pin,Rw_pin,Rs_pin,D4_pin,D5_pin,D6_pin,D7_pin);
-int backlightPin = 2;
 int green_ledPin=31;
 int red_ledPin=26;
 
