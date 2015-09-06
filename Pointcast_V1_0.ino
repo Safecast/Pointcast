@@ -61,7 +61,10 @@
 2015-08-26 V3.1.8  Fixed Ethernet display hang on scroll back bug
 2015-08-27 V3.1.9  Fixes for sending Ethernet
 2015-09-01 V3.2.0  Fixes for variables listing data. 
-
+2015-09-04 V3.2.1  Fixes for failing SDcard data is still send 
+2015-09-05 V3.2.2  Sending DeviceType_ID 
+2015-09-06 V3.2.3  3G display setting changed
+2015-09-06 V3.2.4  Set audio alarms for failing to connect for 3G and Ethernet on sending 
 
 contact rob@yr-design.biz
  */
@@ -134,8 +137,8 @@ OneWire  ds(32);  // on pin 10 of extra header(a 4.7K resistor is necessary)
 static char obuf[OLINE_SZ];
 static char buf[LINE_SZ];
 static char buf2[LINE_SZ];
-static char lat_buf[16];
-static char lon_buf[16];
+//static char lat_buf[16];
+//static char lon_buf[16];
 static char strbuffer[32];
 static char strbuffer1[32];
 
@@ -149,7 +152,7 @@ static char strbuffer1[32];
     bool logfile_ready = false;
 
     //static void setupOpenLog();
-    static bool loadConfig(char *fileName);
+    //static bool loadConfig(char *fileName);
     //static void createFile(char *fileName);
 
     static ConfigType config;
@@ -157,7 +160,7 @@ static char strbuffer1[32];
 
 
 //static
-    static char VERSION[] = "V3.2.0";
+    static char VERSION[] = "V3.2.4";
 
     #if ENABLE_3G
     static char path[LINE_SZ];
@@ -202,9 +205,7 @@ static char strbuffer1[32];
       char macstr[19];
     #endif
   
-  //Boolean
-
-    
+//Boolean
 
 //int
     int MAX_FAILED_CONNS = 3;
@@ -565,6 +566,7 @@ void Menu_sdcard(void){
                   digitalWrite(26, HIGH);
                   Serial.println();
                   Serial.println("No SD card.. ");
+                  // sdcard_fail=true;
             }
           if (openlog_ready) {
            previousMillis=millis() ;
@@ -893,10 +895,10 @@ void Menu_sensors(void){
 void Menu_network(void){
   
   
-      #if ENABLE_3G
-        a3gs.start();
-        Serial.print("setting up 3G");
-      #endif
+//      #if ENABLE_3G
+//        a3gs.start();
+//        Serial.print("setting up 3G");
+//      #endif
       
          #if ENABLE_ETHERNET
             lcd.clear();
@@ -960,6 +962,13 @@ void Menu_network(void){
                   {
                           Serial.println("Failed DHCP");
                           Ethernet.begin(macAddress, localIP);
+                           //alarm peep
+                             digitalWrite(28, HIGH);
+                             pinMode(28, OUTPUT);
+                             delay(250);
+                             pinMode(28, INPUT);
+                           //switch on fail LED
+                            digitalWrite(26, HIGH);
                   }
               }
 
@@ -998,34 +1007,49 @@ void Menu_network(void){
                     lcd.clear();
                     lcd.setCursor(0, 0);
                     lcd.print("NETWORK 3G startup");
-                    if (a3gs.start() == 0 && a3gs.begin() == 0) {
-                    a3gs.getRSSI(rssi);
-                    Serial.print("RSSI = ");
-                    Serial.print(rssi);
-                    Serial.println(" dBm");
-                     }
-                uint32_t seconds;
-             
-                if (a3gs.getTime2(seconds) == 0) {
-                     setTime(seconds);
-                     adjustTime(-28800);
-                     Teensy3Clock.set(now());
-                     Serial.print(seconds);
-                     Serial.println(" Sec.");
-                   }
-                   else
-                     Serial.println("Can't get seconds.");  
-                  
-      
-                // random gateway array setup
-                      gateway[0] = config.gw1;
-                      gateway[1] = config.gw2;
-                      randomSeed(analogRead(0));
-                      int gatewaynumber=random(GATEWAY_SZ);
-                      Serial.print("Random gateway setup for ");
-                      server=gateway[gatewaynumber];
-                      Serial.println(server);
+                    if (!network_startup){
+                                if (a3gs.start() == 0 && a3gs.begin() == 0) {
+                                    a3gs.getRSSI(rssi);
+                                    Serial.print("RSSI = ");
+                                    Serial.print(rssi);
+                                    Serial.println(" dBm");
+                                 }else{
+                                    lcd.setCursor(0, 1);
+                                    lcd.print("FAIL");
+                                     //alarm peep
+                                       digitalWrite(28, HIGH);
+                                       pinMode(28, OUTPUT);
+                                       delay(250);
+                                       pinMode(28, INPUT);
+                                     //switch on fail LED
+                                      digitalWrite(26, HIGH);
+                                 }
+                
+                                uint32_t seconds;
+                             
+                                if (a3gs.getTime2(seconds) == 0) {
+                                     setTime(seconds);
+                                     adjustTime(-28800);
+                                     Teensy3Clock.set(now());
+                                     Serial.print(seconds);
+                                     Serial.println(" Sec.");
+                                   }
+                                   else{
+                                     Serial.println("Can't get seconds."); 
+                                      
+                                   }
+                
                       
+                                // random gateway array setup
+                                      gateway[0] = config.gw1;
+                                      gateway[1] = config.gw2;
+                                      randomSeed(analogRead(0));
+                                      int gatewaynumber=random(GATEWAY_SZ);
+                                      Serial.print("Random gateway setup for ");
+                                      server=gateway[gatewaynumber];
+                                      Serial.println(server);
+                   }
+                   
                  lcd.clear();
                  previousMillis=millis() ;
                  while ((unsigned long)(millis() - previousMillis) <= display_interval) {
@@ -1041,11 +1065,12 @@ void Menu_network(void){
       //                  lcd.print("[000000]"); 
                         lcd.setCursor(0, 2);        
                         lcd.print("Carrier:");
-                        lcd.print("NTT Docomo");
+                        lcd.print(config.apn);
                         lcd.setCursor(0, 3);
                         lcd.print("Phone: ");
                         lcd.print("080XXXXYYYY");
-                 }    
+                 } 
+          network_startup=true;   
         #endif  
   
   
@@ -1118,17 +1143,17 @@ void Menu_network(void){
               lcd.print(battery);
               lcd.print("V");
               #if ENABLE_3G
-                  lcd.setCursor(12,3);
+                  lcd.setCursor(13,3);
                   lcd.print(rssi);
-                  lcd.print(" dBm");
-                     if (a3gs.start() == 0 && a3gs.begin() == 0)
-                         {
-                       }else {
-                         //a3gs.restart();
-                         lcd.setCursor(14,2);
-                         lcd.print("FAILED");
-                         Serial.println ("Can not connect to 3G server");
-                     }
+                  lcd.print("dBm");
+//                     if (a3gs.start() == 0 && a3gs.begin() == 0)
+//                         {
+//                       }else {
+//                         //a3gs.restart();
+//                         lcd.setCursor(14,2);
+//                         lcd.print("FAILED");
+//                         Serial.println ("Can not connect to 3G server");
+//                     }
 
                 #endif
 
@@ -1272,7 +1297,7 @@ void SendDataToServer(float CPM,float CPM2){
       lcd.print("API:");
 
 
-//send second sensor  1
+//send  sensor  1
 
           if (client.connected())
               {
@@ -1295,6 +1320,13 @@ void SendDataToServer(float CPM,float CPM2){
                  ctrl.conn_fail_cnt++;
                  lcd.setCursor(14,2);
                  lcd.print("FAIL=");
+                 //alarm peep
+                   digitalWrite(28, HIGH);
+                   pinMode(28, OUTPUT);
+                   delay(250);
+                   pinMode(28, INPUT);
+                 //switch on fail LED
+                  digitalWrite(26, HIGH);
                  lcd.print(ctrl.conn_fail_cnt);
                 if (ctrl.conn_fail_cnt >= MAX_FAILED_CONNS)
                 {
@@ -1306,7 +1338,7 @@ void SendDataToServer(float CPM,float CPM2){
 
             // prepare the log entry for sensor 1
                  memset(json_buf, 0, SENT_SZ);
-                  sprintf_P(json_buf, PSTR("{\"longitude\":\"%s\",\"latitude\":\"%s\",\"device_id\":\"%d\",\"value\":\"%s\",\"unit\":\"cpm\",\"height\":\"%d\"}"),  \
+                  sprintf_P(json_buf, PSTR("{\"longitude\":\"%s\",\"latitude\":\"%s\",\"device_id\":\"%d\",\"value\":\"%s\",\"unit\":\"cpm\",\"height\":\"%d\",\"devicetype_id\":\"Pointcast V1\"}"),  \
                                 config.longitude, \
                                 config.latitude, \
                                 config.user_id,  \
@@ -1340,7 +1372,7 @@ void SendDataToServer(float CPM,float CPM2){
 
 
       
-  //send second sensor  
+  //send sensor 2  
 
               if (client.connected())
               {
@@ -1363,6 +1395,14 @@ void SendDataToServer(float CPM,float CPM2){
                  ctrl.conn_fail_cnt++;
                  lcd.setCursor(14,2);
                  lcd.print("FAIL=");
+                 //alarm peep
+                   digitalWrite(28, HIGH);
+                   pinMode(28, OUTPUT);
+                   delay(250);
+                   pinMode(28, INPUT);
+                 //switch on fail LED
+                  digitalWrite(26, HIGH);
+                 
                  lcd.print(ctrl.conn_fail_cnt);
                 if (ctrl.conn_fail_cnt >= MAX_FAILED_CONNS)
                 {
@@ -1374,7 +1414,7 @@ void SendDataToServer(float CPM,float CPM2){
                         
                   // prepare the log entry for sensor 2
                         memset(json_buf2, 0, SENT_SZ);
-                        sprintf_P(json_buf2, PSTR("{\"longitude\":\"%s\",\"latitude\":\"%s\",\"device_id\":\"%d\",\"value\":\"%s\",\"unit\":\"cpm\",\"height\":\"%d\"}"),  \
+                        sprintf_P(json_buf2, PSTR("{\"longitude\":\"%s\",\"latitude\":\"%s\",\"device_id\":\"%d\",\"value\":\"%s\",\"unit\":\"cpm\",\"height\":\"%d\",\"devicetype_id\":\"Pointcast V1\"}"),  \
                                       config.longitude, \
                                       config.latitude, \
                                       config.user_id2,  \
@@ -1460,7 +1500,7 @@ deg2nmae (config.latitude,config.longitude, lat_lon_nmea);
                     (int)chk, \
                     "\n", \
                     HEADER_SENSOR,  \
-                     config.devid, \              
+                     config.devid, \
                     temperature_string, \
                     battery_string);
        
@@ -1498,51 +1538,31 @@ deg2nmae (config.latitude,config.longitude, lat_lon_nmea);
               (int)chk, \
               "\n", \
               HEADER_SENSOR,  \
-               config.devid, \              
+              config.devid, \
               temperature_string, \
               battery_string);
               
          Serial.println(buf2); 
 
-        //write to sd card sensor 1 info
-          OpenLog.println(buf);
-        //write to sd card sensor 2 info
-          OpenLog.println(buf2);
+       
+         if (openlog_ready) {
+           //write to sd card sensor 1 info
+           OpenLog.println(buf);
+          //write to sd card sensor 2 info
+           OpenLog.println(buf2);
+          }else{
+             lcd.setCursor(14,2);
+             lcd.print("FAIL=");
+               //alarm peep
+                 digitalWrite(28, HIGH);
+                 pinMode(28, OUTPUT);
+                 delay(250);
+                 pinMode(28, INPUT);
+               //switch on fail LED
+                digitalWrite(26, HIGH);
+          }
 
- //send first sensor  
-            if (client.connected())
-            {
-              Serial.println("Disconnecting");
-              client.stop();
-            }
 
-            // Try to connect to the server
-            Serial.println("Connecting");
-            if (client.connect(server, 80))
-            {
-              Serial.println("Connected");
-              lastConnectionTime = millis();
-
-              // clear the connection fail count if we have at least one successful connection
-              ctrl.conn_fail_cnt = 0;
-            }
-            else
-            {
-               ctrl.conn_fail_cnt++;
-               lcd.setCursor(14,2);
-               lcd.print("FAIL=");
-               lcd.print(ctrl.conn_fail_cnt);
-               //set fail red LED
-               digitalWrite(26, HIGH);
-
-              if (ctrl.conn_fail_cnt >= MAX_FAILED_CONNS)
-              {
-                          CPU_RESTART;
-              }
-              lastConnectionTime = millis();
-              return;
-            }
-  
 
 
 
@@ -1621,10 +1641,10 @@ deg2nmae (config.latitude,config.longitude, lat_lon_nmea);
         if (a3gs.getRSSI(rssi) == 0) {
           Serial.print("RSSI = ");
           Serial.print(rssi);
-          Serial.println(" dBm");
-          lcd.setCursor(12,3);
+          Serial.println("dBm");
+          lcd.setCursor(13,3);
           lcd.print(rssi);
-          lcd.print(" dBm");
+          lcd.print("dBm");
         }
 
 
@@ -1796,8 +1816,14 @@ deg2nmae (config.latitude,config.longitude, lat_lon_nmea);
             }
                          lcd.setCursor(14,2);
                          lcd.print("FAIL=");
-                         
-                         lcd.print(MAX_FAILED_CONNS - conn_fail_cnt);
+                         //alarm peep
+                           digitalWrite(28, HIGH);
+                           pinMode(28, OUTPUT);
+                           delay(250);
+                           pinMode(28, INPUT);
+                         //switch on fail LED
+                          digitalWrite(26, HIGH);
+                          lcd.print(MAX_FAILED_CONNS - conn_fail_cnt);
                           Serial.print("NC. Retries left:");
                           Serial.println(MAX_FAILED_CONNS - conn_fail_cnt);
                           lastConnectionTime = millis();

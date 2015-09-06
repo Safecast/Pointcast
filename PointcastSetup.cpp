@@ -33,7 +33,7 @@ void PointcastSetup::initialize() {
 void PointcastSetup::loadFromFile(char * setupFile) {
   bool config_changed = false;
   char *config_buffer, *key, *value;
-  int pos, line_lenght;
+  unsigned int pos, line_lenght;
   byte i, buffer_lenght;
 
   mOpenlog.listen();

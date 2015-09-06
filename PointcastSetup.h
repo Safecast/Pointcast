@@ -49,7 +49,7 @@ typedef struct {
   unsigned int tws;         // tws
   unsigned int alt;         //alt
   byte autow;               //auto
-  unsigned int alm;         //alm
+  int alm;         //alm
   char tz[3];                // in hours
   char ssid[16];            //SSID of WiFi;
   char pwd[16];             //password of WiFi
