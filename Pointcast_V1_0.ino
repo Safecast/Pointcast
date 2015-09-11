@@ -65,6 +65,9 @@
 2015-09-05 V3.2.2  Sending DeviceType_ID 
 2015-09-06 V3.2.3  3G display setting changed
 2015-09-06 V3.2.4  Set audio alarms for failing to connect for 3G and Ethernet on sending 
+2015-09-12 V3.2.5  Setup fails for Ethernet connections FAIL=1 means sensor 1 fails to send .. FAIL=2 means sensor 2 fails to send ....added delay for 3G sensing between sensors
+
+
 
 contact rob@yr-design.biz
  */
@@ -160,7 +163,7 @@ static char strbuffer1[32];
 
 
 //static
-    static char VERSION[] = "V3.2.4";
+    static char VERSION[] = "V3.2.5";
 
     #if ENABLE_3G
     static char path[LINE_SZ];
@@ -1327,7 +1330,7 @@ void SendDataToServer(float CPM,float CPM2){
                    pinMode(28, INPUT);
                  //switch on fail LED
                   digitalWrite(26, HIGH);
-                 lcd.print(ctrl.conn_fail_cnt);
+                 lcd.print("1");
                 if (ctrl.conn_fail_cnt >= MAX_FAILED_CONNS)
                 {
                             CPU_RESTART;
@@ -1403,7 +1406,7 @@ void SendDataToServer(float CPM,float CPM2){
                  //switch on fail LED
                   digitalWrite(26, HIGH);
                  
-                 lcd.print(ctrl.conn_fail_cnt);
+                 lcd.print("2");
                 if (ctrl.conn_fail_cnt >= MAX_FAILED_CONNS)
                 {
                             CPU_RESTART;
@@ -1552,7 +1555,7 @@ deg2nmae (config.latitude,config.longitude, lat_lon_nmea);
            OpenLog.println(buf2);
           }else{
              lcd.setCursor(14,2);
-             lcd.print("FAIL=");
+             lcd.print("FAIL=0");
                //alarm peep
                  digitalWrite(28, HIGH);
                  pinMode(28, OUTPUT);
@@ -1771,14 +1774,17 @@ deg2nmae (config.latitude,config.longitude, lat_lon_nmea);
 
         if (a3gs.httpGET(server, port, path, res, len) == 0) {
                    Serial.println(path); 
-             Serial.println("Sent sensor 1 info to server OK!");
+                   Serial.println("Sent sensor 1 info to server OK!");
                    Serial.print(">Response=[");
                    Serial.print(res);
                    Serial.println("]");
+
                   
+            // delay test 
+            delay(2000);
 
             a3gs.httpGET(server, port, path2, res, len);
-                    Serial.println(path2); 
+                   Serial.println(path2); 
                    Serial.println("Sent sensor 2 info to server OK!");
                    Serial.print(">Response=[");
                    Serial.print(res);
@@ -1787,7 +1793,7 @@ deg2nmae (config.latitude,config.longitude, lat_lon_nmea);
              
              
              
-             //Display infomation 
+             //Display information 
                    
               lcd.setCursor(14,2);
               lcd.print("PASS");
@@ -1823,12 +1829,13 @@ deg2nmae (config.latitude,config.longitude, lat_lon_nmea);
                            pinMode(28, INPUT);
                          //switch on fail LED
                           digitalWrite(26, HIGH);
+
                           lcd.print(MAX_FAILED_CONNS - conn_fail_cnt);
                           Serial.print("NC. Retries left:");
                           Serial.println(MAX_FAILED_CONNS - conn_fail_cnt);
                           lastConnectionTime = millis();
             return;
-                }
+          }
 
 
      #endif    

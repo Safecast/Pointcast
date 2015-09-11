@@ -17,8 +17,8 @@
 #define BMRDD_EEPROM_SETUP 500
 #define BMRDD_EEPROM_MARKER 0x5afeF00d
 
-#define ENABLE_3G             0
-#define ENABLE_ETHERNET       1
+#define ENABLE_3G             1
+#define ENABLE_ETHERNET       0
 
 #define HEADER_SENSOR  "PNTXS"
 #define HEADER  "PNTDD"
@@ -30,11 +30,11 @@ typedef enum {
 
 typedef struct {
   unsigned long marker;     // set at first run
-  unsigned int devid;     // did
+  unsigned int devid;       // did
   unsigned int user_id;     // uid
-  unsigned int user_id2;     // uid
-  unsigned int devt1;     // device type 1 (see devcies Pointcast_XX) on api  
-  unsigned int devt2;     // device type 2(see devcies Pointcast_XX) on api  
+  unsigned int user_id2;    // uid
+  unsigned int devt1;       // device type 1 (see devcies Pointcast_XX) on api  
+  unsigned int devt2;       // device type 2(see devcies Pointcast_XX) on api  
   char api_key[24];         // api
   char latitude[16];        // lat
   char longitude[16];       // lon
@@ -49,8 +49,8 @@ typedef struct {
   unsigned int tws;         // tws
   unsigned int alt;         //alt
   byte autow;               //auto
-  int alm;         //alm
-  char tz[3];                // in hours
+  int alm;                  //alm
+  char tz[3];               // in hours
   char ssid[16];            //SSID of WiFi;
   char pwd[16];             //password of WiFi
   char gwn[16];             //name of gateway
@@ -60,6 +60,7 @@ typedef struct {
   byte trb;                 //troubleshooting
   char apn[3];              //APN name
   char macid[18];           //MAC id for Ethernet card
+
 
   
 } ConfigType;
