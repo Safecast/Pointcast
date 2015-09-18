@@ -60,6 +60,11 @@ typedef struct {
   byte trb;                 //troubleshooting
   char apn[3];              //APN name
   char macid[18];           //MAC id for Ethernet card
+  int fails;                //fails (not on sdcard)
+  unsigned int S1peak;             //s1 peak
+  unsigned int S2peak;             //s2 peak
+  char last_failure[8];
+
 
 
   

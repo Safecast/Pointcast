@@ -66,8 +66,8 @@
 2015-09-06 V3.2.3  3G display setting changed
 2015-09-06 V3.2.4  Set audio alarms for failing to connect for 3G and Ethernet on sending 
 2015-09-12 V3.2.5  Setup fails for Ethernet connections FAIL=1 means sensor 1 fails to send .. FAIL=2 means sensor 2 fails to send ....added delay for 3G sensing between sensors
-
-
+2015-09-12 V3.2.6  Setup S1peak and S2peak and setup for uptime of sensor
+2015-09-15 V3.2.7  Terminal displays last failure
 
 contact rob@yr-design.biz
  */
@@ -163,7 +163,7 @@ static char strbuffer1[32];
 
 
 //static
-    static char VERSION[] = "V3.2.5";
+    static char VERSION[] = "V3.2.7";
 
     #if ENABLE_3G
     static char path[LINE_SZ];
@@ -217,9 +217,19 @@ static char strbuffer1[32];
     int conn_fail_cnt;
     int NORMAL = 0;
     int RESET = 1;
+    int Dose = 0;
+    int S1peak;
+    int S2peak;
+
+
 //long
     unsigned long elapsedTime(unsigned long startTime);
     unsigned long previousMillis=0;
+    unsigned long currentmillis=0;
+    long display_days=0;
+    long display_hours=0;
+    long display_mins=0;
+    long display_secs=0;
  
 // Interval is how long display  wait
    int display_interval = 5000;
@@ -372,6 +382,7 @@ static char strbuffer1[32];
 void setup() {  
      analogReference(INTERNAL);
 
+
         
   //print last reset message and setup the patting of the dog
          delay(100);
@@ -416,6 +427,7 @@ void setup() {
           
     //set up the LCD's number of columns and rows: 
           lcd.begin(20, 4);
+
    
                      
 Menu_startup();
@@ -430,7 +442,10 @@ void Menu_startup(void){
        float battery =((read_voltage(VOLTAGE_PIN)));
        float temperature = getTemp();
 
-        
+    //setup failure message 
+    String last_failure="NON";
+    Serial.print("last_failure =");
+    Serial.println(last_failure);
         
      lcd.clear();
     // LED on delay (start speed display function by pressing down)
@@ -564,6 +579,8 @@ void Menu_sdcard(void){
             if (!openlog_ready) {
                   lcd.setCursor(8, 0);
                   lcd.print("FAIL");
+                  String last_failure= "SD FAIL";
+                  Serial.print(config.last_failure);
                   delay(2000);
                   //Red LED on
                   digitalWrite(26, HIGH);
@@ -1231,21 +1248,46 @@ void SendDataToServer(float CPM,float CPM2){
 
 #if ENABLE_ETHERNET
 
+// check timeup
+      currentmillis=millis(); // get the  current milliseconds from arduino
+       Serial.print("Total milliseconds running: "); 
+       // Serial.println(currentmillis);
+       // Serial.printf("%d hours, %d minutes \n", (int) currentmillis / (1000 * 60 * 60), (int) currentmillis / (1000 * 60));
+
+
+
+      float display_hour, display_min;
+       unsigned long over;
+       display_hour= int(currentmillis / 3600000);
+       over = currentmillis % 3600000;
+       display_min = int(over / 60000);
+       Serial.printf("%d hours, %d minutes \n", display_hour, display_min);
+
+
+
 
 // Convert from cpm to µSv/h with the pre-defined coefficient
 
-    conversionCoefficient = 1/config.sensor1_cpm_factor; // 0.0029;
+    conversionCoefficient = 1/config.sensor1_cpm_factor; 
     float uSv = CPM * conversionCoefficient;                   // convert CPM to Micro Sievers Per Hour
     char CPM_string[16];
     dtostrf(CPM, 0, 0, CPM_string);
-    conversionCoefficient2 = 1/config.sensor2_cpm_factor; // 0.0029;
+    if (CPM > (int)(config.S1peak)) {
+        config.S1peak=CPM;
+        Serial.print ("Updating S1peak");
+    }
+    Serial.print ("S1peak =");
+    Serial.println (config.S1peak);
+    conversionCoefficient2 = 1/config.sensor2_cpm_factor; 
     float uSv2 = CPM2 * conversionCoefficient2;                // convert CPM to Micro Sievers Per Hour
     char CPM2_string[16];
     dtostrf(CPM2, 0, 0, CPM2_string);
-
-    //test variable
-    Serial.print("conversionCoefficient2=");
-    Serial.print(conversionCoefficient2);
+    if (CPM2 > (int)(config.S2peak)){
+        config.S2peak=CPM2;
+        Serial.print ("Updating S2peak");
+    } 
+    Serial.print ("S2peak =");
+    Serial.println (config.S2peak);
 
     
     //Get temp and Battery 
@@ -1323,6 +1365,8 @@ void SendDataToServer(float CPM,float CPM2){
                  ctrl.conn_fail_cnt++;
                  lcd.setCursor(14,2);
                  lcd.print("FAIL=");
+                 String last_failure="NC S2";
+                 Serial.print(config.last_failure);
                  //alarm peep
                    digitalWrite(28, HIGH);
                    pinMode(28, OUTPUT);
@@ -1337,7 +1381,7 @@ void SendDataToServer(float CPM,float CPM2){
                 }
                 lastConnectionTime = millis();
                 return;
-              }
+              } 
 
             // prepare the log entry for sensor 1
                  memset(json_buf, 0, SENT_SZ);
@@ -1398,6 +1442,8 @@ void SendDataToServer(float CPM,float CPM2){
                  ctrl.conn_fail_cnt++;
                  lcd.setCursor(14,2);
                  lcd.print("FAIL=");
+                 String last_failure="NC S2";
+                 Serial.print(last_failure);
                  //alarm peep
                    digitalWrite(28, HIGH);
                    pinMode(28, OUTPUT);
@@ -1555,7 +1601,7 @@ deg2nmae (config.latitude,config.longitude, lat_lon_nmea);
            OpenLog.println(buf2);
           }else{
              lcd.setCursor(14,2);
-             lcd.print("FAIL=0");
+             lcd.print("SD FAIL");
                //alarm peep
                  digitalWrite(28, HIGH);
                  pinMode(28, OUTPUT);
@@ -1577,20 +1623,35 @@ deg2nmae (config.latitude,config.longitude, lat_lon_nmea);
 
 
 #if ENABLE_3G
+
+
 // Convert from cpm to µSv/h with the pre-defined coefficient
 
-    conversionCoefficient = 1/config.sensor1_cpm_factor; // 0.0029;
+    conversionCoefficient = 1/config.sensor1_cpm_factor; 
     float uSv = CPM * conversionCoefficient;                   // convert CPM to Micro Sievers Per Hour
     char CPM_string[16];
     dtostrf(CPM, 0, 0, CPM_string);
-    conversionCoefficient2 = 1/config.sensor2_cpm_factor; // 0.0029;
+    if (CPM > (int)(config.S1peak)) {
+        config.S1peak=CPM;
+        Serial.print ("Updating S1peak");
+    }
+    Serial.print ("S1peak =");
+    Serial.println (config.S1peak);
+    conversionCoefficient2 = 1/config.sensor2_cpm_factor; 
     float uSv2 = CPM2 * conversionCoefficient2;                // convert CPM to Micro Sievers Per Hour
     char CPM2_string[16];
     dtostrf(CPM2, 0, 0, CPM2_string);
+    if (CPM2 > (int)(config.S2peak)){
+        config.S2peak=CPM2;
+        Serial.print ("Updating S2peak");
+    } 
+    Serial.print ("S2peak =");
+    Serial.println (config.S2peak);
+
     
     //Get temp and Battery 
-     float battery =((read_voltage(VOLTAGE_PIN)));
-     float temperature = getTemp();
+    float battery =((read_voltage(VOLTAGE_PIN)));
+    float temperature = getTemp();
      
     char temperature_string[5];
     dtostrf(temperature, 0, 0, temperature_string);
@@ -1658,8 +1719,8 @@ deg2nmae (config.latitude,config.longitude, lat_lon_nmea);
                     hour(), minute(), second());
                     
                     
-    // convert degree to NMAE
-    deg2nmae (config.latitude,config.longitude, lat_lon_nmea);
+        // convert degree to NMAE
+        deg2nmae (config.latitude,config.longitude, lat_lon_nmea);
      
      
        //sensor 1 sd card string setup
@@ -1722,10 +1783,23 @@ deg2nmae (config.latitude,config.longitude, lat_lon_nmea);
             
         Serial.println(buf2);    
 
-        //write to sd card sensor 1 info
-        OpenLog.println(buf);
-        //write to sd card sensor 2 info
-        OpenLog.println(buf2);
+      if (openlog_ready) {
+                 //write to sd card sensor 1 info
+                 OpenLog.println(buf);
+                //write to sd card sensor 2 info
+                 OpenLog.println(buf2);
+                }else{
+                   lcd.setCursor(14,2);
+                   lcd.print("SD FAIL");
+                     //alarm peep
+                       digitalWrite(28, HIGH);
+                       pinMode(28, OUTPUT);
+                       delay(250);
+                       pinMode(28, INPUT);
+                     //switch on fail LED
+                      digitalWrite(26, HIGH);
+                }
+
 
 
 
@@ -1789,8 +1863,7 @@ deg2nmae (config.latitude,config.longitude, lat_lon_nmea);
                    Serial.print(">Response=[");
                    Serial.print(res);
                    Serial.println("]");
-                   conn_fail_cnt = 0;     
-             
+                   conn_fail_cnt = 0; 
              
              
              //Display information 
@@ -1857,10 +1930,6 @@ deg2nmae (config.latitude,config.longitude, lat_lon_nmea);
 
 
 
-
-
-
-
 /**************************************************************************/
 // Main Loop
 /**************************************************************************/
@@ -1904,18 +1973,33 @@ void Menu_stat() {
                lcd.print("STATS"); 
                lcd.setCursor(0,1);    
                lcd.print("S1peak=");
-               lcd.print("CPM");
+               lcd.print(config.S1peak);
                lcd.setCursor(0,2);
                lcd.print("S2peak=");
-               lcd.print("CPM");
+               lcd.print(config.S2peak);
                lcd.setCursor(0,3);
                lcd.print("Dose"); 
+               lcd.print(Dose); 
                lcd.print("uSv");
  
      }
 }
 
 void Menu_stat2() {
+
+
+          // check timeup
+           currentmillis=millis(); // get the  current milliseconds from arduino
+           Serial.print("Total milliseconds running: "); 
+           display_secs = currentmillis/1000; //convect milliseconds to seconds
+           display_mins=display_secs/60; //convert seconds to minutes
+           display_hours=display_mins/60; //convert minutes to hours
+           display_days=display_hours/24; //convert hours to days
+           display_secs=display_secs-(display_mins*60); //subtract the converted seconds to minutes in order to display 59 secs max 
+           display_mins=display_mins-(display_hours*60); //subtract the converted minutes to hours in order to display 59 minutes max
+           display_hours=display_hours-(display_days*24); //sub
+           Serial.printf("%d days, %d hours, %d minutes \n", display_days, display_hours, display_mins);
+
  
           lcd.clear();
           previousMillis=millis() ;
@@ -1924,8 +2008,13 @@ void Menu_stat2() {
                     if (joyCntA){ Serial.println ("Down"); joyCntA=!joyCntA;joyCntB=false;display_interval=500;Menu_counting();return;}
 
                lcd.setCursor(0,0);    
-               lcd.print("up=xxx days hh ");
-               lcd.print("hour");
+               lcd.print("up=");
+               lcd.print(display_days);
+               lcd.print("d "); 
+               lcd.print(display_hours);
+               lcd.print("h "); 
+               lcd.print(display_mins);
+               lcd.print("m ");                
                lcd.setCursor(0,1);
                lcd.print("#logs=");
                lcd.print("nnnn");
@@ -1949,6 +2038,10 @@ void Menu_term() {
 
                lcd.setCursor(0,0);    
                lcd.print("Terminal");
+               lcd.setCursor(0,1);   
+               lcd.print("last failure");
+               // lcd.print(last_failure);
+               // Serial.print(last_failure);
       }
  Menu_counting();
 }
