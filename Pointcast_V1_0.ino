@@ -68,6 +68,8 @@
 2015-09-12 V3.2.5  Setup fails for Ethernet connections FAIL=1 means sensor 1 fails to send .. FAIL=2 means sensor 2 fails to send ....added delay for 3G sensing between sensors
 2015-09-12 V3.2.6  Setup S1peak and S2peak and setup for uptime of sensor
 2015-09-15 V3.2.7  Terminal displays last failure
+2015-09-19 V3.2.8  Single sensor setup displaying no error on sensor test
+
 
 contact rob@yr-design.biz
  */
@@ -163,7 +165,7 @@ static char strbuffer1[32];
 
 
 //static
-    static char VERSION[] = "V3.2.7";
+    static char VERSION[] = "V3.2.8";
 
     #if ENABLE_3G
     static char path[LINE_SZ];
@@ -853,21 +855,29 @@ void Menu_sensors(void){
                 lcd.setCursor(0, 0);
                 lcd.print("SENSOR TEST");
                 lcd.setCursor(0, 1);
-                if (counts_per_sample < 1 ) {
-                        lcd.print("S1=FAIL");
-                         //Red LED on
-                        digitalWrite(26, HIGH);
-                      } else {
-                        lcd.print("S1=PASS");
-                      }
+                if (config.sensor1_enabled ){
+                    if (counts_per_sample < 1 ) {
+                            lcd.print("S1=FAIL");
+                             //Red LED on
+                            digitalWrite(26, HIGH);
+                          } else {
+                            lcd.print("S1=PASS");
+                          }
+                   }else{
+                    lcd.print("S1=NC");
+                }
                 lcd.setCursor(0, 2);
-                if (counts_per_sample2 < 1 ) {
-                        lcd.print("S2=FAIL");
-                         //Red LED on
-                          digitalWrite(26, HIGH);
-                      } else {
-                        lcd.print("S2=PASS");
-                      }    
+                if (config.sensor1_enabled ){
+                    if (counts_per_sample2 < 1 ) {
+                            lcd.print("S2=FAIL");
+                             //Red LED on
+                              digitalWrite(26, HIGH);
+                          } else {
+                            lcd.print("S2=PASS");
+                          }    
+                       }else{
+                    lcd.print("S1=NC");
+                }
                 lcd.setCursor(0, 3);    
                 lcd.print("AUX=NC");
            }
