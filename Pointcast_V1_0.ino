@@ -168,7 +168,7 @@ static char strbuffer1[32];
 
 
 //static
-    static char VERSION[] = "V3.2.8";
+    static char VERSION[] = "V3.2.9";
 
     #if ENABLE_3G
     static char path[LINE_SZ];
