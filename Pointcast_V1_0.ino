@@ -69,6 +69,8 @@
 2015-09-12 V3.2.6  Setup S1peak and S2peak and setup for uptime of sensor
 2015-09-15 V3.2.7  Terminal displays last failure
 2015-09-19 V3.2.8  Single sensor setup displaying no error on sensor test
+2015-09-19 V3.2.9  Reset every week 
+
 
 
 contact rob@yr-design.biz
@@ -84,6 +86,7 @@ contact rob@yr-design.biz
 #include <limits.h>
 #include <SoftwareSerial.h>
 #include <Time.h>
+#include <TimeAlarms.h>
 #include <avr/io.h>
 #include <avr/interrupt.h>
 #include <stdio.h>
@@ -384,7 +387,6 @@ static char strbuffer1[32];
 void setup() {  
      analogReference(INTERNAL);
 
-
         
   //print last reset message and setup the patting of the dog
          delay(100);
@@ -392,6 +394,9 @@ void setup() {
          
    //start WDT  
          wdTimer.begin(KickDog, 10000000); // patt the dog every 10sec  
+
+   // reset weekly
+        Alarm.alarmRepeat(dowSaturday,8,30,30,WeeklyRestart);  // 8:30:30 every Saturday 
          
    // Load EEPROM settings
          PointcastSetup.initialize();
@@ -2356,4 +2361,10 @@ void printDouble( double val, unsigned int precision){
        Serial.print("0");
 
    Serial.println(frac,DEC) ;
+}
+
+
+void WeeklyRestart(){
+  Serial.println("Alarm: - its Monday Morning"); 
+  CPU_RESTART;     
 }
