@@ -69,7 +69,8 @@
 2015-09-12 V3.2.6  Setup S1peak and S2peak and setup for uptime of sensor
 2015-09-15 V3.2.7  Terminal displays last failure
 2015-09-19 V3.2.8  Single sensor setup displaying no error on sensor test
-2015-09-19 V3.2.9  Reset every week 
+2015-09-19 V3.2.9  Reset every week on Saterday 9:30am (GMT)
+2015-10-03 V3.3.0  Beep 3 times and some display errors fix
 
 
 
@@ -168,7 +169,7 @@ static char strbuffer1[32];
 
 
 //static
-    static char VERSION[] = "V3.2.9";
+    static char VERSION[] = "V3.3.0";
 
     #if ENABLE_3G
     static char path[LINE_SZ];
@@ -401,11 +402,16 @@ void setup() {
    // Load EEPROM settings
          PointcastSetup.initialize();
      
-   //beep for loud piezo
-       digitalWrite(28, HIGH);
-       pinMode(28, OUTPUT);
-       delay(250);
-       pinMode(28, INPUT);
+   //beep for loud piezo twice
+                int i=0;
+                 while (i<2) {
+                     digitalWrite(28, HIGH);
+                     pinMode(28, OUTPUT);
+                     delay(250);
+                     pinMode(28, INPUT);
+                     delay(250);
+                     i++;
+                }
 
 
     //beep for normal piezo
@@ -1264,11 +1270,8 @@ void SendDataToServer(float CPM,float CPM2){
 #if ENABLE_ETHERNET
 
 // check timeup
-      currentmillis=millis(); // get the  current milliseconds from arduino
+       currentmillis=millis(); // get the  current milliseconds from arduino
        Serial.print("Total milliseconds running: "); 
-       // Serial.println(currentmillis);
-       // Serial.printf("%d hours, %d minutes \n", (int) currentmillis / (1000 * 60 * 60), (int) currentmillis / (1000 * 60));
-
 
 
       float display_hour, display_min;
@@ -1379,7 +1382,7 @@ void SendDataToServer(float CPM,float CPM2){
               {
                  ctrl.conn_fail_cnt++;
                  lcd.setCursor(14,2);
-                 lcd.print("FAIL=");
+                 lcd.print("FAIL");
                  String last_failure="NC S2";
                  Serial.print(config.last_failure);
                  //alarm peep
@@ -1456,7 +1459,7 @@ void SendDataToServer(float CPM,float CPM2){
               {
                  ctrl.conn_fail_cnt++;
                  lcd.setCursor(14,2);
-                 lcd.print("FAIL=");
+                 lcd.print("FAIL");
                  String last_failure="NC S2";
                  Serial.print(last_failure);
                  //alarm peep
@@ -1804,7 +1807,7 @@ deg2nmae (config.latitude,config.longitude, lat_lon_nmea);
                 //write to sd card sensor 2 info
                  OpenLog.println(buf2);
                 }else{
-                   lcd.setCursor(14,2);
+                   lcd.setCursor(12,2);
                    lcd.print("SD FAIL");
                      //alarm peep
                        digitalWrite(28, HIGH);
@@ -1909,7 +1912,7 @@ deg2nmae (config.latitude,config.longitude, lat_lon_nmea);
                               CPU_RESTART;
             }
                          lcd.setCursor(14,2);
-                         lcd.print("FAIL=");
+                         lcd.print("FAIL");
                          //alarm peep
                            digitalWrite(28, HIGH);
                            pinMode(28, OUTPUT);
@@ -2365,6 +2368,17 @@ void printDouble( double val, unsigned int precision){
 
 
 void WeeklyRestart(){
-  Serial.println("Alarm: - its Monday Morning"); 
+  Serial.println("Alarm: - its Saterday Morning"); 
+               //alarm peep 3 times before shut down
+                int i=0;
+                 while (i<3) {
+                     digitalWrite(28, HIGH);
+                     pinMode(28, OUTPUT);
+                     delay(250);
+                     pinMode(28, INPUT);
+                     delay(250);
+                     i++;
+                }
+
   CPU_RESTART;     
 }
