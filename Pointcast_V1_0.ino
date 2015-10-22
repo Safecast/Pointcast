@@ -71,6 +71,8 @@
 2015-09-19 V3.2.8  Single sensor setup displaying no error on sensor test
 2015-09-19 V3.2.9  Reset every week on Saterday 9:30am (GMT)
 2015-10-03 V3.3.0  Beep 3 times and some display errors fix
+2015-10-09 V3.3.1  Added longer delay for 3G sending second sensor
+2015-10-09 V3.3.2  Fixed display failed error 3G.
 
 
 
@@ -169,7 +171,7 @@ static char strbuffer1[32];
 
 
 //static
-    static char VERSION[] = "V3.3.0";
+    static char VERSION[] = "V3.3.2";
 
     #if ENABLE_3G
     static char path[LINE_SZ];
@@ -397,7 +399,8 @@ void setup() {
          wdTimer.begin(KickDog, 10000000); // patt the dog every 10sec  
 
    // reset weekly
-        Alarm.alarmRepeat(dowSaturday,8,30,30,WeeklyRestart);  // 8:30:30 every Saturday 
+//       Alarm.alarmRepeat(dowSaturday,12,00,00,WeeklyRestart);  // 11:45 every Saturday 
+         Alarm.alarmOnce(dowSaturday,12,05,00,WeeklyRestart);      
          
    // Load EEPROM settings
          PointcastSetup.initialize();
@@ -459,6 +462,7 @@ void Menu_startup(void){
     String last_failure="NON";
     Serial.print("last_failure =");
     Serial.println(last_failure);
+;
         
      lcd.clear();
     // LED on delay (start speed display function by pressing down)
@@ -614,34 +618,19 @@ void Menu_sdcard(void){
                         Serial.println();
                         Serial.println("loading setup");
                         PointcastSetup.loadFromFile("PNTCAST.TXT");
-                        lcd.print(" PASS");;
-          //              if (no_error) {
-          //                lcd.print(" PASS");;
-          //              } else {
-          //                lcd.print(" FAIL");
-          //              }
+                        lcd.print(" PASS");
                         lcd.setCursor(0, 2);
                         lcd.print("SENSORS:");
                         Serial.println();
                         Serial.println("loading sensors setup");
                         PointcastSetup.loadFromFile("SENSORS.TXT");
-                        lcd.print(" PASS");;
-          //              if (no_error) {
-          //                lcd.print(" PASS");;
-          //              } else {
-          //                lcd.print(" FAIL");
-          //              }
+                        lcd.print(" PASS");
                         lcd.setCursor(0, 3);
                         lcd.print("NETWORK:");
                         Serial.println();
                         Serial.println("loading Network setup");
                         PointcastSetup.loadFromFile("NETWORKS.TXT");
-                        lcd.print(" PASS");;
-          //              if (no_error) {
-          //                lcd.print(" PASS");;
-          //              } else {
-          //                lcd.print(" FAIL");
-          //              }
+                        lcd.print(" PASS");
                         
                         sdcard_startup= true;
           
@@ -1807,7 +1796,7 @@ deg2nmae (config.latitude,config.longitude, lat_lon_nmea);
                 //write to sd card sensor 2 info
                  OpenLog.println(buf2);
                 }else{
-                   lcd.setCursor(12,2);
+                   lcd.setCursor(14,2);
                    lcd.print("SD FAIL");
                      //alarm peep
                        digitalWrite(28, HIGH);
@@ -1873,7 +1862,7 @@ deg2nmae (config.latitude,config.longitude, lat_lon_nmea);
 
                   
             // delay test 
-            delay(2000);
+            delay(10000);
 
             a3gs.httpGET(server, port, path2, res, len);
                    Serial.println(path2); 
@@ -1956,21 +1945,23 @@ void loop() {
     // Main Loop
     
     
-       finished_startup = true;
+      finished_startup = true;
       if (elapsedTime(lastConnectionTime) < updateIntervalInMillis)
       {
          if (joyCntB){ Serial.println ("Up"); joyCntB=!joyCntB;joyCntA=false;joyCntC=false;lcd.clear();display_interval=3000;Menu_datalogger(); return;}
          if (joyCntA){ Serial.println ("Down"); joyCntA=!joyCntA;joyCntC=false;joyCntB=false;lcd.clear();display_interval=3000;Menu_stat(); return;}
-         if (joyCntC){ Serial.println ("Left"); joyCntC=!joyCntC;joyCntA=false;joyCntB=false;lcd.clear();display_interval=3000;Menu_term(); return;}
-
+         if (joyCntC){ Serial.println ("Left"); joyCntC=!joyCntC;joyCntA=false;joyCntB=false;lcd.clear();display_interval=3000;Menu_term(); return;}        Alarm.delay(0);
+          Alarm.delay(0);
           return;
+                
       }
-  
+
       float CPM = (float)counts_per_sample / (float)updateIntervalInMinutes/5;
       counts_per_sample = 0;
       float CPM2 = (float)counts_per_sample2 / (float)updateIntervalInMinutes/5;
       counts_per_sample2 = 0;
       
+
       SendDataToServer(CPM,CPM2);
   }
 
@@ -2379,6 +2370,13 @@ void WeeklyRestart(){
                      delay(250);
                      i++;
                 }
+                delay(3000);
 
   CPU_RESTART;     
+}
+
+
+
+void Repeats(){
+  Serial.println("15 second timer");         
 }
