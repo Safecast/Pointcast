@@ -1,4 +1,4 @@
-/*
+/*   
   Pointcast.ino
 
 2015-04-05 V2.4.9 delay for switching off LEDs
@@ -73,7 +73,7 @@
 2015-10-03 V3.3.0  Beep 3 times and some display errors fix
 2015-10-09 V3.3.1  Added longer delay for 3G sending second sensor
 2015-10-09 V3.3.2  Fixed display failed error 3G.
-
+2015-10-09 V3.3.3  Changed the way 3G connects to APN
 
 
 contact rob@yr-design.biz
@@ -171,7 +171,7 @@ static char strbuffer1[32];
 
 
 //static
-    static char VERSION[] = "V3.3.2";
+    static char VERSION[] = "V3.3.3";
 
     #if ENABLE_3G
     static char path[LINE_SZ];
@@ -1501,7 +1501,7 @@ void SendDataToServer(float CPM,float CPM2){
                         client.println();
                         client.println(json_buf2);
                         lcd.setCursor(14,2);
-                        lcd.print("PASS");
+                        lcd.print("PASS  ");
                         Serial.println("Disconnecting");
                         //client.stop();
 
@@ -1607,8 +1607,8 @@ deg2nmae (config.latitude,config.longitude, lat_lon_nmea);
           //write to sd card sensor 2 info
            OpenLog.println(buf2);
           }else{
-             lcd.setCursor(14,2);
-             lcd.print("SD FAIL");
+             lcd.setCursor(11,2);
+             lcd.print(" SD FAIL");
                //alarm peep
                  digitalWrite(28, HIGH);
                  pinMode(28, OUTPUT);
@@ -1709,6 +1709,7 @@ deg2nmae (config.latitude,config.longitude, lat_lon_nmea);
 
       //check level
 
+
         if (a3gs.getRSSI(rssi) == 0) {
           Serial.print("RSSI = ");
           Serial.print(rssi);
@@ -1808,7 +1809,9 @@ deg2nmae (config.latitude,config.longitude, lat_lon_nmea);
                 }
 
 
-
+if (a3gs.start() == 0 && a3gs.begin() == 0) {
+  
+}
 
     //send to server
         // Create data string for sensor 1
@@ -1860,9 +1863,7 @@ deg2nmae (config.latitude,config.longitude, lat_lon_nmea);
                    Serial.print(res);
                    Serial.println("]");
 
-                  
-            // delay test 
-            delay(10000);
+
 
             a3gs.httpGET(server, port, path2, res, len);
                    Serial.println(path2); 

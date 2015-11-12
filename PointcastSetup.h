@@ -17,8 +17,8 @@
 #define BMRDD_EEPROM_SETUP 500
 #define BMRDD_EEPROM_MARKER 0x5afeF00d
 
-#define ENABLE_3G             0
-#define ENABLE_ETHERNET       1
+#define ENABLE_3G             1
+#define ENABLE_ETHERNET       0
 
 #define HEADER_SENSOR  "PNTXS"
 #define HEADER  "PNTDD"
@@ -64,8 +64,6 @@ typedef struct {
   unsigned int S1peak;
   unsigned int S2peak;
   char last_failure[12];
-
-
 
 
   
