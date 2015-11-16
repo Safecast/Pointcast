@@ -73,8 +73,9 @@
 2015-10-03 V3.3.0  Beep 3 times and some display errors fix
 2015-10-09 V3.3.1  Added longer delay for 3G sending second sensor
 2015-10-09 V3.3.2  Fixed display failed error 3G.
-2015-10-09 V3.3.3  Changed the way 3G connects to APN
-
+2015-11-14 V3.3.3  Changed the way 3G connects to APN
+2015-11-16 V3.3.4  Fixed display failed error 3G.
+2015-11-16 V3.3.5  EEprom clearing on enter of joystick at system screen.
 
 contact rob@yr-design.biz
  */
@@ -120,8 +121,6 @@ int red_ledPin=26;
 // 3G signal strengh
  int rssi=-125;
  
-
-
 //setup Power detection
 #define VOLTAGE_PIN A13
 #define VOLTAGE_R1 100000
@@ -171,7 +170,7 @@ static char strbuffer1[32];
 
 
 //static
-    static char VERSION[] = "V3.3.3";
+    static char VERSION[] = "V3.3.5";
 
     #if ENABLE_3G
     static char path[LINE_SZ];
@@ -394,13 +393,14 @@ void setup() {
   //print last reset message and setup the patting of the dog
          delay(100);
          printResetType();
-         
+
+
    //start WDT  
          wdTimer.begin(KickDog, 10000000); // patt the dog every 10sec  
 
    // reset weekly
-//       Alarm.alarmRepeat(dowSaturday,12,00,00,WeeklyRestart);  // 11:45 every Saturday 
          Alarm.alarmOnce(dowSaturday,12,05,00,WeeklyRestart);      
+  
          
    // Load EEPROM settings
          PointcastSetup.initialize();
@@ -461,15 +461,14 @@ void Menu_startup(void){
     //setup failure message 
     String last_failure="NON";
     Serial.print("last_failure =");
-    Serial.println(last_failure);
-;
+    Serial.println(last_failure); 
         
      lcd.clear();
     // LED on delay (start speed display function by pressing down)
      previousMillis = millis();
          while ((unsigned long)(millis() - previousMillis) <= display_interval) {
                      if (joyCntA){ Serial.println ("Down"); joyCntA=!joyCntA;joyCntB=false;lcd.clear();display_interval=3000;Menu_system();return;}
-
+                     if (joyCntE){ Serial.println ("Enter"); joyCntE=!joyCntE;joyCntB=false;joyCntA=false;lcd.clear();lcd.print("Clearing Eeprom");eepromclear();return;}
 
               // Print startup message to the LCD.
                      lcd.setCursor(0, 0);
@@ -1607,7 +1606,7 @@ deg2nmae (config.latitude,config.longitude, lat_lon_nmea);
           //write to sd card sensor 2 info
            OpenLog.println(buf2);
           }else{
-             lcd.setCursor(11,2);
+             lcd.setCursor(13,2);
              lcd.print(" SD FAIL");
                //alarm peep
                  digitalWrite(28, HIGH);
@@ -1797,7 +1796,7 @@ deg2nmae (config.latitude,config.longitude, lat_lon_nmea);
                 //write to sd card sensor 2 info
                  OpenLog.println(buf2);
                 }else{
-                   lcd.setCursor(14,2);
+                   lcd.setCursor(13,2);
                    lcd.print("SD FAIL");
                      //alarm peep
                        digitalWrite(28, HIGH);
@@ -2377,7 +2376,13 @@ void WeeklyRestart(){
 }
 
 
-
-void Repeats(){
-  Serial.println("15 second timer");         
+void eepromclear(){
+    for (int i = 0 ; i < EEPROM.length() ; i++) {
+    EEPROM.write(i, 0);
+  } 
+  Serial.println ("Finished clearing eeprom"); 
+  lcd.setCursor(0, 1);
+  lcd.print("Finished clearing"); 
+  delay(1000);
+  CPU_RESTART;    
 }

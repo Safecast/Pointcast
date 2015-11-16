@@ -11,6 +11,8 @@ PointcastSetup::PointcastSetup(SoftwareSerial &openlog, ConfigType &config,
 }
 
 void PointcastSetup::initialize() {
+     
+         
   // Configuration 
   DEBUG_PRINTLN("Loading EEPROM configuration");
   memset(&mConfig, 0, sizeof(mConfig));
