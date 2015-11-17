@@ -76,6 +76,10 @@
 2015-11-14 V3.3.3  Changed the way 3G connects to APN
 2015-11-16 V3.3.4  Fixed display failed error 3G.
 2015-11-16 V3.3.5  EEprom clearing on enter of joystick at system screen.
+2015-11-17 V3.3.6  Switch off fail led by enter joy switch on main screen
+
+
+
 
 contact rob@yr-design.biz
  */
@@ -170,7 +174,7 @@ static char strbuffer1[32];
 
 
 //static
-    static char VERSION[] = "V3.3.5";
+    static char VERSION[] = "V3.3.6";
 
     #if ENABLE_3G
     static char path[LINE_SZ];
@@ -1950,6 +1954,7 @@ void loop() {
       {
          if (joyCntB){ Serial.println ("Up"); joyCntB=!joyCntB;joyCntA=false;joyCntC=false;lcd.clear();display_interval=3000;Menu_datalogger(); return;}
          if (joyCntA){ Serial.println ("Down"); joyCntA=!joyCntA;joyCntC=false;joyCntB=false;lcd.clear();display_interval=3000;Menu_stat(); return;}
+         if (joyCntE){ Serial.println ("Enter"); joyCntE=!joyCntE;joyCntC=false;joyCntB=false;digitalWrite(26, LOW); return;}
          if (joyCntC){ Serial.println ("Left"); joyCntC=!joyCntC;joyCntA=false;joyCntB=false;lcd.clear();display_interval=3000;Menu_term(); return;}        Alarm.delay(0);
           Alarm.delay(0);
           return;
