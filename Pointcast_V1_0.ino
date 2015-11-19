@@ -77,7 +77,7 @@
 2015-11-16 V3.3.4  Fixed display failed error 3G.
 2015-11-16 V3.3.5  EEprom clearing on enter of joystick at system screen.
 2015-11-17 V3.3.6  Switch off fail led by enter joy switch on main screen
-
+2015-11-17 V3.3.7  Fixed display failed error 3G.
 
 
 
@@ -174,7 +174,7 @@ static char strbuffer1[32];
 
 
 //static
-    static char VERSION[] = "V3.3.6";
+    static char VERSION[] = "V3.3.7";
 
     #if ENABLE_3G
     static char path[LINE_SZ];
@@ -1503,8 +1503,8 @@ void SendDataToServer(float CPM,float CPM2){
                         client.println("Content-Type: application/json");
                         client.println();
                         client.println(json_buf2);
-                        lcd.setCursor(14,2);
-                        lcd.print("PASS  ");
+                        lcd.setCursor(13,2);
+                        lcd.print("PASS    ");
                         Serial.println("Disconnecting");
                         //client.stop();
 
@@ -1611,7 +1611,7 @@ deg2nmae (config.latitude,config.longitude, lat_lon_nmea);
            OpenLog.println(buf2);
           }else{
              lcd.setCursor(13,2);
-             lcd.print(" SD FAIL");
+             lcd.print("SD FAIL");
                //alarm peep
                  digitalWrite(28, HIGH);
                  pinMode(28, OUTPUT);
@@ -1879,8 +1879,8 @@ if (a3gs.start() == 0 && a3gs.begin() == 0) {
              
              //Display information 
                    
-              lcd.setCursor(14,2);
-              lcd.print("PASS");
+              lcd.setCursor(13,2);
+              lcd.print("PASS   ");
               lcd.setCursor(0,3);
               lcd.print("STS:");
               lcd.setCursor(6,3);
