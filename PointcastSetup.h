@@ -14,11 +14,18 @@
 #include <EEPROM.h>
 #include <SoftwareSerial.h>
 
+#define BMRDD_EEPROM_DOSE 200
+// geiger dose
+// write every hours (eeprom ~ 100000 cycles -> ~ 11 years)
+#define BMRDD_EEPROM_DOSE_WRITETIME 600
+
 #define BMRDD_EEPROM_SETUP 500
 #define BMRDD_EEPROM_MARKER 0x5afeF00d
 
+
 #define ENABLE_3G             1
 #define ENABLE_ETHERNET       0
+#define ENABLE_EEPROM_DOSE    1
 
 #define HEADER_SENSOR  "PNTXS"
 #define HEADER  "PNTDD"
@@ -27,6 +34,11 @@ typedef enum {
   SENSOR_ENABLED_FALSE = 0,
   SENSOR_ENABLED_TRUE,
 } SensorEnabled;
+
+typedef struct {
+  unsigned long total_count;
+  unsigned long total_time;
+} DoseType;
 
 typedef struct {
   unsigned long marker;     // set at first run
@@ -61,12 +73,9 @@ typedef struct {
   char apn[3];              //APN name
   char macid[18];           //MAC id for Ethernet card
   int fails;                //fails (not on sdcard)
-  unsigned int S1peak;
-  unsigned int S2peak;
-  char last_failure[12];
-
-
-  
+  unsigned int S1peak;      //S1 peak level
+  unsigned int S2peak;      //S2 peak level
+  char last_failure[12];    //Last failure message
 } ConfigType;
 
 // Write a template value into EEPROM address [ee]
@@ -94,6 +103,7 @@ class PointcastSetup {
 public:
   PointcastSetup(SoftwareSerial &openlog, 
         ConfigType &config,
+        DoseType &dose,
         char * buffer, size_t buffer_size);
   void initialize();
   void loadFromFile(char * setupFile);
@@ -101,6 +111,7 @@ public:
 private:
   SoftwareSerial &mOpenlog;
   ConfigType &mConfig;
+  DoseType &mDose;
 
   char * mBuffer;
   size_t mBufferSize;

@@ -10,3 +10,4 @@ ssid=mywifi
 pwd=12345678
 gwn=test	
 dev=1
+apn=SOR

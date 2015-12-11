@@ -77,8 +77,10 @@
 2015-11-16 V3.3.4  Fixed display failed error 3G.
 2015-11-16 V3.3.5  EEprom clearing on enter of joystick at system screen.
 2015-11-17 V3.3.6  Switch off fail led by enter joy switch on main screen
-2015-11-17 V3.3.7  Fixed display failed error 3G.
-
+2015-11-21 V3.3.7  Fixed display failed error 3G.
+2015-11-24 V3.3.8  Fixed display failed error 3G.
+2015-11-24 V3.3.9  Added dose storage for EEProm.
+2015-11-24 V3.4.0  Stores total counts in EEprom
 
 
 contact rob@yr-design.biz
@@ -151,8 +153,6 @@ OneWire  ds(32);  // on pin 10 of extra header(a 4.7K resistor is necessary)
 static char obuf[OLINE_SZ];
 static char buf[LINE_SZ];
 static char buf2[LINE_SZ];
-//static char lat_buf[16];
-//static char lon_buf[16];
 static char strbuffer[32];
 static char strbuffer1[32];
 
@@ -170,11 +170,12 @@ static char strbuffer1[32];
     //static void createFile(char *fileName);
 
     static ConfigType config;
-    PointcastSetup PointcastSetup(OpenLog, config, obuf, OLINE_SZ);
+    static DoseType dose;
+    PointcastSetup PointcastSetup(OpenLog, config, dose, obuf, OLINE_SZ);
 
 
 //static
-    static char VERSION[] = "V3.3.7";
+    static char VERSION[] = "V3.4.0";
 
     #if ENABLE_3G
     static char path[LINE_SZ];
@@ -237,6 +238,8 @@ static char strbuffer1[32];
     unsigned long elapsedTime(unsigned long startTime);
     unsigned long previousMillis=0;
     unsigned long currentmillis=0;
+    unsigned long total_count = 0;
+    unsigned long total_time = 0;
     long display_days=0;
     long display_hours=0;
     long display_mins=0;
@@ -393,6 +396,9 @@ static char strbuffer1[32];
 void setup() {  
      analogReference(INTERNAL);
 
+  //Read dose from EEPROM
+          EEPROM_readAnything(BMRDD_EEPROM_DOSE, dose);
+
         
   //print last reset message and setup the patting of the dog
          delay(100);
@@ -466,6 +472,9 @@ void Menu_startup(void){
     String last_failure="NON";
     Serial.print("last_failure =");
     Serial.println(last_failure); 
+    Serial.print("Dose=");
+    Serial.println (dose.total_count);
+
         
      lcd.clear();
     // LED on delay (start speed display function by pressing down)
@@ -1373,9 +1382,10 @@ void SendDataToServer(float CPM,float CPM2){
               else
               {
                  ctrl.conn_fail_cnt++;
-                 lcd.setCursor(14,2);
-                 lcd.print("FAIL");
+                 lcd.setCursor(13,2);
+                 lcd.print(" FAIL");
                  String last_failure="NC S2";
+                 lcd.print("  ");
                  Serial.print(config.last_failure);
                  //alarm peep
                    digitalWrite(28, HIGH);
@@ -1450,9 +1460,10 @@ void SendDataToServer(float CPM,float CPM2){
               else
               {
                  ctrl.conn_fail_cnt++;
-                 lcd.setCursor(14,2);
-                 lcd.print("FAIL");
+                 lcd.setCursor(13,2);
+                 lcd.print(" FAIL");
                  String last_failure="NC S2";
+                 lcd.print("  ");
                  Serial.print(last_failure);
                  //alarm peep
                    digitalWrite(28, HIGH);
@@ -1890,34 +1901,36 @@ if (a3gs.start() == 0 && a3gs.begin() == 0) {
         }
         else {
             
-           lcd.setCursor(14,2);
+           lcd.setCursor(13,2);
             lastConnectionTime = millis();
             Serial.println("No connection to API!");
             Serial.println("saving to SDcard only");
             
             conn_fail_cnt++;
             if (conn_fail_cnt >= MAX_FAILED_CONNS)
-            {
-                              //first shut down 3G before reset
-                              a3gs.end();
-                              a3gs.shutdown();
-                  
-                              CPU_RESTART;
-            }
-                         lcd.setCursor(14,2);
-                         lcd.print("FAIL");
-                         //alarm peep
-                           digitalWrite(28, HIGH);
-                           pinMode(28, OUTPUT);
-                           delay(250);
-                           pinMode(28, INPUT);
-                         //switch on fail LED
-                          digitalWrite(26, HIGH);
+                {
+                                  //first shut down 3G before reset
+                                  a3gs.end();
+                                  a3gs.shutdown();
+                      
+                                  CPU_RESTART;
+                }
+                            
+           lcd.print(" FAIL");
+           lcd.print(MAX_FAILED_CONNS - conn_fail_cnt);
+           lcd.print("  ");
+           //alarm peep
+             digitalWrite(28, HIGH);
+             pinMode(28, OUTPUT);
+             delay(250);
+             pinMode(28, INPUT);
+           //switch on fail LED
+            digitalWrite(26, HIGH);
 
-                          lcd.print(MAX_FAILED_CONNS - conn_fail_cnt);
-                          Serial.print("NC. Retries left:");
-                          Serial.println(MAX_FAILED_CONNS - conn_fail_cnt);
-                          lastConnectionTime = millis();
+            lcd.print(MAX_FAILED_CONNS - conn_fail_cnt);
+            Serial.print("NC. Retries left:");
+            Serial.println(MAX_FAILED_CONNS - conn_fail_cnt);
+            lastConnectionTime = millis();
             return;
           }
 
@@ -1962,11 +1975,27 @@ void loop() {
       }
 
       float CPM = (float)counts_per_sample / (float)updateIntervalInMinutes/5;
-      counts_per_sample = 0;
-      float CPM2 = (float)counts_per_sample2 / (float)updateIntervalInMinutes/5;
-      counts_per_sample2 = 0;
       
+      float CPM2 = (float)counts_per_sample2 / (float)updateIntervalInMinutes/5;
 
+      
+      //store and display(serial) dose
+      total_count += counts_per_sample;
+      dose.total_count += total_count;
+      total_time +=300;
+      dose.total_time += total_time;
+        if (dose.total_time > BMRDD_EEPROM_DOSE_WRITETIME ) {
+           EEPROM_writeAnything(BMRDD_EEPROM_DOSE, dose);
+           Serial.print("Dose is written to eeprom");
+           dose.total_time=0;
+        }
+      Serial.print("Dose count=");
+      Serial.println (dose.total_count);
+      Serial.print("Dose time=");
+      Serial.println (dose.total_time);
+
+      counts_per_sample = 0;
+      counts_per_sample2 = 0;
       SendDataToServer(CPM,CPM2);
   }
 
@@ -1992,8 +2021,10 @@ void Menu_stat() {
                lcd.print("S2peak=");
                lcd.print(config.S2peak);
                lcd.setCursor(0,3);
-               lcd.print("Dose"); 
-               lcd.print(Dose); 
+               lcd.print("Dose ="); 
+               lcd.print(int (dose.total_count));
+               Serial.println ("dose.total_count=");
+               Serial.println (total_count);
                lcd.print("uSv");
  
      }
@@ -2196,17 +2227,17 @@ void createFile(char *fileName) {
     }
 
 //WDT hook setup
+//      #ifdef __cplusplus
+//      extern "C" {
+//      #endif
+//        void startup_early_hook() {
+//          WDOG_TOVALL = (10000); // The next 2 lines sets the time-out value. This is the value that the watchdog timer compare itself to.
+//          WDOG_TOVALH = 0;
+//          WDOG_STCTRLH = (WDOG_STCTRLH_ALLOWUPDATE | WDOG_STCTRLH_WDOGEN | WDOG_STCTRLH_WAITEN | WDOG_STCTRLH_STOPEN); // Enable WDG
+//          //WDOG_PRESC = 0; // prescaler 
+//        }
       #ifdef __cplusplus
-      extern "C" {
-      #endif
-        void startup_early_hook() {
-          WDOG_TOVALL = (10000); // The next 2 lines sets the time-out value. This is the value that the watchdog timer compare itself to.
-          WDOG_TOVALH = 0;
-          WDOG_STCTRLH = (WDOG_STCTRLH_ALLOWUPDATE | WDOG_STCTRLH_WDOGEN | WDOG_STCTRLH_WAITEN | WDOG_STCTRLH_STOPEN); // Enable WDG
-          //WDOG_PRESC = 0; // prescaler 
-        }
-      #ifdef __cplusplus
-      }
+//      }
       #endif
 
 

@@ -5,9 +5,9 @@
 #include "PointcastSetup.h"
 #include "PointcastDebug.h"
 
-PointcastSetup::PointcastSetup(SoftwareSerial &openlog, ConfigType &config,
+PointcastSetup::PointcastSetup(SoftwareSerial &openlog, ConfigType &config,DoseType &dose,
     char * buffer, size_t buffer_size):
-    mOpenlog(openlog), mConfig(config), mBuffer(buffer), mBufferSize(buffer_size) {
+    mOpenlog(openlog), mConfig(config), mDose(dose), mBuffer(buffer), mBufferSize(buffer_size) {
 }
 
 void PointcastSetup::initialize() {
@@ -331,7 +331,14 @@ void PointcastSetup::loadFromFile(char * setupFile) {
         DEBUG_PRINTLN("   - Update MACid");
       }
     }
-
+// #if ENABLE_EEPROM_DOSE
+//     else if(strcmp(key, "dose") == 0) {
+//       // Reset total dose in EEPROM
+//       memset(&mDose, 0, sizeof(mDose));
+//       EEPROM_writeAnything(BMRDD_EEPROM_DOSE, mDose);
+//       DEBUG_PRINTLN("   - Reset total dose in EEPROM");
+//     }
+// #endif
 
   }
   DEBUG_PRINTLN("   - Done.");
