@@ -1,7 +1,7 @@
-devid=10004
+devid=10003
 lat=34.4883
 lon=136.165
-api=AzQLKPwQqkyCTDGZHSdy
+api=q1LKu7RQ8s5pmyxunnDW
 tws=300
 alt=100
 ups=300

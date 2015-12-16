@@ -25,10 +25,10 @@ void PointcastSetup::initialize() {
     mConfig.marker = BMRDD_EEPROM_MARKER;
     EEPROM_writeAnything(BMRDD_EEPROM_SETUP, mConfig);
 
-#if ENABLE_EEPROM_DOSE
-    memset(&mDose, 0, sizeof(mDose));
-    EEPROM_writeAnything(BMRDD_EEPROM_DOSE, mDose);
-#endif
+//#if ENABLE_EEPROM_DOSE
+//    memset(&mDose, 0, sizeof(mDose));
+//    EEPROM_writeAnything(BMRDD_EEPROM_DOSE, mDose);
+//#endif
   }
 }
 
@@ -328,17 +328,17 @@ void PointcastSetup::loadFromFile(char * setupFile) {
      if (strcmp(mConfig.macid, value) != 0 ) {
         strcpy(mConfig.macid, value);
         config_changed = true;
-        DEBUG_PRINTLN("   - Update MACid");
+        DEBUG_PRINTLN("   - Update macid");
       }
     }
-// #if ENABLE_EEPROM_DOSE
-//     else if(strcmp(key, "dose") == 0) {
-//       // Reset total dose in EEPROM
-//       memset(&mDose, 0, sizeof(mDose));
-//       EEPROM_writeAnything(BMRDD_EEPROM_DOSE, mDose);
-//       DEBUG_PRINTLN("   - Reset total dose in EEPROM");
-//     }
-// #endif
+ #if ENABLE_EEPROM_DOSE
+     else if(strcmp(key, "dose") == 0) {
+       // Reset total dose in EEPROM
+       memset(&mDose, 0, sizeof(mDose));
+       EEPROM_writeAnything(BMRDD_EEPROM_DOSE, mDose);
+       DEBUG_PRINTLN("   - Reset total dose in EEPROM");
+     }
+ #endif
 
   }
   DEBUG_PRINTLN("   - Done.");

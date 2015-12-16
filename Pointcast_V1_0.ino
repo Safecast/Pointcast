@@ -79,9 +79,9 @@
 2015-11-17 V3.3.6  Switch off fail led by enter joy switch on main screen
 2015-11-21 V3.3.7  Fixed display failed error 3G.
 2015-11-24 V3.3.8  Fixed display failed error 3G.
-2015-11-24 V3.3.9  Added dose storage for EEProm.
-2015-11-24 V3.4.0  Stores total counts in EEprom
-
+2015-12-03 V3.3.9  Added dose storage for EEProm.
+2015-12-09 V3.4.0  Stores total counts in EEprom
+2015-12-16 V3.4.1  fixes fails display  
 
 contact rob@yr-design.biz
  */
@@ -96,6 +96,7 @@ contact rob@yr-design.biz
 #include <limits.h>
 #include <SoftwareSerial.h>
 #include <Time.h>
+#include <TimeLib.h>
 #include <TimeAlarms.h>
 #include <avr/io.h>
 #include <avr/interrupt.h>
@@ -175,7 +176,7 @@ static char strbuffer1[32];
 
 
 //static
-    static char VERSION[] = "V3.4.0";
+    static char VERSION[] = "V3.4.1";
 
     #if ENABLE_3G
     static char path[LINE_SZ];
@@ -229,7 +230,7 @@ static char strbuffer1[32];
     int conn_fail_cnt;
     int NORMAL = 0;
     int RESET = 1;
-    int Dose = 0;
+//    int Dose = 0;
     int S1peak;
     int S2peak;
 
@@ -396,8 +397,8 @@ static char strbuffer1[32];
 void setup() {  
      analogReference(INTERNAL);
 
-  //Read dose from EEPROM
-          EEPROM_readAnything(BMRDD_EEPROM_DOSE, dose);
+//  //Read dose from EEPROM
+//          EEPROM_readAnything(BMRDD_EEPROM_DOSE, dose);
 
         
   //print last reset message and setup the patting of the dog
@@ -435,7 +436,7 @@ void setup() {
           attachInterrupt(27, onReset, interruptMode);
   
     // set brightnes
-          lcd.setBacklightPin(BACKLIGHT_PIN,POSITIVE);
+          lcd.setBacklightPin(BACKLIGHT_PIN, POSITIVE);
           lcd.setBacklight(125);
           
      //Joy Switch setup     
@@ -472,8 +473,8 @@ void Menu_startup(void){
     String last_failure="NON";
     Serial.print("last_failure =");
     Serial.println(last_failure); 
-    Serial.print("Dose=");
-    Serial.println (dose.total_count);
+//    Serial.print("Dose=");
+//    Serial.println (dose.total_count);
 
         
      lcd.clear();
@@ -1385,7 +1386,7 @@ void SendDataToServer(float CPM,float CPM2){
                  lcd.setCursor(13,2);
                  lcd.print(" FAIL");
                  String last_failure="NC S2";
-                 lcd.print("  ");
+                 lcd.print(" ");
                  Serial.print(config.last_failure);
                  //alarm peep
                    digitalWrite(28, HIGH);
@@ -1463,7 +1464,7 @@ void SendDataToServer(float CPM,float CPM2){
                  lcd.setCursor(13,2);
                  lcd.print(" FAIL");
                  String last_failure="NC S2";
-                 lcd.print("  ");
+                 lcd.print(" ");
                  Serial.print(last_failure);
                  //alarm peep
                    digitalWrite(28, HIGH);
@@ -1917,8 +1918,7 @@ if (a3gs.start() == 0 && a3gs.begin() == 0) {
                 }
                             
            lcd.print(" FAIL");
-           lcd.print(MAX_FAILED_CONNS - conn_fail_cnt);
-           lcd.print("  ");
+
            //alarm peep
              digitalWrite(28, HIGH);
              pinMode(28, OUTPUT);
@@ -1926,10 +1926,12 @@ if (a3gs.start() == 0 && a3gs.begin() == 0) {
              pinMode(28, INPUT);
            //switch on fail LED
             digitalWrite(26, HIGH);
-
+           //display fails
             lcd.print(MAX_FAILED_CONNS - conn_fail_cnt);
+            lcd.print(" ");
             Serial.print("NC. Retries left:");
             Serial.println(MAX_FAILED_CONNS - conn_fail_cnt);
+            
             lastConnectionTime = millis();
             return;
           }
@@ -1979,20 +1981,20 @@ void loop() {
       float CPM2 = (float)counts_per_sample2 / (float)updateIntervalInMinutes/5;
 
       
-      //store and display(serial) dose
-      total_count += counts_per_sample;
-      dose.total_count += total_count;
-      total_time +=300;
-      dose.total_time += total_time;
-        if (dose.total_time > BMRDD_EEPROM_DOSE_WRITETIME ) {
-           EEPROM_writeAnything(BMRDD_EEPROM_DOSE, dose);
-           Serial.print("Dose is written to eeprom");
-           dose.total_time=0;
-        }
-      Serial.print("Dose count=");
-      Serial.println (dose.total_count);
-      Serial.print("Dose time=");
-      Serial.println (dose.total_time);
+//      //store and display(serial) dose
+//      total_count += counts_per_sample;
+//      dose.total_count += total_count;
+//      total_time +=300;
+//      dose.total_time += total_time;
+//        if (dose.total_time > BMRDD_EEPROM_DOSE_WRITETIME ) {
+//           EEPROM_writeAnything(BMRDD_EEPROM_DOSE, dose);
+//           Serial.print("Dose is written to eeprom");
+//           dose.total_time=0;
+//        }
+//      Serial.print("Dose count=");
+//      Serial.println (dose.total_count);
+//      Serial.print("Dose time=");
+//      Serial.println (dose.total_time);
 
       counts_per_sample = 0;
       counts_per_sample2 = 0;
@@ -2021,11 +2023,11 @@ void Menu_stat() {
                lcd.print("S2peak=");
                lcd.print(config.S2peak);
                lcd.setCursor(0,3);
-               lcd.print("Dose ="); 
-               lcd.print(int (dose.total_count));
-               Serial.println ("dose.total_count=");
-               Serial.println (total_count);
-               lcd.print("uSv");
+//               lcd.print("Dose ="); 
+//               lcd.print(int (dose.total_count));
+//               Serial.println ("dose.total_count=");
+//               Serial.println (total_count);
+//               lcd.print("uSv");
  
      }
 }
