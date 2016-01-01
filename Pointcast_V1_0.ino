@@ -81,7 +81,8 @@
 2015-11-24 V3.3.8  Fixed display failed error 3G.
 2015-12-03 V3.3.9  Added dose storage for EEProm.
 2015-12-09 V3.4.0  Stores total counts in EEprom
-2015-12-16 V3.4.1  fixes fails display  
+2015-12-16 V3.4.1  fixes fails display 
+2015-12-31 V3.4.2  Ethernet fixes fails display  
 
 contact rob@yr-design.biz
  */
@@ -176,7 +177,7 @@ static char strbuffer1[32];
 
 
 //static
-    static char VERSION[] = "V3.4.1";
+    static char VERSION[] = "V3.4.2";
 
     #if ENABLE_3G
     static char path[LINE_SZ];
@@ -1516,7 +1517,7 @@ void SendDataToServer(float CPM,float CPM2){
                         client.println();
                         client.println(json_buf2);
                         lcd.setCursor(13,2);
-                        lcd.print("PASS    ");
+                        lcd.print("PASS   ");
                         Serial.println("Disconnecting");
                         //client.stop();
 
