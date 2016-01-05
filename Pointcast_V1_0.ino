@@ -82,7 +82,8 @@
 2015-12-03 V3.3.9  Added dose storage for EEProm.
 2015-12-09 V3.4.0  Stores total counts in EEprom
 2015-12-16 V3.4.1  fixes fails display 
-2015-12-31 V3.4.2  Ethernet fixes fails display  
+2015-12-31 V3.4.2  Ethernet fixes fails display
+2016-01-05 V3.4.3  Chnage parameters in 3GIM for longer timeout of network and setup for 1024 body lenght  
 
 contact rob@yr-design.biz
  */
