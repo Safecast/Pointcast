@@ -1,5 +1,34 @@
 /*   
-  Pointcast.ino
+    A fixed postition Safecast device for Radiation measurement.
+
+   Copyright (c) 2015, Safecast
+
+   All rights reserved.
+
+   Redistribution and use in source and binary forms, with or without
+   modification, are permitted provided that the following conditions are met:
+    * Redistributions of source code must retain the above copyright
+      notice, this list of conditions and the following disclaimer.
+    * Redistributions in binary form must reproduce the above copyright
+      notice, this list of conditions and the following disclaimer in the
+      documentation and/or other materials provided with the distribution.
+    * Neither the name of the <organization> nor the
+      names of its contributors may be used to endorse or promote products
+      derived from this software without specific prior written permission.
+
+   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+   ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+   WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+   DISCLAIMED. IN NO EVENT SHALL <COPYRIGHT HOLDER> BE LIABLE FOR ANY
+   DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+   (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+   LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+   ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+   (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+   SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.    
+ 
+     
+History Versions:
 
 2015-04-05 V2.4.9 delay for switching off LEDs
 2015-04-07 V2.6.0 merged code with 3G
@@ -83,12 +112,16 @@
 2015-12-09 V3.4.0  Stores total counts in EEprom
 2015-12-16 V3.4.1  fixes fails display 
 2015-12-31 V3.4.2  Ethernet fixes fails display
-2016-01-05 V3.4.3  Chnage parameters in 3GIM for longer timeout of network and setup for 1024 body lenght  
+2016-01-05 V3.4.3  Change parameters in 3GIM for longer timeout of network and setup for 1024 body lenght  
+2016-01-07 V3.4.4  Changed delays in 3GIM for stablity
+2016-01-08 V3.4.5  Error messages fixed
+2016-01-15 V3.4.6  httpPost fixes for 3G
+2016-01-15 V3.4.7  serial confirm messages fix for 3G
 
 contact rob@yr-design.biz
  */
  
- /**************************************************************************/
+/**************************************************************************/
 // Init
 /**************************************************************************/
  
@@ -153,11 +186,14 @@ OneWire  ds(32);  // on pin 10 of extra header(a 4.7K resistor is necessary)
 //GATEWAY_sz is array for gateways
 #define GATEWAY_SZ 2
 
+
 static char obuf[OLINE_SZ];
 static char buf[LINE_SZ];
 static char buf2[LINE_SZ];
 static char strbuffer[32];
 static char strbuffer1[32];
+char body[512]; 
+char body2[512]; 
 
 
 // OpenLog Settings --------------------------------------------------------------
@@ -168,9 +204,9 @@ static char strbuffer1[32];
     char logfile_name[13];  // placeholder for filename
     bool logfile_ready = false;
 
-    //static void setupOpenLog();
-    //static bool loadConfig(char *fileName);
-    //static void createFile(char *fileName);
+    static void setupOpenLog();
+    static bool loadConfig(char *fileName);
+    static void createFile(char *fileName);
 
     static ConfigType config;
     static DoseType dose;
@@ -178,7 +214,7 @@ static char strbuffer1[32];
 
 
 //static
-    static char VERSION[] = "V3.4.2";
+    static char VERSION[] = "V3.4.7";
 
     #if ENABLE_3G
     static char path[LINE_SZ];
@@ -206,6 +242,9 @@ static char strbuffer1[32];
     const int port = 80;
     const int interruptMode = FALLING;
     const int updateIntervalInMinutes = 1;
+    const char *header="Content-Type:application/json$r$n";
+    const boolean useHTTPS = false;  // Use https(true) or http(false)
+
 
     #if ENABLE_ETHERNET
       //ethernet
@@ -225,6 +264,10 @@ static char strbuffer1[32];
   
 //Boolean
 
+//Strings
+
+ String last_failure="NON";
+
 //int
     int MAX_FAILED_CONNS = 3;
     int len;
@@ -235,6 +278,7 @@ static char strbuffer1[32];
 //    int Dose = 0;
     int S1peak;
     int S2peak;
+    int failures;
 
 
 //long
@@ -263,6 +307,7 @@ static char strbuffer1[32];
 
     #if ENABLE_3G
       char res[a3gsMAX_RESULT_LENGTH+1];
+      char res2[a3gsMAX_RESULT_LENGTH+1];
       const int timeZone = 1;
     #endif
 
@@ -472,11 +517,15 @@ void Menu_startup(void){
        float temperature = getTemp();
 
     //setup failure message 
-    String last_failure="NON";
     Serial.print("last_failure =");
     Serial.println(last_failure); 
-//    Serial.print("Dose=");
-//    Serial.println (dose.total_count);
+    Serial.print("Dose=");
+    Serial.println (dose.total_count);
+    #if ENABLE_3G
+      Serial.print("Body send lenght=");
+      Serial.println (a3gsMAX_BODY_LENGTH);
+    #endif
+    
 
         
      lcd.clear();
@@ -1061,6 +1110,7 @@ void Menu_network(void){
                                  }else{
                                     lcd.setCursor(0, 1);
                                     lcd.print("FAIL");
+                                    String last_failure="3G not starting";
                                      //alarm peep
                                        digitalWrite(28, HIGH);
                                        pinMode(28, OUTPUT);
@@ -1081,6 +1131,7 @@ void Menu_network(void){
                                    }
                                    else{
                                      Serial.println("Can't get seconds."); 
+                                     String last_failure="Can not get EPOCH";
                                       
                                    }
                 
@@ -1187,20 +1238,11 @@ void Menu_network(void){
               lcd.setCursor(8,3);
               lcd.print(battery);
               lcd.print("V");
-              #if ENABLE_3G
-                  lcd.setCursor(13,3);
-                  lcd.print(rssi);
-                  lcd.print("dBm");
-//                     if (a3gs.start() == 0 && a3gs.begin() == 0)
-//                         {
-//                       }else {
-//                         //a3gs.restart();
-//                         lcd.setCursor(14,2);
-//                         lcd.print("FAILED");
-//                         Serial.println ("Can not connect to 3G server");
-//                     }
-
-                #endif
+                  #if ENABLE_3G
+                      lcd.setCursor(13,3);
+                      lcd.print(rssi);
+                      lcd.print("dBm");
+                  #endif
 
            }
        
@@ -1296,7 +1338,7 @@ void SendDataToServer(float CPM,float CPM2){
     dtostrf(CPM, 0, 0, CPM_string);
     if (CPM > (int)(config.S1peak)) {
         config.S1peak=CPM;
-        Serial.print ("Updating S1peak");
+        Serial.println ("Updating S1peak");
     }
     Serial.print ("S1peak =");
     Serial.println (config.S1peak);
@@ -1306,7 +1348,7 @@ void SendDataToServer(float CPM,float CPM2){
     dtostrf(CPM2, 0, 0, CPM2_string);
     if (CPM2 > (int)(config.S2peak)){
         config.S2peak=CPM2;
-        Serial.print ("Updating S2peak");
+        Serial.println ("Updating S2peak");
     } 
     Serial.print ("S2peak =");
     Serial.println (config.S2peak);
@@ -1389,7 +1431,7 @@ void SendDataToServer(float CPM,float CPM2){
                  lcd.print(" FAIL");
                  String last_failure="NC S2";
                  lcd.print(" ");
-                 Serial.print(config.last_failure);
+                 Serial.print(last_failure);
                  //alarm peep
                    digitalWrite(28, HIGH);
                    pinMode(28, OUTPUT);
@@ -1523,15 +1565,15 @@ void SendDataToServer(float CPM,float CPM2){
                         //client.stop();
 
                         //convert time in correct format
-  memset(timestamp, 0, LINE_SZ);
-  sprintf_P(timestamp, PSTR("%02d-%02d-%02dT%02d:%02d:%02dZ"),  \
-    year(), month(), day(),  \
-              hour(), minute(), second());
-
-Serial.println("end of sending");
-
-// convert degree to NMAE
-deg2nmae (config.latitude,config.longitude, lat_lon_nmea);
+                        memset(timestamp, 0, LINE_SZ);
+                        sprintf_P(timestamp, PSTR("%02d-%02d-%02dT%02d:%02d:%02dZ"),  \
+                          year(), month(), day(),  \
+                                    hour(), minute(), second());
+                      
+                      Serial.println("end of sending");
+                      
+                      // convert degree to NMAE
+                      deg2nmae (config.latitude,config.longitude, lat_lon_nmea);
 
 
 
@@ -1626,6 +1668,8 @@ deg2nmae (config.latitude,config.longitude, lat_lon_nmea);
           }else{
              lcd.setCursor(13,2);
              lcd.print("SD FAIL");
+             String last_failure="SD FAIL";
+             Serial.print (last_failure);
                //alarm peep
                  digitalWrite(28, HIGH);
                  pinMode(28, OUTPUT);
@@ -1634,10 +1678,6 @@ deg2nmae (config.latitude,config.longitude, lat_lon_nmea);
                //switch on fail LED
                 digitalWrite(26, HIGH);
           }
-
-
-
-
 
 #endif
 
@@ -1650,6 +1690,7 @@ deg2nmae (config.latitude,config.longitude, lat_lon_nmea);
 
 
 // Convert from cpm to µSv/h with the pre-defined coefficient
+
 
     conversionCoefficient = 1/config.sensor1_cpm_factor; 
     float uSv = CPM * conversionCoefficient;                   // convert CPM to Micro Sievers Per Hour
@@ -1724,9 +1765,7 @@ deg2nmae (config.latitude,config.longitude, lat_lon_nmea);
       lcd.setCursor(0,2);
       lcd.print("API:");
 
-      //check level
-
-
+        //check level
         if (a3gs.getRSSI(rssi) == 0) {
           Serial.print("RSSI = ");
           Serial.print(rssi);
@@ -1735,8 +1774,8 @@ deg2nmae (config.latitude,config.longitude, lat_lon_nmea);
           lcd.print(rssi);
           lcd.print("dBm");
         }
-
-
+        
+        
         //convert time in correct format
         memset(timestamp, 0, LINE_SZ);
         sprintf_P(timestamp, PSTR("%02d-%02d-%02dT%02d:%02d:%02dZ"),  \
@@ -1826,73 +1865,56 @@ deg2nmae (config.latitude,config.longitude, lat_lon_nmea);
                 }
 
 
-if (a3gs.start() == 0 && a3gs.begin() == 0) {
-  
-}
-
-    //send to server
-        // Create data string for sensor 1
+        //send to server for httpPOST
+        // Create path string for sensor 1 and 2
                 len = sizeof(res);
-    lastConnectionTime = millis();
+                len2 = sizeof(res2);
+                lastConnectionTime = millis();
                   if (config.dev){
-                        sprintf_P(path, PSTR("/scripts/shorttest.php?api_key=%s&lat=%s&lon=%s&cpm=%s&id=%d&alt=%d"), \
-                        config.api_key, \
-                        config.latitude, \
-                        config.longitude, \
-                        CPM_string, \
-                        config.user_id, \
-                        config.alt); 
+                        sprintf_P(path, PSTR("scripts/indextest.php?api_key=%s"), \
+                        config.api_key);
                         
                   }else{
-                        sprintf_P(path, PSTR("/scripts/short.php?api_key=%s&lat=%s&lon=%s&cpm=%s&id=%d&alt=%d"), \
-                        config.api_key, \
-                        config.latitude, \
-                        config.longitude, \
-                        CPM_string, \
-                        config.user_id, \
-                        config.alt); 
+                        sprintf_P(path, PSTR("scripts/index.php?api_key=%s"), \
+                        config.api_key);
                    } 
-                 
-                  
-       // Create data string for sensor 2
-                  if (config.dev){
-                        sprintf_P(path2, PSTR("/scripts/shorttest.php?api_key=%s&lat=%s&lon=%s&cpm=%s&id=%d&alt=%d"), 
-                        config.api_key, \
-                        config.latitude, \
-                        config.longitude, \
-                        CPM2_string, \
-                        config.user_id2, \
-                        config.alt); 
-                   }else{
-                       sprintf_P(path2, PSTR("/scripts/short.php?api_key=%s&lat=%s&lon=%s&cpm=%s&id=%d&alt=%d"),
-                        config.api_key, \
-                        config.latitude, \
-                        config.longitude, \
-                        CPM2_string, \
-                        config.user_id2, \
-                        config.alt); 
-                       }
 
-        if (a3gs.httpGET(server, port, path, res, len) == 0) {
-                   Serial.println(path); 
-                   Serial.println("Sent sensor 1 info to server OK!");
-                   Serial.print(">Response=[");
-                   Serial.print(res);
-                   Serial.println("]");
+         //create body and body2  ....\$\"value\$\" : \$\"60\$\"
+                   sprintf_P(body, PSTR("{\$\"longitude\$\":\$\"%s\$\",\$\"latitude\$\":\$\"%s\$\",\$\"device_id\$\":\$\"%d\$\",\$\"value\$\":\$\"%s\$\",\$\"unit\$\":\$\"cpm\$\",\$\"height\$\":\$\"%d\$\"}"),  \
+                          config.longitude, \
+                          config.latitude, \
+                          config.user_id, \
+                          CPM_string, \
+                          config.alt);
+
+                  sprintf_P(body2, PSTR("{\$\"longitude\$\":\$\"%s\$\",\$\"latitude\$\":\$\"%s\$\",\$\"device_id\$\":\$\"%d\$\",\$\"value\$\":\$\"%s\$\",\$\"unit\$\":\$\"cpm\$\",\$\"height\$\":\$\"%d\$\"}"),  \
+                          config.longitude, \
+                          config.latitude, \
+                          config.user_id2,  \
+                          CPM2_string, \
+                          config.alt);
+         
+
+        // //check if 3gim is started
+        //  if (a3gs.start() == 0 && a3gs.begin() == 0) {
+        //   }
 
 
+        if (a3gs.httpPOST(server, port, path, header, body, res, &len, useHTTPS) == 0) {
+               Serial.println("Sent sensor 1 info to server OK!");
+               Serial.print(">Response=[");
+               Serial.print(res);
+               Serial.println("]");
 
-            a3gs.httpGET(server, port, path2, res, len);
-                   Serial.println(path2); 
-                   Serial.println("Sent sensor 2 info to server OK!");
-                   Serial.print(">Response=[");
-                   Serial.print(res);
-                   Serial.println("]");
-                   conn_fail_cnt = 0; 
-             
-             
-             //Display information 
-                   
+        delay (6000);
+
+            a3gs.httpPOST(server, port, path, header, body2, res2, &len2, useHTTPS);
+               Serial.println("Sent sensor 2 info to server OK!");
+               Serial.print(">Response=[");
+               Serial.print(res2);
+               Serial.println("]");
+
+        //Display information                  
               lcd.setCursor(13,2);
               lcd.print("PASS   ");
               lcd.setCursor(0,3);
@@ -1920,7 +1942,7 @@ if (a3gs.start() == 0 && a3gs.begin() == 0) {
                 }
                             
            lcd.print(" FAIL");
-
+            failures++;
            //alarm peep
              digitalWrite(28, HIGH);
              pinMode(28, OUTPUT);
@@ -1937,6 +1959,7 @@ if (a3gs.start() == 0 && a3gs.begin() == 0) {
             lastConnectionTime = millis();
             return;
           }
+
 
 
      #endif    
@@ -2054,8 +2077,8 @@ void Menu_stat2() {
           previousMillis=millis() ;
           while ((unsigned long)(millis() - previousMillis) <= display_interval) {
                     if (joyCntB){ Serial.println ("Up"); joyCntB=!joyCntB;joyCntA=false;lcd.clear();display_interval=3000;Menu_stat();return;}
-                    if (joyCntA){ Serial.println ("Down"); joyCntA=!joyCntA;joyCntB=false;display_interval=500;Menu_counting();return;}
-
+                    if (joyCntA){ Serial.println ("Down"); joyCntA=!joyCntA;joyCntB=false;lcd.clear();display_interval=3000;Menu_counting();return;}
+                    
                lcd.setCursor(0,0);    
                lcd.print("up=");
                lcd.print(display_days);
@@ -2069,10 +2092,12 @@ void Menu_stat2() {
                lcd.print("nnnn");
                lcd.setCursor(0,2);
                lcd.print("#fail=");
-               lcd.print("ffff");
+               lcd.print(failures);
                lcd.setCursor(0,3);
-               lcd.print("#reset=");
-               lcd.print("rrrr");
+               lcd.print("Last Fail=");
+               lcd.print(last_failure);               
+//               lcd.print("#reset=");
+//               lcd.print("rrrr");
       }
  return;
 }
@@ -2088,9 +2113,9 @@ void Menu_term() {
                lcd.setCursor(0,0);    
                lcd.print("Terminal");
                lcd.setCursor(0,1);   
-               lcd.print("last failure");
-               // lcd.print(last_failure);
-               // Serial.print(last_failure);
+               lcd.print("last failure =");
+               lcd.print(config.last_failure);
+               Serial.print(last_failure);
       }
  Menu_counting();
 }
