@@ -117,6 +117,7 @@ History Versions:
 2016-01-08 V3.4.5  Error messages fixed
 2016-01-15 V3.4.6  httpPost fixes for 3G
 2016-01-15 V3.4.7  serial confirm messages fix for 3G
+2016-01-24 V3.4.8  added code for swicing temperarture sensor 
 
 contact rob@yr-design.biz
  */
@@ -214,7 +215,7 @@ char body2[512];
 
 
 //static
-    static char VERSION[] = "V3.4.7";
+    static char VERSION[] = "V3.4.8";
 
     #if ENABLE_3G
     static char path[LINE_SZ];
@@ -514,7 +515,7 @@ Menu_startup();
 void Menu_startup(void){
 
        float battery =((read_voltage(VOLTAGE_PIN)));
-       float temperature = getTemp();
+//       float temperature = getTemp();
 
     //setup failure message 
     Serial.print("last_failure =");
@@ -660,14 +661,13 @@ void Menu_sdcard(void){
             if (!openlog_ready) {
                   lcd.setCursor(8, 0);
                   lcd.print("FAIL");
-                  String last_failure= "SD FAIL";
+//                  config.last_failure="SDcard fail";
                   Serial.print(config.last_failure);
                   delay(2000);
                   //Red LED on
                   digitalWrite(26, HIGH);
                   Serial.println();
                   Serial.println("No SD card.. ");
-                  // sdcard_fail=true;
             }
           if (openlog_ready) {
            previousMillis=millis() ;
@@ -1429,7 +1429,7 @@ void SendDataToServer(float CPM,float CPM2){
                  ctrl.conn_fail_cnt++;
                  lcd.setCursor(13,2);
                  lcd.print(" FAIL");
-                 String last_failure="NC S2";
+//                 char* last_failure="Send GW fail";
                  lcd.print(" ");
                  Serial.print(last_failure);
                  //alarm peep
@@ -1855,6 +1855,7 @@ void SendDataToServer(float CPM,float CPM2){
                 }else{
                    lcd.setCursor(13,2);
                    lcd.print("SD FAIL");
+//                   char* last_failure="SD failed";
                      //alarm peep
                        digitalWrite(28, HIGH);
                        pinMode(28, OUTPUT);
@@ -1942,6 +1943,7 @@ void SendDataToServer(float CPM,float CPM2){
                 }
                             
            lcd.print(" FAIL");
+//           char* last_failure="Send GW fail";
             failures++;
            //alarm peep
              digitalWrite(28, HIGH);
@@ -2280,25 +2282,47 @@ void createFile(char *fileName) {
 
  // retrieve temperature
 float getTemp(){
-
+      byte i;
       byte data[12];
       byte addr[8];
-      
+      byte type_s;
+      float celsius, fahrenheit;
+
       if ( !ds.search(addr)) {
       //no more sensors on chain, reset search
       ds.reset_search();
       return -1000;
       }
-      
+
       
       if ( addr[0] != 0x10 && addr[0] != 0x28) {
       Serial.print("Device is not recognized");
       return -1000;
       }
+      switch (addr[0]) {
+          case 0x10:
+            Serial.println("  Chip = DS18S20");  // or old DS1820
+            type_s = 1;
+            break;
+          case 0x28:
+            Serial.println("  Chip = DS18B20");
+            type_s = 0;
+            break;
+          case 0x22:
+            Serial.println("  Chip = DS1822");
+            type_s = 0;
+            break;
+          default:
+            Serial.println("Device is not a DS18x20 family device.");
+            return -1000;
+        } 
+
       
       ds.reset();
       ds.select(addr);
       ds.write(0x44,1); // start conversion, with parasite power on at the end
+      
+      delay(1000);
       
       byte present = ds.reset();
       ds.select(addr);
@@ -2307,7 +2331,24 @@ float getTemp(){
       for (int i = 0; i < 9; i++) { // we need 9 bytes
       data[i] = ds.read();
       }
-      
+
+  int16_t raw = (data[1] << 8) | data[0];
+  if (type_s) {
+    raw = raw << 3; // 9 bit resolution default
+    if (data[7] == 0x10) {
+      // "count remain" gives full 12 bit resolution
+      raw = (raw & 0xFFF0) + 12 - data[6];
+        celsius = (float)raw / 16.0;
+        fahrenheit = celsius * 1.8 + 32.0;
+        Serial.print("  Temperature = ");
+        Serial.print(celsius);
+        Serial.print(" Celsius, ");
+        Serial.print(fahrenheit);
+        Serial.println(" Fahrenheit"); 
+        float temperature = celsius;     
+        return temperature;
+    }
+  } else {
       ds.reset_search();
       
       byte MSB = data[1];
@@ -2315,8 +2356,19 @@ float getTemp(){
       
       float tempRead = ((MSB << 8) | LSB); //using two’s compliment
       float temperature = tempRead / 16;
-      delay(1000);
       return temperature;
+  }
+
+      
+//      ds.reset_search();
+//      
+//      byte MSB = data[1];
+//      byte LSB = data[0];
+//      
+//      float tempRead = ((MSB << 8) | LSB); //using two’s compliment
+//      float temperature = tempRead / 16;
+//      delay(1000);
+//      return temperature;
 
 }
 
