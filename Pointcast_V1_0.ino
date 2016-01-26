@@ -118,6 +118,7 @@ History Versions:
 2016-01-15 V3.4.6  httpPost fixes for 3G
 2016-01-15 V3.4.7  serial confirm messages fix for 3G
 2016-01-24 V3.4.8  added code for swicing temperarture sensor 
+2016-01-26 V3.4.9  changed 3G send way by retsrating 3G module every time send.
 
 contact rob@yr-design.biz
  */
@@ -215,7 +216,7 @@ char body2[512];
 
 
 //static
-    static char VERSION[] = "V3.4.8";
+    static char VERSION[] = "V3.4.9";
 
     #if ENABLE_3G
     static char path[LINE_SZ];
@@ -1690,7 +1691,12 @@ void SendDataToServer(float CPM,float CPM2){
 
 
 // Convert from cpm to µSv/h with the pre-defined coefficient
-
+ if (a3gs.start() == 0 && a3gs.begin() == 0)
+    Serial.println("Succeeded.");
+  else {
+    Serial.println("Failed.");
+    while (1) ;  // STOP
+  }
 
     conversionCoefficient = 1/config.sensor1_cpm_factor; 
     float uSv = CPM * conversionCoefficient;                   // convert CPM to Micro Sievers Per Hour
@@ -1764,6 +1770,7 @@ void SendDataToServer(float CPM,float CPM2){
       lcd.print("uSh");
       lcd.setCursor(0,2);
       lcd.print("API:");
+
 
         //check level
         if (a3gs.getRSSI(rssi) == 0) {
@@ -1907,24 +1914,24 @@ void SendDataToServer(float CPM,float CPM2){
                Serial.print(res);
                Serial.println("]");
 
-        delay (6000);
-
-            a3gs.httpPOST(server, port, path, header, body2, res2, &len2, useHTTPS);
-               Serial.println("Sent sensor 2 info to server OK!");
-               Serial.print(">Response=[");
-               Serial.print(res2);
-               Serial.println("]");
-
-        //Display information                  
-              lcd.setCursor(13,2);
-              lcd.print("PASS   ");
-              lcd.setCursor(0,3);
-              lcd.print("STS:");
-              lcd.setCursor(6,3);
-              lcd.print(battery);
-              lcd.print("V");
-              
-        }
+                delay (6000);
+        
+                    a3gs.httpPOST(server, port, path, header, body2, res2, &len2, useHTTPS);
+                       Serial.println("Sent sensor 2 info to server OK!");
+                       Serial.print(">Response=[");
+                       Serial.print(res2);
+                       Serial.println("]");
+        
+                //Display information                  
+                      lcd.setCursor(13,2);
+                      lcd.print("PASS   ");
+                      lcd.setCursor(0,3);
+                      lcd.print("STS:");
+                      lcd.setCursor(6,3);
+                      lcd.print(battery);
+                      lcd.print("V");
+                      
+                }
         else {
             
            lcd.setCursor(13,2);
@@ -1967,7 +1974,6 @@ void SendDataToServer(float CPM,float CPM2){
      #endif    
 //   end of 3G send
 
-
 //for all modules
   lastConnectionTime = millis();
 
@@ -1978,6 +1984,11 @@ void SendDataToServer(float CPM,float CPM2){
   lcd.print(":");
   printDigits(minute());
   lcd.print("GMT");
+
+  a3gs.end();
+  a3gs.shutdown();
+
+
 
 }
 
