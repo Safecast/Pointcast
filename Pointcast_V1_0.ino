@@ -119,6 +119,7 @@ History Versions:
 2016-01-15 V3.4.7  serial confirm messages fix for 3G
 2016-01-24 V3.4.8  added code for swicing temperarture sensor 
 2016-01-26 V3.4.9  changed 3G send way by retsrating 3G module every time send.
+2016-02-01 V3.5.0  Added Alarm function.
 
 contact rob@yr-design.biz
  */
@@ -216,7 +217,7 @@ char body2[512];
 
 
 //static
-    static char VERSION[] = "V3.4.9";
+    static char VERSION[] = "V3.5.0";
 
     #if ENABLE_3G
     static char path[LINE_SZ];
@@ -1314,6 +1315,23 @@ void printDigitsSerial(int digits){
 /**************************************************************************/
 void SendDataToServer(float CPM,float CPM2){ 
 
+
+
+//setup alarm
+
+  if(CPM > config.alm){
+   //beep for loud piezo 10 times
+                int i=0;
+                 while (i<10) {
+                     digitalWrite(28, HIGH);
+                     pinMode(28, OUTPUT);
+                     delay(250);
+                     pinMode(28, INPUT);
+                     delay(250);
+                     i++;
+                }       
+      }
+
 #if ENABLE_ETHERNET
 
 // check timeup
@@ -1691,12 +1709,13 @@ void SendDataToServer(float CPM,float CPM2){
 
 
 // Convert from cpm to µSv/h with the pre-defined coefficient
- if (a3gs.start() == 0 && a3gs.begin() == 0)
+ if (a3gs.begin() == 0)
     Serial.println("Succeeded.");
   else {
     Serial.println("Failed.");
-    while (1) ;  // STOP
   }
+
+
 
     conversionCoefficient = 1/config.sensor1_cpm_factor; 
     float uSv = CPM * conversionCoefficient;                   // convert CPM to Micro Sievers Per Hour
@@ -1985,10 +2004,7 @@ void SendDataToServer(float CPM,float CPM2){
   printDigits(minute());
   lcd.print("GMT");
 
-  a3gs.end();
-  a3gs.shutdown();
-
-
+//  a3gs.end();
 
 }
 
