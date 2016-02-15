@@ -17,7 +17,9 @@ void PointcastSetup::initialize() {
   DEBUG_PRINTLN("Loading EEPROM configuration");
   memset(&mConfig, 0, sizeof(mConfig));
   EEPROM_readAnything(BMRDD_EEPROM_SETUP, mConfig);
-
+  
+  DEBUG_PRINTLN("Loading EEPROM configuration");
+  
   if (mConfig.marker != BMRDD_EEPROM_MARKER) {
     DEBUG_PRINTLN("  - First time setup");
     // First run, time to set default values

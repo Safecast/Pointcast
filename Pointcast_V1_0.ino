@@ -1,5 +1,5 @@
 /*   
-    A fixed postition Safecast device for Radiation measurement.
+    A fixed position Safecast device for Radiation measurement.
 
    Copyright (c) 2015, Safecast
 
@@ -120,6 +120,7 @@ History Versions:
 2016-01-24 V3.4.8  added code for swicing temperarture sensor 
 2016-01-26 V3.4.9  changed 3G send way by retsrating 3G module every time send.
 2016-02-01 V3.5.0  Added Alarm function.
+2016-02-15 V3.5.1  3G fast reset
 
 contact rob@yr-design.biz
  */
@@ -217,7 +218,7 @@ char body2[512];
 
 
 //static
-    static char VERSION[] = "V3.5.0";
+    static char VERSION[] = "V3.5.1";
 
     #if ENABLE_3G
     static char path[LINE_SZ];
@@ -1962,9 +1963,6 @@ void SendDataToServer(float CPM,float CPM2){
             if (conn_fail_cnt >= MAX_FAILED_CONNS)
                 {
                                   //first shut down 3G before reset
-                                  a3gs.end();
-                                  a3gs.shutdown();
-                      
                                   CPU_RESTART;
                 }
                             

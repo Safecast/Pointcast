@@ -17,14 +17,14 @@
 #define BMRDD_EEPROM_DOSE 200
 // geiger dose
 // write every hours (eeprom ~ 100000 cycles -> ~ 11 years)
-#define BMRDD_EEPROM_DOSE_WRITETIME 600
+#define BMRDD_EEPROM_DOSE_WRITETIME 3600
 
-#define BMRDD_EEPROM_SETUP 1024
+#define BMRDD_EEPROM_SETUP 500
 #define BMRDD_EEPROM_MARKER 0x5afeF00d
 
 
-#define ENABLE_3G             0
-#define ENABLE_ETHERNET       1
+#define ENABLE_3G             1
+#define ENABLE_ETHERNET       0
 #define ENABLE_EEPROM_DOSE    0
 
 #define HEADER_SENSOR  "PNTXS"
