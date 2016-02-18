@@ -121,6 +121,9 @@ History Versions:
 2016-01-26 V3.4.9  changed 3G send way by retsrating 3G module every time send.
 2016-02-01 V3.5.0  Added Alarm function.
 2016-02-15 V3.5.1  3G fast reset
+2016-02-15 V3.5.2  reset alarm LED on PASS 3G
+2016-02-16 V3.5.3  display reply message on 3GIM on treminal screen
+2016-02-18 V3.5.4  extraxt id for api to display on treminal
 
 contact rob@yr-design.biz
  */
@@ -218,7 +221,7 @@ char body2[512];
 
 
 //static
-    static char VERSION[] = "V3.5.1";
+    static char VERSION[] = "V3.5.4";
 
     #if ENABLE_3G
     static char path[LINE_SZ];
@@ -266,11 +269,7 @@ char body2[512];
       char macstr[19];
     #endif
   
-//Boolean
 
-//Strings
-
- String last_failure="NON";
 
 //int
     int MAX_FAILED_CONNS = 3;
@@ -312,7 +311,10 @@ char body2[512];
     #if ENABLE_3G
       char res[a3gsMAX_RESULT_LENGTH+1];
       char res2[a3gsMAX_RESULT_LENGTH+1];
+      char mess[10];
       const int timeZone = 1;
+      char buf_reply[a3gsMAX_RESULT_LENGTH+1];
+      char buf_reply2[a3gsMAX_RESULT_LENGTH+1];
     #endif
 
 //gateway setup    
@@ -468,15 +470,15 @@ void setup() {
          PointcastSetup.initialize();
      
    //beep for loud piezo twice
-                int i=0;
-                 while (i<2) {
-                     digitalWrite(28, HIGH);
-                     pinMode(28, OUTPUT);
-                     delay(250);
-                     pinMode(28, INPUT);
-                     delay(250);
-                     i++;
-                }
+        int i=0;
+         while (i<2) {
+             digitalWrite(28, HIGH);
+             pinMode(28, OUTPUT);
+             delay(250);
+             pinMode(28, INPUT);
+             delay(250);
+             i++;
+        }
 
 
     //beep for normal piezo
@@ -521,8 +523,8 @@ void Menu_startup(void){
 //       float temperature = getTemp();
 
     //setup failure message 
-    Serial.print("last_failure =");
-    Serial.println(last_failure); 
+//    Serial.print("last_failure =");
+//    Serial.println(last_failure); 
     Serial.print("Dose=");
     Serial.println (dose.total_count);
     #if ENABLE_3G
@@ -535,49 +537,49 @@ void Menu_startup(void){
      lcd.clear();
     // LED on delay (start speed display function by pressing down)
      previousMillis = millis();
-         while ((unsigned long)(millis() - previousMillis) <= display_interval) {
-                     if (joyCntA){ Serial.println ("Down"); joyCntA=!joyCntA;joyCntB=false;lcd.clear();display_interval=3000;Menu_system();return;}
-                     if (joyCntE){ Serial.println ("Enter"); joyCntE=!joyCntE;joyCntB=false;joyCntA=false;lcd.clear();lcd.print("Clearing Eeprom");eepromclear();return;}
+     while ((unsigned long)(millis() - previousMillis) <= display_interval) {
+       if (joyCntA){ Serial.println ("Down"); joyCntA=!joyCntA;joyCntB=false;lcd.clear();display_interval=3000;Menu_system();return;}
+       if (joyCntE){ Serial.println ("Enter"); joyCntE=!joyCntE;joyCntB=false;joyCntA=false;lcd.clear();lcd.print("Clearing Eeprom");eepromclear();return;}
 
               // Print startup message to the LCD.
-                     lcd.setCursor(0, 0);
-                 lcd.print("SAFECAST POINTCASTv1");
-                     lcd.setCursor(0, 1);
-                     lcd.print("Firmware :");
-                     lcd.print(VERSION);
-                     lcd.setCursor(0, 2);
-                     lcd.print("Device ID:");  
-                     lcd.print(config.devid);
-                     lcd.setCursor(0, 3);
-                     lcd.print("http://safecast.org");         
-          
+       lcd.setCursor(0, 0);
+       lcd.print("SAFECAST POINTCASTv1");
+       lcd.setCursor(0, 1);
+       lcd.print("Firmware :");
+       lcd.print(VERSION);
+       lcd.setCursor(0, 2);
+       lcd.print("Device ID:");  
+       lcd.print(config.devid);
+       lcd.setCursor(0, 3);
+       lcd.print("http://safecast.org");         
+
               // SENSOR 1 setup
-              if (config.sensor1_enabled) {
+       if (config.sensor1_enabled) {
                   conversionCoefficient = 1/config.sensor1_cpm_factor; // 0.0029;
                   pinMode(14, INPUT_PULLUP);
                   attachInterrupt(14, onPulse, interruptMode);
-              }
-              
+                }
+
               // SENSOR 2 setup
-               if (config.sensor2_enabled) {
+                if (config.sensor2_enabled) {
                   conversionCoefficient2 = 1/config.sensor2_cpm_factor; // 0.0029;
                   pinMode(15,INPUT_PULLUP);
                   attachInterrupt(15, onPulse2, interruptMode);
                   
-              }
-          
+                }
+
               //LED1(green) setup
                 pinMode(green_ledPin, OUTPUT);
                 digitalWrite(green_ledPin, HIGH);
                 digitalWrite(28, LOW);
                 
              //LED2(red) setup
-               pinMode(red_ledPin, OUTPUT);
-               digitalWrite(red_ledPin, HIGH);
+                pinMode(red_ledPin, OUTPUT);
+                digitalWrite(red_ledPin, HIGH);
 
-             
 
-        }
+
+              }
      
     //LED off
       digitalWrite(red_ledPin, LOW);
@@ -665,7 +667,7 @@ void Menu_sdcard(void){
                   lcd.setCursor(8, 0);
                   lcd.print("FAIL");
 //                  config.last_failure="SDcard fail";
-                  Serial.print(config.last_failure);
+//                  Serial.print(config.last_failure);
                   delay(2000);
                   //Red LED on
                   digitalWrite(26, HIGH);
@@ -1112,8 +1114,8 @@ void Menu_network(void){
                                     Serial.println(" dBm");
                                  }else{
                                     lcd.setCursor(0, 1);
-                                    lcd.print("FAIL");
-                                    String last_failure="3G not starting";
+                                    lcd.print("3G not connected");
+//                                    String last_failure="3G not starting";
                                      //alarm peep
                                        digitalWrite(28, HIGH);
                                        pinMode(28, OUTPUT);
@@ -1134,8 +1136,9 @@ void Menu_network(void){
                                    }
                                    else{
                                      Serial.println("Can't get seconds."); 
-                                     String last_failure="Can not get EPOCH";
-                                      
+//                                     String last_failure="Can not get EPOCH";
+                                     lcd.setCursor(0, 1);
+                                     lcd.print("Can not get Time");
                                    }
                 
                       
@@ -1161,13 +1164,12 @@ void Menu_network(void){
                         lcd.print("Signal:");
                         lcd.print(rssi);
                         lcd.print(" dBm");
-      //                  lcd.print("[000000]"); 
                         lcd.setCursor(0, 2);        
                         lcd.print("Carrier:");
                         lcd.print(config.apn);
                         lcd.setCursor(0, 3);
-                        lcd.print("Phone: ");
-                        lcd.print("080XXXXYYYY");
+                        lcd.print("GW:");
+                        lcd.print(server);
                  } 
           network_startup=true;   
         #endif  
@@ -1451,7 +1453,7 @@ void SendDataToServer(float CPM,float CPM2){
                  lcd.print(" FAIL");
 //                 char* last_failure="Send GW fail";
                  lcd.print(" ");
-                 Serial.print(last_failure);
+//                 Serial.print(last_failure);
                  //alarm peep
                    digitalWrite(28, HIGH);
                    pinMode(28, OUTPUT);
@@ -1500,7 +1502,8 @@ void SendDataToServer(float CPM,float CPM2){
                   client.println(json_buf);
                   Serial.println("Disconnecting");
                   client.stop();
-
+                   //switch  fail LED off
+                   digitalWrite(26, LOW);
 
 
       
@@ -1527,10 +1530,10 @@ void SendDataToServer(float CPM,float CPM2){
                  ctrl.conn_fail_cnt++;
                  lcd.setCursor(13,2);
                  lcd.print(" FAIL");
-                 String last_failure="NC S2";
+//                 String last_failure="NC S2";
                  lcd.print(" ");
-                 Serial.print(last_failure);
-                 //alarm peep
+//                 Serial.print(last_failure);
+                 alarm peep
                    digitalWrite(28, HIGH);
                    pinMode(28, OUTPUT);
                    delay(250);
@@ -1559,7 +1562,6 @@ void SendDataToServer(float CPM,float CPM2){
                         int len2 = strlen(json_buf2);
                         json_buf2[len2] = '\0';
                         Serial.println(json_buf2);
-
 
                               if (config.dev){
                                 client.print("POST /scripts/indextest.php?api_key=");
@@ -1688,8 +1690,8 @@ void SendDataToServer(float CPM,float CPM2){
           }else{
              lcd.setCursor(13,2);
              lcd.print("SD FAIL");
-             String last_failure="SD FAIL";
-             Serial.print (last_failure);
+//             String last_failure="SD FAIL";
+//             Serial.print (last_failure);
                //alarm peep
                  digitalWrite(28, HIGH);
                  pinMode(28, OUTPUT);
@@ -1921,17 +1923,14 @@ void SendDataToServer(float CPM,float CPM2){
                           config.user_id2,  \
                           CPM2_string, \
                           config.alt);
-         
 
-        // //check if 3gim is started
-        //  if (a3gs.start() == 0 && a3gs.begin() == 0) {
-        //   }
+        send3G:
 
-
-        if (a3gs.httpPOST(server, port, path, header, body, res, &len, useHTTPS) == 0) {
+        if (a3gs.httpPOST(server, port, path, header, body, res, &len, useHTTPS) == 0  ) {
                Serial.println("Sent sensor 1 info to server OK!");
                Serial.print(">Response=[");
                Serial.print(res);
+               Serial.print(mess);
                Serial.println("]");
 
                 delay (6000);
@@ -1941,6 +1940,9 @@ void SendDataToServer(float CPM,float CPM2){
                        Serial.print(">Response=[");
                        Serial.print(res2);
                        Serial.println("]");
+            
+                //switch on fail LED off
+                digitalWrite(26, LOW);;
         
                 //Display information                  
                       lcd.setCursor(13,2);
@@ -1950,6 +1952,7 @@ void SendDataToServer(float CPM,float CPM2){
                       lcd.setCursor(6,3);
                       lcd.print(battery);
                       lcd.print("V");
+
                       
                 }
         else {
@@ -1958,7 +1961,6 @@ void SendDataToServer(float CPM,float CPM2){
             lastConnectionTime = millis();
             Serial.println("No connection to API!");
             Serial.println("saving to SDcard only");
-            
             conn_fail_cnt++;
             if (conn_fail_cnt >= MAX_FAILED_CONNS)
                 {
@@ -1967,7 +1969,6 @@ void SendDataToServer(float CPM,float CPM2){
                 }
                             
            lcd.print(" FAIL");
-//           char* last_failure="Send GW fail";
             failures++;
            //alarm peep
              digitalWrite(28, HIGH);
@@ -1977,13 +1978,13 @@ void SendDataToServer(float CPM,float CPM2){
            //switch on fail LED
             digitalWrite(26, HIGH);
            //display fails
-            lcd.print(MAX_FAILED_CONNS - conn_fail_cnt);
+            lcd.print(conn_fail_cnt);
             lcd.print(" ");
             Serial.print("NC. Retries left:");
             Serial.println(MAX_FAILED_CONNS - conn_fail_cnt);
-            
             lastConnectionTime = millis();
-            return;
+            delay (10000);
+            goto send3G;
           }
 
 
@@ -2121,8 +2122,8 @@ void Menu_stat2() {
                lcd.print("#fail=");
                lcd.print(failures);
                lcd.setCursor(0,3);
-               lcd.print("Last Fail=");
-               lcd.print(last_failure);               
+//               lcd.print("Last Fail=");
+//               lcd.print(last_failure);               
 //               lcd.print("#reset=");
 //               lcd.print("rrrr");
       }
@@ -2136,13 +2137,31 @@ void Menu_term() {
           while ((unsigned long)(millis() - previousMillis) <= display_interval) {
                     if (joyCntB){ Serial.println ("Up"); joyCntB=!joyCntB;joyCntA=false;lcd.clear();display_interval=3000;Menu_counting();return;}
                     if (joyCntA){ Serial.println ("Down"); joyCntA=!joyCntA;joyCntB=false;display_interval=500;Menu_counting();return;}
+ 
+              // gets ID from API for measurement from return string of 3G
+              String res_string(res);
+              int startChar = res_string.indexOf("\"id\":");
+              res_string.remove(0,startChar+5);
+              int endComma = res_string.indexOf(",");
+              
+              String res2_string(res2);
+              int startChar2 = res2_string.indexOf("\"id\":");
+              res2_string.remove(0,startChar2+5);
+              int endComma2 = res2_string.indexOf(",");
 
+              
                lcd.setCursor(0,0);    
-               lcd.print("Terminal");
+               lcd.print("Terminal 3G");
                lcd.setCursor(0,1);   
-               lcd.print("last failure =");
-               lcd.print(config.last_failure);
-               Serial.print(last_failure);
+               lcd.print("res=");
+                if(startChar != -1){
+               lcd.print(res_string.substring(0,endComma));
+                }
+               lcd.setCursor(0,2);
+               lcd.print("res2=");
+                if(startChar2 != -1){
+               lcd.print(res2_string.substring(0,endComma2));
+                }
       }
  Menu_counting();
 }
