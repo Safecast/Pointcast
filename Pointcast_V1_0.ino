@@ -124,6 +124,8 @@ History Versions:
 2016-02-15 V3.5.2  reset alarm LED on PASS 3G
 2016-02-16 V3.5.3  display reply message on 3GIM on treminal screen
 2016-02-18 V3.5.4  extraxt id for api to display on treminal
+2016-02-18 V3.5.5  restart5 time for 3G
+
 
 contact rob@yr-design.biz
 */
@@ -201,6 +203,7 @@ static char strbuffer[32];
 static char strbuffer1[32];
 char body[512];
 char body2[512];
+char body3[512];
 
 
 // OpenLog Settings --------------------------------------------------------------
@@ -221,7 +224,7 @@ PointcastSetup PointcastSetup(OpenLog, config, dose, obuf, OLINE_SZ);
 
 
 //static
-static char VERSION[] = "V3.5.4";
+static char VERSION[] = "V3.5.5";
 
 #if ENABLE_3G
 static char path[LINE_SZ];
@@ -262,7 +265,8 @@ IPAddress localIP (192, 168, 100, 40);
 IPAddress timeServer(129, 6, 15, 29); // time-b.nist.gov
 int resetPin = A1;   //
 int ethernet_powerdonwPin = 7;
-const int timeZone = 1;
+//ethernet timezone:
+const int timeZone = 0;
 boolean timeset_on = false;
 EthernetUDP Udp;
 unsigned int localPort = 8888;  // local port to listen for UDP packets
@@ -272,9 +276,10 @@ char macstr[19];
 
 
 //int
-int MAX_FAILED_CONNS = 3;
+int MAX_FAILED_CONNS = 5;
 int len;
 int len2;
+int len4;
 int conn_fail_cnt;
 int NORMAL = 0;
 int RESET = 1;
@@ -308,9 +313,12 @@ char lon[9];
 char lat_lon_nmea[25];
 unsigned char state;
 
-#if ENABLE_3G
+
 char res[a3gsMAX_RESULT_LENGTH + 1];
 char res2[a3gsMAX_RESULT_LENGTH + 1];
+char res4[a3gsMAX_RESULT_LENGTH + 1];
+
+#if ENABLE_3G
 char mess[10];
 const int timeZone = 1;
 char buf_reply[a3gsMAX_RESULT_LENGTH + 1];
@@ -1127,7 +1135,7 @@ if (!network_startup) {
 
   if (a3gs.getTime2(seconds) == 0) {
     setTime(seconds);
-    adjustTime(-28800);
+    adjustTime(-32400);
     Teensy3Clock.set(now());
     Serial.print(seconds);
     Serial.println(" Sec.");
@@ -1335,17 +1343,20 @@ if (CPM > config.alm) {
 
 #if ENABLE_ETHERNET
 
-// check timeup
-currentmillis = millis(); // get the  current milliseconds from arduino
-Serial.print("Total milliseconds running: ");
+int tempID=config.user_id + 8;
 
 
-float display_hour, display_min;
-unsigned long over;
-display_hour = int(currentmillis / 3600000);
-over = currentmillis % 3600000;
-display_min = int(over / 60000);
-Serial.printf("%d hours, %d minutes \n", display_hour, display_min);
+//// check time running
+//currentmillis = millis(); // get the  current milliseconds from arduino
+//Serial.print("Total milliseconds running: ");
+//
+//
+//float display_hour, display_min;
+//unsigned long over;
+//display_hour = int(currentmillis / 3600000);
+//over = currentmillis % 3600000;
+//display_min = int(over / 60000);
+//Serial.printf("%d hours, %d minutes \n", display_hour, display_min);
 
 
 
@@ -1470,7 +1481,7 @@ else
 
 // prepare the log entry for sensor 1
 memset(json_buf, 0, SENT_SZ);
-sprintf_P(json_buf, PSTR("{\"longitude\":\"%s\",\"latitude\":\"%s\",\"device_id\":\"%d\",\"value\":\"%s\",\"unit\":\"cpm\",\"height\":\"%d\",\"devicetype_id\":\"Pointcast V1\"}"),  \
+sprintf_P(json_buf, PSTR("{\"longitude\":\"%s\",\"latitude\":\"%s\",\"device_id\":\"%d\",\"value\":\"%s\",\"unit\":\"cpm\",\"height\":\"%d\"}"),  \
           config.longitude, \
           config.latitude, \
           config.user_id,  \
@@ -1531,7 +1542,7 @@ else
 //                 String last_failure="NC S2";
   lcd.print(" ");
 //                 Serial.print(last_failure);
-  alarm peep
+//  alarm peep
   digitalWrite(28, HIGH);
   pinMode(28, OUTPUT);
   delay(250);
@@ -1550,11 +1561,47 @@ else
 
 // prepare the log entry for sensor 2
 memset(json_buf2, 0, SENT_SZ);
-sprintf_P(json_buf2, PSTR("{\"longitude\":\"%s\",\"latitude\":\"%s\",\"device_id\":\"%d\",\"value\":\"%s\",\"unit\":\"cpm\",\"height\":\"%d\",\"devicetype_id\":\"Pointcast V1\"}"),  \
+sprintf_P(json_buf2, PSTR("{\"longitude\":\"%s\",\"latitude\":\"%s\",\"device_id\":\"%d\",\"value\":\"%s\",\"unit\":\"cpm\",\"height\":\"%d\"}"),  \
           config.longitude, \
           config.latitude, \
           config.user_id2,  \
           CPM2_string, \
+          config.alt);
+
+int len4 = strlen(json_buf2);
+json_buf2[len4] = '\0';
+Serial.println(json_buf2);
+
+if (config.dev) {
+  client.print("POST /scripts/indextest.php?api_key=");
+  Serial.println ("sending to dev.safecast.org");
+} else {
+
+  client.print("POST /scripts/index.php?api_key=");
+  Serial.println ("sending to api.safecast.org");
+}
+client.print(config.api_key);
+client.println(" HTTP/1.1");
+client.println("Accept: application/json");
+client.print("Host:");
+client.println(server);
+client.print("Content-Length: ");
+client.println(strlen(json_buf2));
+client.println("Content-Type: application/json");
+client.println();
+client.println(json_buf2);
+lcd.setCursor(13, 2);
+lcd.print("PASS   ");
+Serial.println("Disconnecting");
+
+
+// prepare the log entry for temperature
+memset(json_buf2, 0, SENT_SZ);
+sprintf_P(json_buf2, PSTR("{\"longitude\":\"%s\",\"latitude\":\"%s\",\"device_id\":\"%d\",\"value\":\"%s\",\"unit\":\"celcius\",\"height\":\"%d\"}"),  \
+          config.longitude, \
+          config.latitude, \
+          tempID,  \
+          temperature_string, \
           config.alt);
 
 int len2 = strlen(json_buf2);
@@ -1582,7 +1629,7 @@ client.println(json_buf2);
 lcd.setCursor(13, 2);
 lcd.print("PASS   ");
 Serial.println("Disconnecting");
-//client.stop();
+
 
 //convert time in correct format
 memset(timestamp, 0, LINE_SZ);
@@ -1594,8 +1641,6 @@ Serial.println("end of sending");
 
 // convert degree to NMAE
 deg2nmae (config.latitude, config.longitude, lat_lon_nmea);
-
-
 
 
 //sensor 1 sd card string setup
@@ -1717,6 +1762,7 @@ else {
 }
 
 
+int tempID=config.user_id + 8;
 
 conversionCoefficient = 1 / config.sensor1_cpm_factor;
 float uSv = CPM * conversionCoefficient;                   // convert CPM to Micro Sievers Per Hour
@@ -1846,6 +1892,7 @@ sprintf_P(buf2, PSTR("$%s,%d,%s,,,%s,A,%s,1,A,,"),  \
           lat_lon_nmea);
 
 len2 = strlen(buf2);
+
 buf2[len2] = '\0';
 //check if timestamp works
 
@@ -1897,6 +1944,7 @@ if (openlog_ready) {
 // Create path string for sensor 1 and 2
 len = sizeof(res);
 len2 = sizeof(res2);
+len4 = sizeof(res4);
 lastConnectionTime = millis();
 if (config.dev) {
   sprintf_P(path, PSTR("scripts/indextest.php?api_key=%s"), \
@@ -1922,14 +1970,22 @@ sprintf_P(body2, PSTR("{\$\"longitude\$\":\$\"%s\$\",\$\"latitude\$\":\$\"%s\$\"
           CPM2_string, \
           config.alt);
 
+sprintf_P(body3, PSTR("{\$\"longitude\$\":\$\"%s\$\",\$\"latitude\$\":\$\"%s\$\",\$\"device_id\$\":\$\"%d\$\",\$\"value\$\":\$\"%s\$\",\$\"unit\$\":\$\"celcius\$\",\$\"height\$\":\$\"%d\$\"}"),  \
+          config.longitude, \
+          config.latitude, \
+          tempID,  \
+          temperature_string, \
+          config.alt);
+
+
 send3G:
 
 if (a3gs.httpPOST(server, port, path, header, body, res, &len, useHTTPS) == 0  ) {
   Serial.println("Sent sensor 1 info to server OK!");
   Serial.print(">Response=[");
   Serial.print(res);
-  Serial.print(mess);
   Serial.println("]");
+
 
   delay (6000);
 
@@ -1939,6 +1995,15 @@ if (a3gs.httpPOST(server, port, path, header, body, res, &len, useHTTPS) == 0  )
   Serial.print(res2);
   Serial.println("]");
 
+
+  a3gs.httpPOST(server, port, path, header, body3, res4, &len4 , useHTTPS);
+  Serial.println("Sent temperature info to server OK!");
+  Serial.print(">Response=[");
+  Serial.print(res4);
+  Serial.println("]");
+
+
+  
   //switch on fail LED off
   digitalWrite(26, LOW);;
 
@@ -2372,45 +2437,35 @@ ds.write(0xBE); // Read Scratchpad
 
 for (int i = 0; i < 9; i++) { // we need 9 bytes
   data[i] = ds.read();
-}
-
-int16_t raw = (data[1] << 8) | data[0];
-if (type_s) {
-  raw = raw << 3; // 9 bit resolution default
-  if (data[7] == 0x10) {
-    // "count remain" gives full 12 bit resolution
-    raw = (raw & 0xFFF0) + 12 - data[6];
-    celsius = (float)raw / 16.0;
-    fahrenheit = celsius * 1.8 + 32.0;
-    Serial.print("  Temperature = ");
-    Serial.print(celsius);
-    Serial.print(" Celsius, ");
-    Serial.print(fahrenheit);
-    Serial.println(" Fahrenheit");
-    float temperature = celsius;
+  }
+  
+  int16_t raw = (data[1] << 8) | data[0];
+  if (type_s) {
+    raw = raw << 3; // 9 bit resolution default
+    if (data[7] == 0x10) {
+      // "count remain" gives full 12 bit resolution
+      raw = (raw & 0xFFF0) + 12 - data[6];
+      celsius = (float)raw / 16.0;
+      fahrenheit = celsius * 1.8 + 32.0;
+      Serial.print("  Temperature = ");
+      Serial.print(celsius);
+      Serial.print(" Celsius, ");
+      Serial.print(fahrenheit);
+      Serial.println(" Fahrenheit");
+      float temperature = celsius;
+      return temperature;
+    }
+  } else {
+    ds.reset_search();
+  
+    byte MSB = data[1];
+    byte LSB = data[0];
+  
+    float tempRead = ((MSB << 8) | LSB); //using two’s compliment
+    float temperature = tempRead / 16;
     return temperature;
   }
-} else {
-  ds.reset_search();
 
-  byte MSB = data[1];
-  byte LSB = data[0];
-
-  float tempRead = ((MSB << 8) | LSB); //using two’s compliment
-  float temperature = tempRead / 16;
-  return temperature;
-}
-
-
-//      ds.reset_search();
-//
-//      byte MSB = data[1];
-//      byte LSB = data[0];
-//
-//      float tempRead = ((MSB << 8) | LSB); //using two’s compliment
-//      float temperature = tempRead / 16;
-//      delay(1000);
-//      return temperature;
 
 }
 
