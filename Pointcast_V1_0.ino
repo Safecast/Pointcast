@@ -123,7 +123,9 @@ History Versions:
 2016-02-15 V3.5.1  3G fast reset
 2016-02-28 V3.5.8  reset after 5 times
 2016-03-02 V3.5.9  added code for correct data loggin name on SDcard.
-2016-03-02 V3.6.0  ethernet detect messages on fail
+2016-03-03 V3.6.0  ethernet detect messages on fail
+2016-03-05 V3.6.3  redone menus
+2016-03-05 V3.6.4  Fixed time issues.
 
 contact rob@yr-design.biz
  */
@@ -140,10 +142,6 @@ contact rob@yr-design.biz
 #include <Time.h>
 #include <TimeLib.h>
 #include <TimeAlarms.h>
-#include <avr/io.h>
-#include <avr/interrupt.h>
-#include <stdio.h>
-#include <math.h>
 #include <i2c_t3.h>
 #include <LiquidCrystal_I2C.h>
 #include <OneWire.h>
@@ -221,7 +219,7 @@ char body2[512];
 
 
 //static
-    static char VERSION[] = "V3.6.0";
+    static char VERSION[] = "V3.6.4";
 
     #if ENABLE_3G
     static char path[LINE_SZ];
@@ -1087,7 +1085,7 @@ void Menu_network(void){
                             snprintf(macstr, 18, "%02x:%02x:%02x:%02x:%02x:%02x", macAddress[0], macAddress[1], macAddress[2], macAddress[3], macAddress[4], macAddress[5]);
                             lcd.print(macstr); 
                         }else{
-                            lcd.print("Not connected");
+                            lcd.print("No LAN");
                         } 
 
 
@@ -1175,6 +1173,191 @@ void Menu_network(void){
         #endif  
   
   
+  Menu_network_test();
+} 
+
+/**************************************************************************/
+// Network Screen Test
+/**************************************************************************/   
+void Menu_network_test(void){
+  
+      
+         #if ENABLE_ETHERNET
+            lcd.clear();
+            lcd.setCursor(0, 0);
+            lcd.print("NETWORK TEST ETHER");
+          //setup time 
+          if (!network_startup){
+                  lcd.setCursor(0, 1);
+                  lcd.print("setting up Ethernet.");
+                  #ifdef ENABLE_DEBUG
+                    Serial.print("setting up Ethernet");
+                  #endif    
+                 sscanf(config.macid,"%2x:%2x:%2x:%2x:%2x:%2x",&macAddress[0],&macAddress[1],&macAddress[2],&macAddress[3],&macAddress[4],&macAddress[5]);
+                 #ifdef ENABLE_DEBUG
+                    Serial.print("ID");
+                        for (int i=0; i<6; ++i)
+                            {
+                          Serial.print(":");
+                          Serial.print(macAddress[i],HEX);
+                          } 
+                    Serial.println();
+                  #endif
+
+                //setup time 
+
+                        if (Ethernet.begin(macAddress) == 0) {
+                          {
+                            Ethernet.begin(macAddress, localIP);
+                          }
+                        }
+                       Udp.begin(localPort);
+                       setSyncProvider(getNtpTime);
+                       Teensy3Clock.set(now()); 
+            }
+                
+        #endif
+   
+
+      #if ENABLE_ETHERNET
+      
+            // random gateway array setup
+          if (!network_startup){
+                  gateway[0] = config.gw1;
+                  gateway[1] = config.gw2;
+                  randomSeed(analogRead(0));
+                  int gatewaynumber=random(GATEWAY_SZ);
+
+                  server=gateway[gatewaynumber];
+
+                  Serial.print("Random gateway setup for ");
+                  Serial.println(server);
+                  Serial.print("LocalIP =");
+                  Serial.println(Ethernet.localIP()); 
+            }
+        
+            // Initiate a DHCP session
+                   if (!network_startup){
+
+                        if (Ethernet.begin(macAddress) == 0)
+                              {
+
+                          Serial.println("Failed DHCP");
+                          ethernetfailed = true;
+                          Ethernet.begin(macAddress, localIP);
+                           //alarm peep
+                             digitalWrite(28, HIGH);
+                             pinMode(28, OUTPUT);
+                             delay(250);
+                             pinMode(28, INPUT);
+                           //switch on fail LED
+                            digitalWrite(26, HIGH);
+                            }
+                        }
+
+                 
+                 network_startup=true;
+                 previousMillis=millis() ;
+                 lcd.clear();
+                 while ((unsigned long)(millis() - previousMillis) <= display_interval) {
+                    if (joyCntB){ Serial.println ("Up"); joyCntB=!joyCntB;joyCntA=false;lcd.clear();display_interval=1000;Menu_network();return;}
+                    if (joyCntA){ Serial.println ("Down"); joyCntA=!joyCntA;joyCntB=false;lcd.clear();display_interval=1000;Menu_datalogger();return;}
+
+                        lcd.setCursor(0, 0);
+                        lcd.print("NETWORK TEST ETHER");
+                        lcd.setCursor(0, 1);
+                            lcd.print("DEVICE:");
+                            sprintf_P(strbuffer, PSTR("%s"), (ethernetfailed ? "FAILED" : "PASS"));
+                            lcd.print(strbuffer);
+                            lcd.setCursor(0, 2);       
+                            lcd.print("GW:");
+                            lcd.print(server);
+                            lcd.setCursor(0, 3);
+                            lcd.print("PING:");
+                            sprintf_P(strbuffer, PSTR("%s"), (ethernetfailed ? "FAILED" : "PASS"));
+                            lcd.print(strbuffer);
+                      } 
+                      if (!network_startup){
+                        // Serial.print("MACid stored:");
+                        // Serial.println(macstr); 
+                        }                 
+      #endif
+      
+
+      #if ENABLE_3G
+      
+                //Get RSSI level
+                    lcd.clear();
+                    lcd.setCursor(0, 0);
+                    lcd.print("NETWORK 3G TEST");
+                    if (!network_startup){
+                                if (a3gs.start() == 0 && a3gs.begin() == 0) {
+                                    a3gs.getRSSI(rssi);
+                                    Serial.print("RSSI = ");
+                                    Serial.print(rssi);
+                                    Serial.println(" dBm");
+                                 }else{
+                                    lcd.setCursor(0, 1);
+                                    lcd.print("FAIL");
+                                    String last_failure="3G not starting";
+                                     //alarm peep
+                                       digitalWrite(28, HIGH);
+                                       pinMode(28, OUTPUT);
+                                       delay(250);
+                                       pinMode(28, INPUT);
+                                     //switch on fail LED
+                                      digitalWrite(26, HIGH);
+                                 }
+                
+                                uint32_t seconds;
+                             
+                                if (a3gs.getTime2(seconds) == 0) {
+                                     setTime(seconds);
+                                     adjustTime(-32400);
+                                     Teensy3Clock.set(now());
+                                     Serial.print(seconds);
+                                     Serial.println(" Sec.");
+                                   }
+                                   else{
+                                     Serial.println("Can't get seconds."); 
+                                     String last_failure="Can not get EPOCH";
+                                      
+                                   }
+                
+                      
+                                // random gateway array setup
+                                      gateway[0] = config.gw1;
+                                      gateway[1] = config.gw2;
+                                      randomSeed(analogRead(0));
+                                      int gatewaynumber=random(GATEWAY_SZ);
+                                      Serial.print("Random gateway setup for ");
+                                      server=gateway[gatewaynumber];
+                                      Serial.println(server);
+                   }
+                   
+                 lcd.clear();
+                 previousMillis=millis() ;
+                 while ((unsigned long)(millis() - previousMillis) <= display_interval) {
+                     if (joyCntB){ Serial.println ("Up"); joyCntB=!joyCntB;joyCntA=false;lcd.clear();display_interval=1000;Menu_api();return;}
+                     if (joyCntA){ Serial.println ("Down"); joyCntA=!joyCntA;joyCntB=false;lcd.clear();display_interval=1000;Menu_datalogger();return;}
+
+                        lcd.setCursor(0, 0);
+                        lcd.print("NETWORK 3G TEST");
+                        lcd.setCursor(0, 1);
+                        lcd.print("Signal:");
+                        lcd.print(rssi);
+                        lcd.print(" dBm");
+                        lcd.setCursor(0, 2);        
+                        lcd.print("Carrier:");
+                        lcd.print(config.apn);
+                        lcd.setCursor(0, 3);
+                        lcd.print("Phone: ");
+                        lcd.print("080XXXXYYYY");
+                 } 
+          network_startup=true;   
+        #endif  
+  
+  
   Menu_datalogger();
 } 
 /**************************************************************************/
@@ -1185,7 +1368,7 @@ void Menu_network(void){
            lcd.clear();
            previousMillis=millis() ;
            while ((unsigned long)(millis() - previousMillis) <= display_interval) {
-                     if (joyCntB){ Serial.println ("Up"); joyCntB=!joyCntB;joyCntA=false;lcd.clear();display_interval=1000;network_startup=true;Menu_network();return;}
+                     if (joyCntB){ Serial.println ("Up"); joyCntB=!joyCntB;joyCntA=false;lcd.clear();display_interval=1000;network_startup=true;Menu_network_test();return;}
                      if (joyCntA){ Serial.println ("Down"); joyCntA=!joyCntA;joyCntB=false;lcd.clear();display_interval=1000;Menu_counting();return;}
 
                 lcd.setCursor(0, 0);
@@ -1447,7 +1630,7 @@ void SendDataToServer(float CPM,float CPM2){
                    pinMode(28, INPUT);
                  //switch on fail LED
                   digitalWrite(26, HIGH);
-                 lcd.print("1");
+                 lcd.print(ctrl.conn_fail_cnt);
                 if (ctrl.conn_fail_cnt >= MAX_FAILED_CONNS)
                 {
                             CPU_RESTART;
@@ -1526,7 +1709,7 @@ void SendDataToServer(float CPM,float CPM2){
                  //switch on fail LED
                   digitalWrite(26, HIGH);
                  
-                 lcd.print("2");
+                 lcd.print(ctrl.conn_fail_cnt);
                 if (ctrl.conn_fail_cnt >= MAX_FAILED_CONNS)
                 {
                             CPU_RESTART;
@@ -1670,7 +1853,11 @@ void SendDataToServer(float CPM,float CPM2){
               battery_string);
               
          Serial.println(buf2); 
-
+         
+         if (openlog_ready) {
+          sprintf_P(logfile_name, PSTR("%04d%02d%02d.TXT"),year(), month(), day());
+          createFile(logfile_name);
+         }
        
          if (openlog_ready) {
            //write to sd card sensor 1 info
@@ -1865,6 +2052,8 @@ sprintf_P(buf2 + len2, PSTR("*%X%s$%s,%d,%s,%d,%s"),
 Serial.println(buf2);
 
 if (openlog_ready) {
+//    sprintf_P(logfile_name, PSTR("%04d%02d%02d.TXT"),year(), month(), day());
+//    createFile(logfile_name);
   //write to sd card sensor 1 info
   OpenLog.println(buf);
   //write to sd card sensor 2 info
@@ -2430,8 +2619,8 @@ time_t getNtpTime()
     }
   }
   Serial.println("No NTP Response :-(");
-  lcd.setCursor(0, 3);
-  lcd.print("Timeserver no reply  ");
+  // lcd.setCursor(0, 3);
+  // lcd.print("Timeserver no reply");
   return 0; // return 0 if unable to get the time
 }
 
