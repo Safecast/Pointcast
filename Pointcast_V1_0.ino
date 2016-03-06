@@ -126,7 +126,7 @@ History Versions:
 2016-03-03 V3.6.0  ethernet detect messages on fail
 2016-03-05 V3.6.3  redone menus
 2016-03-05 V3.6.4  Fixed time issues.
-
+2016-03-06 V3.6.5  Daily restart
 contact rob@yr-design.biz
  */
  
@@ -219,7 +219,7 @@ char body2[512];
 
 
 //static
-    static char VERSION[] = "V3.6.4";
+    static char VERSION[] = "V3.6.5";
 
     #if ENABLE_3G
     static char path[LINE_SZ];
@@ -463,9 +463,8 @@ void setup() {
    //start WDT  
          wdTimer.begin(KickDog, 10000000); // patt the dog every 10sec  
 
-   // reset weekly
-         Alarm.alarmOnce(dowSaturday,12,05,00,WeeklyRestart);      
-  
+   // reset daily
+      Alarm.alarmRepeat(0,0,1, DailyRestart);    
          
    // Load EEPROM settings
          PointcastSetup.initialize();
@@ -2198,6 +2197,7 @@ void loop() {
          if (joyCntA){ Serial.println ("Down"); joyCntA=!joyCntA;joyCntC=false;joyCntB=false;lcd.clear();display_interval=1000;Menu_stat(); return;}
          if (joyCntE){ Serial.println ("Enter"); joyCntE=!joyCntE;joyCntC=false;joyCntB=false;digitalWrite(26, LOW); return;}
          if (joyCntC){ Serial.println ("Left"); joyCntC=!joyCntC;joyCntA=false;joyCntB=false;lcd.clear();display_interval=1000;Menu_term(); return;} 
+         Alarm.delay(0);
           return;
                 
       }
@@ -2224,6 +2224,7 @@ void loop() {
 
       counts_per_sample = 0;
       counts_per_sample2 = 0;
+
       SendDataToServer(CPM,CPM2);
   }
 
@@ -2675,8 +2676,8 @@ void printDouble( double val, unsigned int precision){
 }
 
 
-void WeeklyRestart(){
-  Serial.println("Alarm: - its Saterday Morning"); 
+void DailyRestart(){
+  Serial.println("Alarm: - Daily restart"); 
                //alarm peep 3 times before shut down
                 int i=0;
                  while (i<3) {
