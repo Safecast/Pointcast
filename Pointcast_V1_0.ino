@@ -136,6 +136,7 @@ contact rob@yr-design.biz
  
 #include <SPI.h>         // needed for Arduino versions later than 0018
 #include <Ethernet.h>
+#include <EthernetUdp.h>
 #include <EEPROM.h>
 #include <limits.h>
 #include <SoftwareSerial.h>
@@ -265,12 +266,16 @@ char body2[512];
       const int timeZone = 0;
       boolean timeset_on =false;
       EthernetUDP Udp;
-      unsigned int localPort = 8888;  // local port to listen for UDP packets
+      unsigned int localPort = 8888;  // local port to listen for UDP packets]
+      
       char macstr[19];
+      const int NTP_PACKET_SIZE = 48; // NTP time is in the first 48 bytes of message
+      byte packetBuffer[NTP_PACKET_SIZE]; //buffer to hold incoming & outgoing packets
     #endif
   
 //Boolean
-
+    boolean getTimeStamp= true;
+    
 //Strings
 
     String last_failure="";
@@ -441,7 +446,7 @@ char body2[512];
     {
         joyCntE = true;
     }
-    
+ 
 
 
 /**************************************************************************/
@@ -463,8 +468,8 @@ void setup() {
    //start WDT  
          wdTimer.begin(KickDog, 10000000); // patt the dog every 10sec  
 
-   // reset daily
-      Alarm.alarmRepeat(0,0,1, DailyRestart);    
+   // reset weekly
+      Alarm.alarmRepeat(dowSunday,3,37,0, WeeklyRestart);
          
    // Load EEPROM settings
          PointcastSetup.initialize();
@@ -512,6 +517,8 @@ void setup() {
                      
 Menu_startup();
 }
+
+ //End setup 
 
 /**************************************************************************/
 // Start screen
@@ -1094,6 +1101,10 @@ void Menu_network(void){
                         Serial.print("MACid stored:");
                         Serial.println(macstr); 
                         }                 
+           getTimeStamp=false;
+           Serial.print("RTC timestamp flag is set to ");
+           Serial.println(getTimeStamp);
+      
       #endif
       
 
@@ -1205,14 +1216,14 @@ void Menu_network_test(void){
 
                 //setup time 
 
-                        if (Ethernet.begin(macAddress) == 0) {
-                          {
-                            Ethernet.begin(macAddress, localIP);
-                          }
-                        }
-                       Udp.begin(localPort);
-                       setSyncProvider(getNtpTime);
-                       Teensy3Clock.set(now()); 
+                    if (Ethernet.begin(macAddress) == 0) {
+                      {
+                        Ethernet.begin(macAddress, localIP);
+                      }
+                    }
+                   Udp.begin(localPort);
+                   setSyncProvider(getNtpTime);
+                   Teensy3Clock.set(now()); 
             }
                 
         #endif
@@ -1505,9 +1516,9 @@ void SendDataToServer(float CPM,float CPM2){
 //setup alarm
 
   if(CPM > config.alm){
-   //beep for loud piezo 10 times
+   //beep for loud piezo 20 times
                 int i=0;
-                 while (i<10) {
+                 while (i<20) {
                      digitalWrite(28, HIGH);
                      pinMode(28, OUTPUT);
                      delay(250);
@@ -1595,6 +1606,9 @@ void SendDataToServer(float CPM,float CPM2){
       lcd.setCursor(0,2);
       lcd.print("API:");
 
+      
+    
+
 
 //send  sensor  1
 
@@ -1639,7 +1653,6 @@ void SendDataToServer(float CPM,float CPM2){
               } 
 
             // prepare the log entry for sensor 1
-                 memset(json_buf, 0, SENT_SZ);
                   sprintf_P(json_buf, PSTR("{\"longitude\":\"%s\",\"latitude\":\"%s\",\"device_id\":\"%d\",\"value\":\"%s\",\"unit\":\"cpm\",\"height\":\"%d\",\"devicetype_id\":\"Pointcast V1\"}"),  \
                                 config.longitude, \
                                 config.latitude, \
@@ -1718,7 +1731,6 @@ void SendDataToServer(float CPM,float CPM2){
               }
                         
                   // prepare the log entry for sensor 2
-                        memset(json_buf2, 0, SENT_SZ);
                         sprintf_P(json_buf2, PSTR("{\"longitude\":\"%s\",\"latitude\":\"%s\",\"device_id\":\"%d\",\"value\":\"%s\",\"unit\":\"cpm\",\"height\":\"%d\",\"devicetype_id\":\"Pointcast V1\"}"),  \
                                       config.longitude, \
                                       config.latitude, \
@@ -1754,26 +1766,22 @@ void SendDataToServer(float CPM,float CPM2){
                         Serial.println("Disconnecting");
                        //switch off fail LED
                          digitalWrite(26, LOW);
-                       //client.stop();
+                     //client.stop();
 
-    Serial.println("before time convert");
 
-      //convert time in correct format
-      memset(timestamp, 0, LINE_SZ);
-      sprintf_P(timestamp, PSTR("%02d-%02d-%02dT%02d:%02d:%02dZ"),  \
-        year(), month(), day(),  \
-                  hour(), minute(), second());
-    
-    Serial.println("end of timeconvert");
     
     // convert degree to NMAE
     deg2nmae (config.latitude,config.longitude, lat_lon_nmea);
 
 
+     //convert time in correct format
+        sprintf_P(timestamp, PSTR("%02d-%02d-%02dT%02d:%02d:%02dZ"),  \
+          year(), month(), day(),  \
+                    hour(), minute(), second());
+    
 
 
  //sensor 1 sd card string setup
-                memset(buf, 0, LINE_SZ);
                 sprintf_P(buf, PSTR("$%s,%d,%s,,,%s,A,%s,%d,A,,"),  \
                           HEADER, \
                           config.user_id, \
@@ -1793,32 +1801,12 @@ void SendDataToServer(float CPM,float CPM2){
                     sprintf_P(buf + len, PSTR("*0%X"), (int)chk);
                 else
                     sprintf_P(buf + len, PSTR("*%X"), (int)chk);
-
-                //display battery
-                lcd.setCursor(0,3);
-                lcd.print("STS:");
-                  if (config.dev){
-                        lcd.print("DEV");
-                  }
-                lcd.setCursor(9,3);
-                lcd.print(battery);
-                lcd.print("V");
-            
-           //add second line for addtional info
-             sprintf_P(buf + len, PSTR("*%X%s$%s,%d,%s,%s"), 
-                    (int)chk, \
-                    "\n", \
-                    HEADER_SENSOR,  \
-                     config.devid, \
-                    temperature_string, \
-                    battery_string);
        
-            Serial.println(buf);
+                Serial.println(buf);
 
 
 
-  //sensor 2 sd card string setup
-          memset(buf2, 0, LINE_SZ);     
+  //sensor 2 sd card string setup   
           sprintf_P(buf2, PSTR("$%s,%d,%s,,,%s,A,%s,%d,A,,"),  \
                     HEADER, \
                     config.user_id2, \
@@ -1840,7 +1828,6 @@ void SendDataToServer(float CPM,float CPM2){
           else
               sprintf_P(buf2 + len2, PSTR("*%X"), (int)chk2);
               
-  
          
         //add second line for additional info
            sprintf_P(buf2 + len2, PSTR("*%X%s$%s,%d,%s,%s"), 
@@ -1851,12 +1838,8 @@ void SendDataToServer(float CPM,float CPM2){
               temperature_string, \
               battery_string);
               
-         Serial.println(buf2); 
+              Serial.println(buf2); 
          
-         if (openlog_ready) {
-          sprintf_P(logfile_name, PSTR("%04d%02d%02d.TXT"),year(), month(), day());
-          createFile(logfile_name);
-         }
        
          if (openlog_ready) {
            //write to sd card sensor 1 info
@@ -1875,7 +1858,26 @@ void SendDataToServer(float CPM,float CPM2){
                  pinMode(28, INPUT);
                //switch on fail LED
                 digitalWrite(26, HIGH);
+   
           }
+
+            //display battery
+                lcd.setCursor(0,3);
+                lcd.print("STS:");
+                  if (config.dev){
+                        lcd.print("DEV");
+                  }
+                lcd.setCursor(9,3);
+                lcd.print(battery);
+                lcd.print("V");
+                
+             // report to LCD
+                lcd.setCursor(4, 2);
+                printDigits(hour());
+                lcd.print(":");
+                printDigits(minute());
+                lcd.print("GMT");
+                return;
 
 #endif
 
@@ -2178,6 +2180,8 @@ lcd.print(":");
 printDigits(minute());
 lcd.print("GMT");
 
+return;
+
 }
 
 
@@ -2444,20 +2448,12 @@ void createFile(char *fileName) {
     //OpenLog is now waiting for characters and will record them to the new file
 }
 
-/**************************************************************************/
-//RTC setup
-/**************************************************************************/
-
-    time_t getTeensy3Time()
-    {
-      return Teensy3Clock.get();
-    }
 
 /**************************************************************************/
 //WDT setup
 /**************************************************************************/
 
-    void KickDog() {
+  void KickDog() {
      green_led_blink();
       noInterrupts();
       WDOG_REFRESH = 0xA602;
@@ -2592,66 +2588,7 @@ void green_led_blink() {
   }
 
 
-/*-------- NTP code ----------*/
-#if ENABLE_ETHERNET
 
-
-const int NTP_PACKET_SIZE = 48; // NTP time is in the first 48 bytes of message
-byte packetBuffer[NTP_PACKET_SIZE]; //buffer to hold incoming & outgoing packets
-
-time_t getNtpTime()
-{
-  while (Udp.parsePacket() > 0) ; // discard any previously received packets
-  Serial.println("Transmit NTP Request");
-  sendNTPpacket(timeServer);
-  uint32_t beginWait = millis();
-  while (millis() - beginWait < 1500) {
-    int size = Udp.parsePacket();
-    if (size >= NTP_PACKET_SIZE) {
-      Serial.println("Receive NTP Response");
-      Udp.read(packetBuffer, NTP_PACKET_SIZE);  // read packet into the buffer
-      unsigned long secsSince1900;
-      // convert four bytes starting at location 40 to a long integer
-      secsSince1900 =  (unsigned long)packetBuffer[40] << 24;
-      secsSince1900 |= (unsigned long)packetBuffer[41] << 16;
-      secsSince1900 |= (unsigned long)packetBuffer[42] << 8;
-      secsSince1900 |= (unsigned long)packetBuffer[43];
-      return secsSince1900 - 2208988800UL + timeZone * SECS_PER_HOUR;
-    }
-  }
-  Serial.println("No NTP Response :-(");
-  // lcd.setCursor(0, 3);
-  // lcd.print("Timeserver no reply");
-  return 0; // return 0 if unable to get the time
-}
-
-// send an NTP request to the time server at the given address
-
-
-
-void sendNTPpacket(IPAddress &address)
-{
-  // set all bytes in the buffer to 0
-  memset(packetBuffer, 0, NTP_PACKET_SIZE);
-  // Initialize values needed to form NTP request
-  // (see URL above for details on the packets)
-  packetBuffer[0] = 0b11100011;   // LI, Version, Mode
-  packetBuffer[1] = 0;     // Stratum, or type of clock
-  packetBuffer[2] = 6;     // Polling Interval
-  packetBuffer[3] = 0xEC;  // Peer Clock Precision
-  // 8 bytes of zero for Root Delay & Root Dispersion
-  packetBuffer[12]  = 49;
-  packetBuffer[13]  = 0x4E;
-  packetBuffer[14]  = 49;
-  packetBuffer[15]  = 52;
-  // all NTP fields have been given values, now
-  // you can send a packet requesting a timestamp:                 
-  Udp.beginPacket(address, 123); //NTP requests are to port 123
-  Udp.write(packetBuffer, NTP_PACKET_SIZE);
-  Udp.endPacket();
-  
-}
-#endif
 
 void printDouble( double val, unsigned int precision){
 // prints val with number of decimal places determine by precision
@@ -2676,8 +2613,8 @@ void printDouble( double val, unsigned int precision){
 }
 
 
-void DailyRestart(){
-  Serial.println("Alarm: - Daily restart"); 
+void WeeklyRestart(){
+  Serial.println("Alarm: - Weekly restart"); 
                //alarm peep 3 times before shut down
                 int i=0;
                  while (i<3) {
@@ -2704,3 +2641,74 @@ void eepromclear(){
   delay(1000);
   CPU_RESTART;    
 }
+
+
+
+/**************************************************************************/
+//RTC setup
+/**************************************************************************/
+
+ time_t getTeensy3Time()
+    {
+      return Teensy3Clock.get();
+    }
+
+/*-------- NTP code ----------*/
+#if ENABLE_ETHERNET
+
+
+time_t getNtpTime()
+{
+ if (getTimeStamp){ 
+    while (Udp.parsePacket() > 0) ; // discard any previously received packets
+  Serial.println("Transmit NTP Request");
+  sendNTPpacket(timeServer);
+  uint32_t beginWait = millis();
+  while (millis() - beginWait < 1500) {
+    int size = Udp.parsePacket();
+    if (size >= NTP_PACKET_SIZE) {
+      Serial.println("Receive NTP Response");
+      Udp.read(packetBuffer, NTP_PACKET_SIZE);  // read packet into the buffer
+      unsigned long secsSince1900;
+      // convert four bytes starting at location 40 to a long integer
+      secsSince1900 =  (unsigned long)packetBuffer[40] << 24;
+      secsSince1900 |= (unsigned long)packetBuffer[41] << 16;
+      secsSince1900 |= (unsigned long)packetBuffer[42] << 8;
+      secsSince1900 |= (unsigned long)packetBuffer[43];
+      return secsSince1900 - 2208988800UL + timeZone * SECS_PER_HOUR;
+    }
+  }
+  Serial.println("No NTP Response :-(");
+  // lcd.setCursor(0, 3);
+  // lcd.print("Timeserver no reply");
+  return 0; // return 0 if unable to get the time
+ }
+}
+
+// send an NTP request to the time server at the given address
+
+
+
+unsigned long sendNTPpacket(IPAddress &address)
+{
+  // set all bytes in the buffer to 0
+  memset(packetBuffer, 0, NTP_PACKET_SIZE);
+  // Initialize values needed to form NTP request
+  // (see URL above for details on the packets)
+  packetBuffer[0] = 0b11100011;   // LI, Version, Mode
+  packetBuffer[1] = 0;     // Stratum, or type of clock
+  packetBuffer[2] = 6;     // Polling Interval
+  packetBuffer[3] = 0xEC;  // Peer Clock Precision
+  // 8 bytes of zero for Root Delay & Root Dispersion
+  packetBuffer[12]  = 49;
+  packetBuffer[13]  = 0x4E;
+  packetBuffer[14]  = 49;
+  packetBuffer[15]  = 52;
+  // all NTP fields have been given values, now
+  // you can send a packet requesting a timestamp:                 
+  Udp.beginPacket(address, 123); //NTP requests are to port 123
+  Udp.write(packetBuffer, NTP_PACKET_SIZE);
+  Udp.endPacket();
+  
+}
+#endif
