@@ -135,6 +135,9 @@ contact rob@yr-design.biz
 // Init
 /**************************************************************************/
  
+
+#define ENABLE_DEBUG 1
+ 
 #include <SPI.h>         // needed for Arduino versions later than 0018
 #include <Ethernet.h>
 #include <EthernetUdp.h>
@@ -184,7 +187,7 @@ OneWire  ds(32);  // on pin 10 of extra header(a 4.7K resistor is necessary)
  boolean network_startup = false;
  boolean sdcard_startup = false;
 
-// #define ENABLE_DEBUG 
+
 #define LINE_SZ 128
 // SENT_SZ is used for sending data for 3G
 #define SENT_SZ 120
@@ -221,7 +224,7 @@ char body2[512];
 
 
 //static
-    static char VERSION[] = "V3.6.5";
+    static char VERSION[] = "V3.6.7";
 
     #if ENABLE_3G
     static char path[LINE_SZ];
@@ -1716,7 +1719,8 @@ void printDigitsSerial(int digits){
 /**************************************************************************/
 void SendDataToServer(float CPM,float CPM2){ 
 
-
+//setup ID for temperature
+int tempID=config.user_id + 8;
 
 //setup alarm
 
@@ -2009,6 +2013,84 @@ void SendDataToServer(float CPM,float CPM2){
                        //switch off fail LED
                          digitalWrite(26, LOW);
                      //client.stop();
+
+ //send temperature-----------------------------
+                        if (client.connected())
+                        {
+                          Serial.println("Disconnecting");
+                          client.stop();
+                        }
+                        
+                        // Try to connect to the server
+                        Serial.println("Connecting");
+                        if (client.connect(server, 80))
+                        {
+                          Serial.println("Connected");
+                          lastConnectionTime = millis();
+                        
+                          // clear the connection fail count if we have at least one successful connection
+                          ctrl.conn_fail_cnt = 0;
+                        }
+                        else
+                        {
+                          ctrl.conn_fail_cnt++;
+                          lcd.setCursor(13, 2);
+                          lcd.print(" FAIL");
+                        //                 String last_failure="NC S2";
+                          lcd.print(" ");
+                        //                 Serial.print(last_failure);
+                        //  alarm peep
+                          digitalWrite(28, HIGH);
+                          pinMode(28, OUTPUT);
+                          delay(250);
+                          pinMode(28, INPUT);
+                          //switch on fail LED
+                          digitalWrite(26, HIGH);
+                        
+                          lcd.print(ctrl.conn_fail_cnt);
+                          if (ctrl.conn_fail_cnt >= MAX_FAILED_CONNS)
+                          {
+                            CPU_RESTART;
+                          }
+                          lastConnectionTime = millis();
+                          return;
+                        }
+
+
+                   // prepare the log entry for temperature
+                          memset(json_buf2, 0, SENT_SZ);
+                          sprintf_P(json_buf2, PSTR("{\"longitude\":\"%s\",\"latitude\":\"%s\",\"device_id\":\"%d\",\"value\":\"%s\",\"unit\":\"celcius\",\"height\":\"%d\"}"),  \
+                                    config.longitude, \
+                                    config.latitude, \
+                                    tempID,  \
+                                    temperature_string, \
+                                    config.alt);
+                          
+                          int len4 = strlen(json_buf2);
+                          json_buf2[len4] = '\0';
+                          Serial.println(json_buf2);
+                          
+                          if (config.dev) {
+                            client.print("POST /scripts/indextest.php?api_key=");
+                            Serial.println ("sending to dev.safecast.org");
+                          } else {
+                          
+                            client.print("POST /scripts/index.php?api_key=");
+                            Serial.println ("sending to api.safecast.org");
+                          }
+                          client.print(config.api_key);
+                          client.println(" HTTP/1.1");
+                          client.println("Accept: application/json");
+                          client.print("Host:");
+                          client.println(server);
+                          client.print("Content-Length: ");
+                          client.println(strlen(json_buf2));
+                          client.println("Content-Type: application/json");
+                          client.println();
+                          client.println(json_buf2);
+                          lcd.setCursor(13, 2);
+                          lcd.print("PASS   ");
+                          Serial.println("Disconnecting");
 
 
     

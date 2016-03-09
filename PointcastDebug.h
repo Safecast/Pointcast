@@ -1,7 +1,7 @@
 #ifndef _Pointcast_DEBUG_H_
 #define _Pointcast_DEBUG_H_
 
-// #define ENABLE_DEBUG 
+#define ENABLE_DEBUG 1
 
 // Debug definitions ----------------------------------------------------------
 #ifdef ENABLE_DEBUG
