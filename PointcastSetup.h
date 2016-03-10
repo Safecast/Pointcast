@@ -23,24 +23,24 @@
 #define BMRDD_EEPROM_MARKER 0x5afeF00d
 
 
-#define ENABLE_3G             0
-#define ENABLE_ETHERNET       1
+#define ENABLE_3G             1
+#define ENABLE_ETHERNET       0
 #define ENABLE_EEPROM_DOSE    0
 
 #define HEADER_SENSOR  "PNTXS"
 #define HEADER  "PNTDD"
 
-typedef enum {
-  SENSOR_ENABLED_FALSE = 0,
-  SENSOR_ENABLED_TRUE,
-} SensorEnabled;
+   typedef enum {
+    SENSOR_ENABLED_FALSE = 0,
+    SENSOR_ENABLED_TRUE,
+  } SensorEnabled;
 
-typedef struct {
-  unsigned long total_count;
-  unsigned long total_time;
-} DoseType;
+  typedef struct {
+    unsigned long total_count;
+    unsigned long total_time;
+  } DoseType;
 
-typedef struct {
+  typedef struct {
   unsigned long marker;     // set at first run
   unsigned int devid;       // did
   unsigned int user_id;     // uid
@@ -81,30 +81,30 @@ typedef struct {
 // Write a template value into EEPROM address [ee]
 template <class T> int EEPROM_writeAnything(int ee, const T& value)
 {
-    const byte* p = (const byte*)(const void*)&value;
-    unsigned int i;
-    for (i = 0; i < sizeof(value); i++)
-          EEPROM.write(ee++, *p++);
-    return i;
+  const byte* p = (const byte*)(const void*)&value;
+  unsigned int i;
+  for (i = 0; i < sizeof(value); i++)
+    EEPROM.write(ee++, *p++);
+  return i;
 }
 
 // Read a template value from EEPROM address [ee]
 template <class T> int EEPROM_readAnything(int ee, T& value)
 {
-    byte* p = (byte*)(void*)&value;
-    unsigned int i;
-    for (i = 0; i < sizeof(value); i++)
-          *p++ = EEPROM.read(ee++);
-    return i;
+  byte* p = (byte*)(void*)&value;
+  unsigned int i;
+  for (i = 0; i < sizeof(value); i++)
+    *p++ = EEPROM.read(ee++);
+  return i;
 }
 
 class PointcastSetup {
 
 public:
   PointcastSetup(SoftwareSerial &openlog, 
-        ConfigType &config,
-        DoseType &dose,
-        char * buffer, size_t buffer_size);
+    ConfigType &config,
+    DoseType &dose,
+    char * buffer, size_t buffer_size);
   void initialize();
   void loadFromFile(char * setupFile);
 
