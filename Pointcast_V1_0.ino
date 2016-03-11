@@ -229,7 +229,7 @@ char body3[512];
 
 
 //static
-    static char VERSION[] = "V3.6.9";
+    static char VERSION[] = "V3.7.0";
 
     #if ENABLE_3G
     static char path[LINE_SZ];
@@ -1671,11 +1671,56 @@ void Menu_Ping(void){
 
                 lcd.clear();
                 lcd.setCursor(0, 0);
-                lcd.print("RTC ");
+                lcd.print("Ping Test");
                 lcd.setCursor(0, 1);
-                lcd.print("Pinging server...");
+                lcd.print("Pinging api....");
+
+                #if ENABLE_3G
+ 
+                            len = sizeof(res);
+                            if (a3gs.httpGET(server, port, path, res, len) == 0) {
+                              replyserver.concat(res);
+
+                             if(replyserver.indexOf("Maintenace mode.") == 0)//checks for gateway for html message of gate way
+                                  {
+                                    #ifdef ENABLE_DEBUG
+                                      Serial.println("bingo");
+                                    #endif  
+                                    pingConnect=true;        
+                                }else{
+                                  #ifdef ENABLE_DEBUG
+                                      Serial.println("NC");
+                                  #endif 
+                                  pingConnect=false;  
+                                }
+                            }
+                            else {
+                              #ifdef ENABLE_DEBUG
+                                  Serial.print("Can't get HTTP response from ");
+                                  Serial.println(server);
+                              #endif 
+
+                            }
+
+                #endif
+
 
                 #if ENABLE_ETHERNET
+                         if (Ethernet.begin(macAddress) == 0)
+                              {
+                          #ifdef ENABLE_DEBUG
+                              Serial.println("Failed DHCP");
+                          #endif  
+                          ethernetfailed = true;
+                          Ethernet.begin(macAddress, localIP);
+                           //alarm peep
+                             digitalWrite(28, HIGH);
+                             pinMode(28, OUTPUT);
+                             delay(250);
+                             pinMode(28, INPUT);
+                           //switch on fail LED
+                            digitalWrite(26, HIGH);
+                            }
 
                             if (client.connect(serverName, 80)) {
                                Serial.println("connected");
@@ -1727,7 +1772,7 @@ void Menu_Ping(void){
                        joyCntA=!joyCntA;joyCntB=false;joyCntD=false;lcd.clear();display_interval=1000;Menu_datalogger();return;}
 
                     lcd.setCursor(0, 0);
-                    lcd.print("RTC ");
+                    lcd.print("Ping Test ");
                     lcd.setCursor(0, 2);
                     sprintf_P(strbuffer, PSTR("%s"), (pingConnect ? "PASS                " :"FAILED              " ));
                     lcd.print(strbuffer);
