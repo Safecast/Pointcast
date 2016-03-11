@@ -190,6 +190,7 @@ OneWire  ds(32);  // on pin 10 of extra header(a 4.7K resistor is necessary)
  boolean finished_startup = false;
  boolean network_startup = false;
  boolean sdcard_startup = false;
+ boolean pingConnect=false;
 
 
 #define LINE_SZ 128
@@ -228,7 +229,7 @@ char body3[512];
 
 
 //static
-    static char VERSION[] = "V3.6.8";
+    static char VERSION[] = "V3.6.9";
 
     #if ENABLE_3G
     static char path[LINE_SZ];
@@ -1254,7 +1255,40 @@ void Menu_network(void){
                             }
                         }
 
-                 
+                    // ping api
+                            if (client.connect(serverName, 80)) {
+                               Serial.println("connected");
+                               client.println("GET http://http://api.safecast.org HTTP/1.0");
+                               client.println();
+                             } 
+                             else {
+                               Serial.println("connection failed");
+                             }
+
+                            while(client.connected() && !client.available()) delay(1); //waits for data
+                            while (client.connected() || client.available()) { //connected or data available
+                            character = client.read();
+                            replyserver.concat(character);
+                          }
+
+                            if(replyserver.indexOf("HTTP/1.1 301 Moved Permanently") == 0)//checks for http 301 
+                                    {
+                            Serial.println("bingo"); 
+                            pingConnect=true;
+                                    
+                              }else{
+                                Serial.println("NC");
+                                pingConnect=false;
+                                digitalWrite(26, HIGH);
+                              }
+                               if (!client.connected()) {
+                               Serial.println();
+                               Serial.println("disconnecting.");
+                              }
+                              
+                          client.stop();
+
+                          //end ping api
                  network_startup=true;
                  previousMillis=millis() ;
                  lcd.clear();
@@ -1414,36 +1448,6 @@ void Menu_network_test(void){
             lcd.print("NETWORK TEST ETHER");
 
 
-          //ping test
-                if (client.connect(serverName, 80)) {
-                   Serial.println("connected");
-                   client.println("GET http://http://api.safecast.org HTTP/1.0");
-                   client.println();
-                 } 
-                 else {
-                   Serial.println("connection failed");
-                 }
-
-                while(client.connected() && !client.available()) delay(1); //waits for data
-                while (client.connected() || client.available()) { //connected or data available
-                character = client.read();
-                replyserver.concat(character);
-              }
-
-                if(replyserver.indexOf("HTTP/1.1 301 Moved Permanently") == 0)//checks for http 301 
-                        {
-                Serial.println("bingo"); 
-                        
-                  }else{
-                    Serial.println("NC");
-                  }
-                   if (!client.connected()) {
-                   Serial.println();
-                   Serial.println("disconnecting.");
-                  }
-                  
-              client.stop();
-           //end ping test
 
           if (!network_startup){
                   lcd.setCursor(0, 1);
@@ -1531,7 +1535,7 @@ void Menu_network_test(void){
                      #ifdef ENABLE_DEBUG
                                 Serial.println ("Right");
                       #endif 
-                       joyCntD=!joyCntD;joyCntA=false;joyCntB=false;lcd.clear();display_interval=1000;Menu_Ping();return;}
+                       joyCntD=!joyCntD;joyCntA=false;joyCntB=false;lcd.clear();display_interval=5000;Menu_Ping();return;}
 
                         lcd.setCursor(0, 0);
                         lcd.print("NETWORK TEST ETHER");
@@ -1544,7 +1548,7 @@ void Menu_network_test(void){
                             lcd.print(server);
                             lcd.setCursor(0, 3);
                             lcd.print("PING:");
-                            sprintf_P(strbuffer, PSTR("%s"), (ethernetfailed ? "FAILED" : "PASS"));
+                            sprintf_P(strbuffer, PSTR("%s"), (pingConnect ? "PASS                " :"FAILED              " ));
                             lcd.print(strbuffer);
                       } 
                       if (!network_startup){
@@ -1664,7 +1668,49 @@ void Menu_network_test(void){
 
 void Menu_Ping(void){
 
-                 lcd.clear();
+
+                lcd.clear();
+                lcd.setCursor(0, 0);
+                lcd.print("RTC ");
+                lcd.setCursor(0, 1);
+                lcd.print("Pinging server...");
+
+                #if ENABLE_ETHERNET
+
+                            if (client.connect(serverName, 80)) {
+                               Serial.println("connected");
+                               client.println("GET http://http://api.safecast.org HTTP/1.0");
+                               client.println();
+                             } 
+                             else {
+                               Serial.println("connection failed");
+                             }
+
+                            while(client.connected() && !client.available()) delay(1); //waits for data
+                            while (client.connected() || client.available()) { //connected or data available
+                            character = client.read();
+                            replyserver.concat(character);
+                          }
+
+                            if(replyserver.indexOf("HTTP/1.1 301 Moved Permanently") == 0)//checks for http 301 
+                                    {
+                            Serial.println("bingo"); 
+                            pingConnect=true;
+                                    
+                              }else{
+                                Serial.println("NC");
+                                pingConnect=false;
+                              }
+                               if (!client.connected()) {
+                               Serial.println();
+                               Serial.println("disconnecting.");
+                              }
+                              
+                          client.stop();
+                #endif
+
+
+
                  previousMillis=millis() ;
                  while ((unsigned long)(millis() - previousMillis) <= display_interval) {
                      
@@ -1682,10 +1728,9 @@ void Menu_Ping(void){
 
                     lcd.setCursor(0, 0);
                     lcd.print("RTC ");
-                    lcd.setCursor(0, 1);
-                    lcd.print("Pinging server..."); 
                     lcd.setCursor(0, 2);
-                    lcd.print("dummy reply"); 
+                    sprintf_P(strbuffer, PSTR("%s"), (pingConnect ? "PASS                " :"FAILED              " ));
+                    lcd.print(strbuffer);
                   }
 
       Menu_network_test();
