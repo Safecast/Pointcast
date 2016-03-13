@@ -19,7 +19,7 @@
 // write every hours (eeprom ~ 100000 cycles -> ~ 11 years)
 #define BMRDD_EEPROM_DOSE_WRITETIME 3600
 
-#define BMRDD_EEPROM_SETUP 500
+#define BMRDD_EEPROM_SETUP 300
 #define BMRDD_EEPROM_MARKER 0x5afeF00d
 
 
@@ -55,8 +55,8 @@
   byte sensor2_enabled;     // s2e
   float sensor2_cpm_factor; // s2f
   byte dev;                 // dev
-  char gw1[16];             // gw1
-  char gw2[16];             // gw1
+  char gw1[20];             // gw1
+  char gw2[20];             // gw1
   char intf[2];             // intf
   unsigned int tws;         // tws
   unsigned int alt;         //alt

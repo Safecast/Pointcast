@@ -129,8 +129,9 @@ History Versions:
 2016-03-06 V3.6.5  Weekly restart redone
 2016-03-08 V3.6.6  cleanout code
 2016-03-09 V3.6.7  RTC menu
-2016-03-09 V3.6.8  Ping to api.safecast.org
-2016-03-09 V3.7.1  Redown screen flow
+2016-03-11 V3.6.8  Ping to api.safecast.org
+2016-03-13 V3.7.1  Redown screen flow
+2016-03-09 V3.7.2  ping to Google.com/gw02/gw02 setup
 
 
 contact rob@yr-design.biz
@@ -230,11 +231,10 @@ char body3[512];
 
 
 //static
-    static char VERSION[] = "V3.7.1";
+    static char VERSION[] = "V3.7.2";
 
     #if ENABLE_3G
     static char path[LINE_SZ];
-    static char path2[LINE_SZ];
     char datedisplay[8];
     char coordinate[16];
     #endif
@@ -256,7 +256,7 @@ char body3[512];
 
 //const
     const char *server = "107.161.164.163";
-    char serverName[] = "api.safecast.org"; 
+    char serverName[] = "google.com"; 
     String replyserver = "";
     char character;        
     const int port = 80;
@@ -826,11 +826,11 @@ void Menu_network(void){
                   gateway[1] = config.gw2;
                   randomSeed(analogRead(0));
                   int gatewaynumber=random(GATEWAY_SZ);
-
                   server=gateway[gatewaynumber];
               #ifdef ENABLE_DEBUG
-                  Serial.print("Random gateway setup for ");
-                  Serial.println(server);
+                  Serial.print("Random gateway setup for ");                      
+                  sprintf_P(strbuffer, PSTR("%s"), server);
+                  Serial.println(strbuffer);
                   Serial.print("LocalIP =");
                   Serial.println(Ethernet.localIP()); 
               #endif  
@@ -856,11 +856,11 @@ void Menu_network(void){
                             }
                         }
 
-                    // ping api
+                    // ping NTP
 
                             if (client.connect(serverName, 80)) {
                                Serial.println("connected");
-                               client.println("GET http://http://api.safecast.org HTTP/1.0");
+                               client.println("GET http://google.com HTTP/1.0");
                                client.println();
                              } 
                              else {
@@ -873,9 +873,9 @@ void Menu_network(void){
                             replyserver.concat(character);
                           }
 
-                            if(replyserver.indexOf("HTTP/1.1 301 Moved Permanently") == 0)//checks for http 301 
+                            if(replyserver.indexOf("HTTP/1.0 302 Found") == 0)//checks for http 301 
                                     {
-                            Serial.println("bingo"); 
+                            Serial.println("Google.com connected comfirmed"); 
                             pingConnect=true;
                                     
                               }else{
@@ -996,8 +996,9 @@ void Menu_network(void){
                                       int gatewaynumber=random(GATEWAY_SZ);
                                       server=gateway[gatewaynumber];
                                       #ifdef ENABLE_DEBUG
-                                          Serial.print("Random gateway setup for ");
-                                          Serial.println(server);
+                                          Serial.print("Random gateway setup for ");                      
+                                          sprintf_P(strbuffer, PSTR("%s"), server);
+                                          Serial.println(strbuffer);
                                       #endif   
                    }
                    
@@ -1158,10 +1159,10 @@ void Menu_Ping(void){
                                 if (a3gs.httpGET(server, port, path, res, len) == 0) {
                                   replyserver.concat(res);
 
-                                 if(replyserver.indexOf("Maintenace mode.") == 0)//checks for gateway for html message of gate way
+                                 if(replyserver.indexOf("HTTP/1.0 302 Found") == 0)//checks for gateway for html message of gate way
                                       {
                                         #ifdef ENABLE_DEBUG
-                                          Serial.println("bingo");
+                                          Serial.println("Google.com connect confirmed");
                                         #endif  
                                         pingConnect=true;        
                                     }else{
@@ -1192,43 +1193,42 @@ void Menu_Ping(void){
                               Serial.println("Disconnecting");
                           #endif 
                           client.stop();
-                        }
+                        }        
+                    // ping NTP
 
-                      if (client.connect(serverName, 80)) {
-                             Serial.println("connected");
-                             client.println("GET http://api.safecast.org HTTP/1.0");
-                             client.println();
-                           } 
-                           else {
-                             Serial.println("connection failed");
-                           }
+                            if (client.connect(serverName, 80)) {
+                               Serial.println("connected");
+                               client.println("GET http://google.com HTTP/1.0");
+                               client.println();
+                             } 
+                             else {
+                               Serial.println("connection failed");
+                             }
+
                             while(client.connected() && !client.available()) delay(1); //waits for data
                             while (client.connected() || client.available()) { //connected or data available
                             character = client.read();
                             replyserver.concat(character);
                           }
 
-                            if(replyserver.indexOf("HTTP/1.1 301 Moved Permanently") == 0)//checks for http 301 
+                            if(replyserver.indexOf("HTTP/1.0 302 Found") == 0)//checks for http 301 
                                     {
-                            #ifdef ENABLE_DEBUG
-                                Serial.println("bingo");
-                            #endif 
+                            Serial.println("Google.com connected comfirmed"); 
                             pingConnect=true;
                                     
                               }else{
-                                #ifdef ENABLE_DEBUG
-                                    Serial.println("NC");
-                                #endif
+                                Serial.println("NC");
                                 pingConnect=false;
+                                digitalWrite(26, HIGH);
                               }
                                if (!client.connected()) {
-                                #ifdef ENABLE_DEBUG
-                                     Serial.println();
-                                     Serial.println("disconnecting.");
-                               #endif
+                               Serial.println();
+                               Serial.println("disconnecting.");
                               }
                               
-                        client.stop();
+                          client.stop();
+
+                  //end ping api
                 #endif
 
 
@@ -2533,7 +2533,6 @@ if (openlog_ready) {
 len = sizeof(res);
 len2 = sizeof(res2);
 len4 = sizeof(res4);
-lastConnectionTime = millis();
 if (config.dev) {
   sprintf_P(path, PSTR("scripts/indextest.php?api_key=%s"), \
             config.api_key);
@@ -2567,8 +2566,10 @@ sprintf_P(body3, PSTR("{\$\"longitude\$\":\$\"%s\$\",\$\"latitude\$\":\$\"%s\$\"
 
 
 send3G:
+  sprintf_P(strbuffer, PSTR("%s"), server);
+  Serial.println(strbuffer);
 
-if (a3gs.httpPOST(server, port, path, header, body, res, &len, useHTTPS) == 0  ) {
+if (a3gs.httpPOST(strbuffer, port, path, header, body, res, &len, useHTTPS) == 0  ) {
     #ifdef ENABLE_DEBUG
         Serial.println("Sent sensor 1 info to server OK!");
         Serial.print(">Response=[");
@@ -2576,9 +2577,9 @@ if (a3gs.httpPOST(server, port, path, header, body, res, &len, useHTTPS) == 0  )
         Serial.println("]");
     #endif 
 
-  delay (6000);
+  delay (3000);
 
-  a3gs.httpPOST(server, port, path, header, body2, res2, &len2, useHTTPS);
+  a3gs.httpPOST(strbuffer, port, path, header, body2, res2, &len2, useHTTPS);
     #ifdef ENABLE_DEBUG
         Serial.println("Sent sensor 2 info to server OK!");
         Serial.print(">Response=[");
@@ -2586,9 +2587,9 @@ if (a3gs.httpPOST(server, port, path, header, body, res, &len, useHTTPS) == 0  )
         Serial.println("]");
     #endif   
   
-  delay (6000);
+  delay (3000);
 
-  a3gs.httpPOST(server, port, path, header, body3, res4, &len4, useHTTPS);
+  a3gs.httpPOST(strbuffer, port, path, header, body3, res4, &len4, useHTTPS);
     #ifdef ENABLE_DEBUG
         Serial.println("Sent temperature info to server OK!");
         Serial.print(">Response=[");
@@ -2630,6 +2631,8 @@ else {
   if (ctrl.conn_fail_cnt >= MAX_FAILED_CONNS)
   {
     //first shut down 3G before reset
+      a3gs.end();
+      a3gs.shutdown();
     CPU_RESTART;
   }
 
@@ -2650,7 +2653,7 @@ else {
           Serial.println(MAX_FAILED_CONNS - ctrl.conn_fail_cnt);
       #endif 
   lastConnectionTime = millis();
-  delay (10000);
+  delay (1000);
   goto send3G;
 }
 
@@ -2670,10 +2673,7 @@ lcd.print(":");
 printDigits(minute());
 lcd.print("GMT");
 
-return;
-
 }
-
 
 
 /**************************************************************************/
@@ -2711,10 +2711,18 @@ void loop() {
                           Serial.println ("Right"); 
                      #endif
                         joyCntD=!joyCntD;joyCntA=false;joyCntB=false;lcd.clear();joyCntE=false;display_interval=3000;Menu_term(); return;} 
-         Alarm.delay(0);
-        return;
+         // Alarm.delay(0);
                 
       }
+
+  Serial.print("updateIntervalInMillis =");
+  Serial.println(updateIntervalInMillis);
+  Serial.print("elapsedTime =");
+  Serial.println(elapsedTime(lastConnectionTime));
+  Serial.print("updateIntervalInMillis =");
+  Serial.println(updateIntervalInMillis);
+  Serial.print("lastConnectionTime =");
+  Serial.println(updateIntervalInMillis);
 
       float CPM = (float)counts_per_sample / (float)updateIntervalInMinutes/5;
       float CPM2 = (float)counts_per_sample2 / (float)updateIntervalInMinutes/5;
@@ -3166,8 +3174,7 @@ void printDouble( double val, unsigned int precision){
        #ifdef ENABLE_DEBUG
           Serial.print("0");
           Serial.println(frac,DEC) ;
-       #endif 
-;
+       #endif ;
 
 }
 
