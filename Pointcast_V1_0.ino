@@ -131,7 +131,10 @@ History Versions:
 2016-03-09 V3.6.7  RTC menu
 2016-03-11 V3.6.8  Ping to api.safecast.org
 2016-03-13 V3.7.1  Redown screen flow
-2016-03-09 V3.7.2  ping to Google.com/gw02/gw02 setup
+2016-03-13 V3.7.2  ping to Google.com/gw02/gw02 setup
+2016-03-14 V3.7.3  setup timing for 3G refresh
+2016-03-14 V3.7.4  ping http://safecast-production.s3.amazonaws.com
+
 
 
 contact rob@yr-design.biz
@@ -231,7 +234,7 @@ char body3[512];
 
 
 //static
-    static char VERSION[] = "V3.7.2";
+    static char VERSION[] = "V3.7.4";
 
     #if ENABLE_3G
     static char path[LINE_SZ];
@@ -256,7 +259,7 @@ char body3[512];
 
 //const
     const char *server = "107.161.164.163";
-    char serverName[] = "google.com"; 
+    const char serverName[] = "safecast-production.s3.amazonaws.com"; 
     String replyserver = "";
     char character;        
     const int port = 80;
@@ -317,9 +320,12 @@ char body3[512];
  
 // Interval is how long display  wait
    int display_interval = 2000;
+
+//display time on display
+   bool displayTimeOn;
    
 // Interval is how long LED blinks  
-    int blinkinterval=1000;
+    int blinkinterval=50;
 
 //char
     char timestamp[19];
@@ -521,6 +527,8 @@ void setup() {
         attachInterrupt(JOY_C_PIN, joyC_Callback, FALLING);     
         attachInterrupt(JOY_D_PIN, joyD_Callback, FALLING);     
         attachInterrupt(JOY_E_PIN, joyE_Callback, FALLING);   
+
+
           
     //set up the LCD's number of columns and rows: 
           lcd.begin(20, 4);
@@ -538,6 +546,7 @@ Menu_startup();
 
 void Menu_startup(void){
 
+       displayTimeOn= false;
        float battery =((read_voltage(VOLTAGE_PIN)));
 //       float temperature = getTemp();
 
@@ -620,7 +629,8 @@ void Menu_startup(void){
 
 
  void Menu_system(void){
-        
+      
+      displayTimeOn= false;
        float battery =((read_voltage(VOLTAGE_PIN)));
        float temperature = getTemp();
       
@@ -682,7 +692,8 @@ void Menu_startup(void){
 /**************************************************************************/  
 
 void Menu_sdcard(void){
-
+      
+      displayTimeOn= false;
       lcd.clear();
       lcd.setCursor(0, 0);
       lcd.print("SDCARD "); 
@@ -779,7 +790,8 @@ void Menu_sdcard(void){
 // Network Screen
 /**************************************************************************/   
 void Menu_network(void){
-  
+          
+        displayTimeOn= false;
       
          #if ENABLE_ETHERNET
             lcd.clear();
@@ -814,6 +826,7 @@ void Menu_network(void){
                        setSyncProvider(getNtpTime);
                        Teensy3Clock.set(now()); 
             }
+
                 
         #endif
    
@@ -854,13 +867,13 @@ void Menu_network(void){
                            //switch on fail LED
                             digitalWrite(26, HIGH);
                             }
-                        }
+                        
 
                     // ping NTP
 
                             if (client.connect(serverName, 80)) {
                                Serial.println("connected");
-                               client.println("GET http://google.com HTTP/1.0");
+                               client.println("GET  https://safecast-production.s3.amazonaws.com/uploads/bgeigie_import/source");
                                client.println();
                              } 
                              else {
@@ -873,9 +886,9 @@ void Menu_network(void){
                             replyserver.concat(character);
                           }
 
-                            if(replyserver.indexOf("HTTP/1.0 302 Found") == 0)//checks for http 301 
+                            if(replyserver.indexOf("HTTP/1.1 505 HTTP Version not supported") == 0)//checks for xml
                                     {
-                            Serial.println("Google.com connected comfirmed"); 
+                            Serial.println("S3 amazon connected comfirmed"); 
                             pingConnect=true;
                                     
                               }else{
@@ -888,7 +901,9 @@ void Menu_network(void){
                                Serial.println("disconnecting.");
                               }
                               
-                          client.stop();
+                            client.stop();
+
+                          }
 
                   //end ping api
                  network_startup=true;
@@ -949,6 +964,9 @@ void Menu_network(void){
                     lcd.clear();
                     lcd.setCursor(0, 0);
                     lcd.print("NETWORK 3G startup");
+                    lcd.setCursor(0, 1);
+                    lcd.print("Connecting.....");
+
                     if (!network_startup){
                                 if (a3gs.start() == 0 && a3gs.begin() == 0) {
                                     a3gs.getRSSI(rssi);
@@ -1042,8 +1060,8 @@ void Menu_network(void){
 // Network Screen Test
 /**************************************************************************/   
 void Menu_network_test(void){
-  
-      
+          
+          displayTimeOn= false;
          #if ENABLE_ETHERNET
             lcd.clear();
             lcd.setCursor(0, 0);
@@ -1094,7 +1112,49 @@ void Menu_network_test(void){
       
 
       #if ENABLE_3G
+                        lcd.setCursor(0, 0);
+                        lcd.print("NETWORK 3G TEST");
+                        lcd.setCursor(0, 1);
+                        lcd.print("Signal:");
+                        lcd.print(rssi);
+                        lcd.print(" dBm");
+                        lcd.setCursor(0, 2);        
+                        lcd.print("Carrier:");
+                        lcd.print(config.apn);
+                        lcd.setCursor(0, 3);
+                        lcd.print("Ping :");
+                        lcd.print("pinging.....");
       
+                                len = sizeof(res);
+                                sprintf_P(strbuffer, PSTR("%s"), serverName);
+                                Serial.println(strbuffer);
+                                if (a3gs.httpGET(strbuffer, port, path, res, len) == 0) {
+                                  replyserver.concat(res);
+
+                                 if(replyserver.indexOf("<?xml version") == 0)//checks for gateway for html message of gate way
+                                      {
+                                        #ifdef ENABLE_DEBUG
+                                          Serial.println("S3 amazon connect confirmed");
+                                        #endif  
+                                        pingConnect=true;        
+                                    }else{
+                                      #ifdef ENABLE_DEBUG
+                                          Serial.println("NC");
+                                      #endif 
+                                      pingConnect=false;
+                                    //switch on fail LED
+                                      digitalWrite(26, HIGH);
+                                    }
+                                }
+                                else {
+                                  #ifdef ENABLE_DEBUG
+                                      Serial.print("Can't get HTTP response from ");
+                                      Serial.println(server);
+                                  #endif 
+                                      //switch on fail LED
+                                       digitalWrite(26, HIGH);
+                                }
+                              
                  lcd.clear();
                  previousMillis=millis() ;
                  while ((unsigned long)(millis() - previousMillis) <= display_interval) {
@@ -1127,8 +1187,10 @@ void Menu_network_test(void){
                         lcd.print("Carrier:");
                         lcd.print(config.apn);
                         lcd.setCursor(0, 3);
-                        lcd.print("Phone: ");
-                        lcd.print("080XXXXYYYY");
+                        lcd.print("Ping: ");
+                        sprintf_P(strbuffer, PSTR("%s"), (pingConnect ? "PASS                " :"FAILED              " ));
+                        lcd.print(strbuffer);
+
                  } 
           network_startup=true;   
         #endif  
@@ -1145,7 +1207,7 @@ void Menu_network_test(void){
 /**************************************************************************/  
 
 void Menu_Ping(void){
-
+                displayTimeOn= false;
                 lcd.clear();
                 lcd.setCursor(0, 0);
                 lcd.print("Ping Test");
@@ -1154,15 +1216,15 @@ void Menu_Ping(void){
 
                 #if ENABLE_3G
                            len = sizeof(res);
-                            if (a3gs.start() == 0 && a3gs.begin() == 0) {
-
-                                if (a3gs.httpGET(server, port, path, res, len) == 0) {
+                             sprintf_P(strbuffer, PSTR("%s"), serverName);
+                             Serial.println(strbuffer);
+                            if (a3gs.httpGET(strbuffer, port, path, res, len) == 0) {
                                   replyserver.concat(res);
 
-                                 if(replyserver.indexOf("HTTP/1.0 302 Found") == 0)//checks for gateway for html message of gate way
+                                 if(replyserver.indexOf("<?xml version") == 0)//checks for gateway for html message of gateway
                                       {
                                         #ifdef ENABLE_DEBUG
-                                          Serial.println("Google.com connect confirmed");
+                                          Serial.println("S3 amazonaws connect confirmed");
                                         #endif  
                                         pingConnect=true;        
                                     }else{
@@ -1182,7 +1244,6 @@ void Menu_Ping(void){
                                       //switch on fail LED
                                        digitalWrite(26, HIGH);
                                 }
-                              }
                 #endif //ENABLE_3G
 
 
@@ -1198,7 +1259,7 @@ void Menu_Ping(void){
 
                             if (client.connect(serverName, 80)) {
                                Serial.println("connected");
-                               client.println("GET http://google.com HTTP/1.0");
+                               client.println("GET https://safecast-production.s3.amazonaws.com/uploads/bgeigie_import/source");
                                client.println();
                              } 
                              else {
@@ -1211,9 +1272,9 @@ void Menu_Ping(void){
                             replyserver.concat(character);
                           }
 
-                            if(replyserver.indexOf("HTTP/1.0 302 Found") == 0)//checks for http 301 
+                            if(replyserver.indexOf("HTTP/1.1 505 HTTP Version not supported") == 0)//checks for http 301 
                                     {
-                            Serial.println("Google.com connected comfirmed"); 
+                            Serial.println("S3 amazon connected comfirmed"); 
                             pingConnect=true;
                                     
                               }else{
@@ -1263,6 +1324,7 @@ void Menu_Ping(void){
 /**************************************************************************/  
  void Menu_time(void){
    
+       displayTimeOn= false;
        setSyncProvider(getTeensy3Time);
 
 
@@ -1342,14 +1404,13 @@ void Menu_Ping(void){
 // RTC Screen
 /**************************************************************************/  
  void Menu_RTC(void){
-   
+          displayTimeOn= false;
           lcd.clear();
           lcd.setCursor(0, 0);
           lcd.print("RTC checking ...");
           lcd.setCursor(0, 1);
           lcd.print("please wait");
-
-           delay(1000);           
+          delay(1000);           
 
       
    //display time
@@ -1380,6 +1441,9 @@ void Menu_Ping(void){
                     #if ENABLE_ETHERNET
                       lcd.print(timeServer);
                     #endif
+                    #if ENABLE_3G
+                      lcd.print("3G module");
+                    #endif
                     lcd.setCursor(0, 3);
                     lcd.print("Time:");          
                     printDigits(hour());
@@ -1406,6 +1470,7 @@ void Menu_Ping(void){
 void Menu_pointcast1(void){
 
         //display information
+           displayTimeOn= false;
            lcd.clear();
            previousMillis=millis() ;
            while ((unsigned long)(millis() - previousMillis) <= display_interval) {
@@ -1444,8 +1509,9 @@ void Menu_pointcast1(void){
 /**************************************************************************/
 // POINTCAST2 Screen
 /**************************************************************************/  
- void Menu_pointcast2(void){   
-          lcd.clear();
+ void Menu_pointcast2(void){ 
+           displayTimeOn= false;  
+           lcd.clear();
            previousMillis=millis() ;
            while ((unsigned long)(millis() - previousMillis) <= display_interval) {
                      
@@ -1478,7 +1544,8 @@ void Menu_pointcast1(void){
 // GPS Screen
 /**************************************************************************/  
   void Menu_gps(void){
-         lcd.clear();
+           displayTimeOn= false;
+           lcd.clear();
            previousMillis=millis() ;
            while ((unsigned long)(millis() - previousMillis) <= display_interval) {
                      
@@ -1524,7 +1591,7 @@ void Menu_pointcast1(void){
 // Sensors Screen
 /**************************************************************************/   
 void Menu_sensors(void){
-  
+        displayTimeOn= false;
         lcd.clear();
            previousMillis=millis() ;
            while ((unsigned long)(millis() - previousMillis) <= display_interval) {
@@ -1569,6 +1636,7 @@ void Menu_sensors(void){
 // Sensors Test Screen
 /**************************************************************************/  
   void Menu_sensors_tests(void){
+           displayTimeOn= false;
            lcd.clear();
            previousMillis=millis() ;
            while ((unsigned long)(millis() - previousMillis) <= display_interval) {
@@ -1623,7 +1691,8 @@ void Menu_sensors(void){
 /**************************************************************************/  
   
   void Menu_api(void){
-         lcd.clear();
+           displayTimeOn= false;
+           lcd.clear();
            previousMillis=millis() ;
            while ((unsigned long)(millis() - previousMillis) <= display_interval) {
                      
@@ -1667,6 +1736,7 @@ void Menu_sensors(void){
 /**************************************************************************/   
  
  void Menu_datalogger(void){
+           displayTimeOn= false;
            lcd.clear();
            previousMillis=millis() ;
            while ((unsigned long)(millis() - previousMillis) <= display_interval) {
@@ -1701,10 +1771,19 @@ void Menu_sensors(void){
  void Menu_counting(void){
             // read battery     
            float battery =((read_voltage(VOLTAGE_PIN)));
-           
+           displayTimeOn= true;
            lcd.clear();
            previousMillis=millis() ;
+        if (!config.trb){
+            updateIntervalInMillis = updateIntervalInMinutes * 300000; 
+        }
+        if (config.trb){
+            updateIntervalInMillis = updateIntervalInMinutes * 6000; 
+        }  
+           // display_interval= 60000;
            while ((unsigned long)(millis() - previousMillis) <= display_interval) {
+                      unsigned long now1 = millis();
+                      nextExecuteMillis = now1 + updateIntervalInMillis;
                      
                      if (joyCntB){                           
                      #ifdef ENABLE_DEBUG
@@ -1759,17 +1838,6 @@ void Menu_sensors(void){
                   #endif
 
            }
-       
-       
-    //setup update time in msec
-    if (!config.trb){
-        updateIntervalInMillis = updateIntervalInMinutes * 300000; 
-    }
-    if (config.trb){
-        updateIntervalInMillis = updateIntervalInMinutes * 6000; 
-    }       
-        unsigned long now1 = millis();
-        nextExecuteMillis = now1 + updateIntervalInMillis;
      
 }
 
@@ -1847,6 +1915,10 @@ int tempID=config.user_id + 8;
                      i++;
                 }       
       }
+
+  // display data
+  displayTimeOn= true;
+
 
 #if ENABLE_ETHERNET
 
@@ -2320,7 +2392,7 @@ int tempID=config.user_id + 8;
 
 
 /**************************************************************************/
-// 3G card setup
+// 3G card sending setup
 /**************************************************************************/
 
 
@@ -2417,6 +2489,7 @@ lcd.print(uSv2);
 lcd.print("uSh");
 lcd.setCursor(0, 2);
 lcd.print("API:");
+lcd.print("sending ");
 
 
 //check level
@@ -2683,8 +2756,39 @@ void loop() {
 
     // Main Loop
     
-    
-      finished_startup = true;
+         finished_startup = true;
+
+       //timer setup
+        if (!config.trb){
+            updateIntervalInMillis = updateIntervalInMinutes * 300000; 
+        }
+        if (config.trb){
+            updateIntervalInMillis = updateIntervalInMinutes * 6000; 
+        }   
+
+           int leftMillis = (updateIntervalInMillis-elapsedTime(lastConnectionTime));
+           int left_secs = leftMillis/1000; //convert milliseconds to seconds
+           int left_mins=left_secs/60; //convert seconds to minutes          
+           left_secs=left_secs-(left_mins*60); //subtract the converted seconds to minutes in order to display 59 secs max 
+          
+       // Serial.printf("%d:%d\n", left_mins, left_secs);
+      //display current time 
+           if (displayTimeOn){
+                lcd.setCursor(4, 2);
+                printDigits(hour());
+                lcd.print(":");
+                printDigits(minute());
+                lcd.print("GMT");
+
+                lcd.setCursor(13, 2);
+                // lcd.printf("  %d:%d", left_mins, left_secs);
+                lcd.print("  ");
+                printDigits(left_mins);
+                lcd.print(":");
+                printDigits(left_secs);
+            }
+
+           
       if (elapsedTime(lastConnectionTime) < updateIntervalInMillis)
       {
          
@@ -2692,13 +2796,13 @@ void loop() {
                      #ifdef ENABLE_DEBUG
                                 Serial.println ("Up");
                       #endif 
-                       joyCntB=!joyCntB;joyCntA=false;joyCntD=false;joyCntE=false;lcd.clear();display_interval=3000;Menu_datalogger(); return;}
+                       joyCntB=!joyCntB;joyCntA=false;joyCntD=false;joyCntE=false;lcd.clear();display_interval=1000;Menu_datalogger(); return;}
          
            if (joyCntA){                           
                      #ifdef ENABLE_DEBUG
                           Serial.println ("Down");
                       #endif 
-                       joyCntA=!joyCntA;joyCntD=false;joyCntB=false;joyCntE=false;lcd.clear();display_interval=3000;Menu_stat(); return;}
+                       joyCntA=!joyCntA;joyCntD=false;joyCntB=false;joyCntE=false;lcd.clear();display_interval=1000;Menu_stat(); return;}
            if (joyCntE){
 
                      #ifdef ENABLE_DEBUG
@@ -2710,44 +2814,23 @@ void loop() {
                      #ifdef ENABLE_DEBUG
                           Serial.println ("Right"); 
                      #endif
-                        joyCntD=!joyCntD;joyCntA=false;joyCntB=false;lcd.clear();joyCntE=false;display_interval=3000;Menu_term(); return;} 
-         // Alarm.delay(0);
+                        joyCntD=!joyCntD;joyCntA=false;joyCntB=false;lcd.clear();joyCntE=false;display_interval=1000;Menu_term(); return;} 
+         Alarm.delay(0);
+        return;
                 
       }
-
-  Serial.print("updateIntervalInMillis =");
-  Serial.println(updateIntervalInMillis);
-  Serial.print("elapsedTime =");
-  Serial.println(elapsedTime(lastConnectionTime));
-  Serial.print("updateIntervalInMillis =");
-  Serial.println(updateIntervalInMillis);
-  Serial.print("lastConnectionTime =");
-  Serial.println(updateIntervalInMillis);
 
       float CPM = (float)counts_per_sample / (float)updateIntervalInMinutes/5;
       float CPM2 = (float)counts_per_sample2 / (float)updateIntervalInMinutes/5;
 
-      
-//      //store and display(serial) dose
-//      total_count += counts_per_sample;
-//      dose.total_count += total_count;
-//      total_time +=300;
-//      dose.total_time += total_time;
-//        if (dose.total_time > BMRDD_EEPROM_DOSE_WRITETIME ) {
-//           EEPROM_writeAnything(BMRDD_EEPROM_DOSE, dose);
-//           Serial.print("Dose is written to eeprom");
-//           dose.total_time=0;
-//        }
-//      Serial.print("Dose count=");
-//      Serial.println (dose.total_count);
-//      Serial.print("Dose time=");
-//      Serial.println (dose.total_time);
-
       counts_per_sample = 0;
       counts_per_sample2 = 0;
 
+      unsigned long now1 = millis();
+  
       SendDataToServer(CPM,CPM2);
   }
+
 
 
 ///**************************************************************************/
@@ -2755,7 +2838,7 @@ void loop() {
 //**************************************************************************/
 
 void Menu_stat() {
- 
+           displayTimeOn= false;
           lcd.clear();
           previousMillis=millis() ;
           while ((unsigned long)(millis() - previousMillis) <= display_interval) {
@@ -2764,7 +2847,7 @@ void Menu_stat() {
                      #ifdef ENABLE_DEBUG
                                 Serial.println ("Up");
                       #endif 
-                      joyCntB=!joyCntB;joyCntA=false;lcd.clear();display_interval=3000;Menu_counting();return;}
+                      joyCntB=!joyCntB;joyCntA=false;lcd.clear();display_interval=3000; displayTimeOn= true;Menu_counting();return;}
                     
                      if (joyCntA){                           
                      #ifdef ENABLE_DEBUG
@@ -2785,9 +2868,13 @@ void Menu_stat() {
      }
 }
 
+//**************************************************************************/
+// Menus for stat2 
+//**************************************************************************/
+
 void Menu_stat2() {
 
-
+           displayTimeOn= false;
           // check timeup
            currentmillis=millis(); // get the  current milliseconds from arduino
           #ifdef ENABLE_DEBUG
@@ -2818,7 +2905,7 @@ void Menu_stat2() {
                      #ifdef ENABLE_DEBUG
                                 Serial.println ("Down");
                       #endif 
-                       joyCntA=!joyCntA;joyCntB=false;lcd.clear();display_interval=3000;Menu_counting();return;}
+                       joyCntA=!joyCntA;joyCntB=false;lcd.clear();display_interval=3000;displayTimeOn= true;Menu_counting();return;}
                     
                lcd.setCursor(0,0);    
                lcd.print("up=");
@@ -2837,14 +2924,16 @@ void Menu_stat2() {
                lcd.setCursor(0,3);
                lcd.print("Last Fail=");
                lcd.print(last_failure);               
-//               lcd.print("#reset=");
-//               lcd.print("rrrr");
       }
  return;
 }
 
+//**************************************************************************/
+// Menus for terminal
+//**************************************************************************/
+
 void Menu_term() {
- 
+           displayTimeOn= false;
           lcd.clear();
           previousMillis=millis() ;
           while ((unsigned long)(millis() - previousMillis) <= display_interval) {
@@ -2852,12 +2941,12 @@ void Menu_term() {
                            #ifdef ENABLE_DEBUG
                                 Serial.println ("Up");
                           #endif
-                           joyCntB=!joyCntB;joyCntA=false;lcd.clear();display_interval=3000;Menu_counting();return;}
+                           joyCntB=!joyCntB;joyCntA=false;lcd.clear();display_interval=3000;displayTimeOn= true;Menu_counting();return;}
                     if (joyCntA){                            
                           #ifdef ENABLE_DEBUG
                                 Serial.println ("Up");
                           #endif
-                           joyCntA=!joyCntA;joyCntB=false;display_interval=500;Menu_counting();return;}
+                           joyCntA=!joyCntA;joyCntB=false;display_interval=500; displayTimeOn= true;Menu_counting();return;}
 
               #if ENABLE_3G
               String res_string(res);
