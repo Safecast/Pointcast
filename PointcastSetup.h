@@ -23,9 +23,9 @@
 #define BMRDD_EEPROM_MARKER 0x5afeF00d
 
 
-#define ENABLE_3G             1
-#define ENABLE_ETHERNET       0
-#define ENABLE_EEPROM_DOSE    0
+#define ENABLE_3G             0
+#define ENABLE_ETHERNET       1
+#define ENABLE_EEPROM_DOSE    1
 
 #define HEADER_SENSOR  "PNTXS"
 #define HEADER  "PNTDD"
@@ -38,6 +38,9 @@
   typedef struct {
     unsigned long total_count;
     unsigned long total_time;
+    unsigned long restarts;
+    unsigned long fails;
+    unsigned long logs;
   } DoseType;
 
   typedef struct {
@@ -95,6 +98,8 @@ template <class T> int EEPROM_readAnything(int ee, T& value)
   unsigned int i;
   for (i = 0; i < sizeof(value); i++)
     *p++ = EEPROM.read(ee++);
+  //for debugging
+  Serial.print(i);
   return i;
 }
 

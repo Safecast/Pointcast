@@ -134,8 +134,9 @@ History Versions:
 2016-03-13 V3.7.2  ping to Google.com/gw02/gw02 setup
 2016-03-14 V3.7.3  setup timing for 3G refresh
 2016-03-14 V3.7.4  ping http://safecast-production.s3.amazonaws.com
-
-
+2016-03-14 V3.7.5  moved countdown and delayed displaying countdown
+2016-03-16 V3.7.6  added fails, restarts and createfile numbers to EEprom. Added restarts and fails to secondline in SDCard
+2016-03-17 V3.7.7  file creation counts (logs in stats) added. 
 
 contact rob@yr-design.biz
  */
@@ -234,7 +235,7 @@ char body3[512];
 
 
 //static
-    static char VERSION[] = "V3.7.4";
+    static char VERSION[] = "V3.7.7";
 
     #if ENABLE_3G
     static char path[LINE_SZ];
@@ -475,7 +476,9 @@ void setup() {
      analogReference(INTERNAL);
 
 //  //Read dose from EEPROM
-//          EEPROM_readAnything(BMRDD_EEPROM_DOSE, dose);
+        EEPROM_readAnything(BMRDD_EEPROM_DOSE, dose);
+        dose.restarts++;
+        EEPROM_writeAnything(BMRDD_EEPROM_DOSE, dose);
 
         
   //print last reset message and setup the patting of the dog
@@ -491,6 +494,9 @@ void setup() {
          
    // Load EEPROM settings
          PointcastSetup.initialize();
+
+   // write EEPROM settings
+         PointcastSetup.initialize();         
      
    //beep for loud piezo twice
                 int i=0;
@@ -553,9 +559,11 @@ void Menu_startup(void){
     //setup failure message 
     #ifdef ENABLE_DEBUG
         Serial.print("last_failure =");
-        Serial.println(last_failure); 
-        Serial.print("Dose=");
-        Serial.println (dose.total_count);
+        Serial.println(config.last_failure); 
+        Serial.print("restarts =");
+        Serial.println(dose.restarts); 
+        Serial.print("fails =");
+        Serial.println(dose.fails); 
      #endif   
 
         
@@ -577,7 +585,7 @@ void Menu_startup(void){
 
               // Print startup message to the LCD.
                      lcd.setCursor(0, 0);
-                 lcd.print("SAFECAST POINTCASTv1");
+                     lcd.print("SAFECAST POINTCASTv1");
                      lcd.setCursor(0, 1);
                      lcd.print("Firmware :");
                      lcd.print(VERSION);
@@ -812,6 +820,7 @@ void Menu_network(void){
                           Serial.print(":");
                           Serial.print(macAddress[i],HEX);
                           } 
+
                     Serial.println();
                   #endif
 
@@ -939,9 +948,6 @@ void Menu_network(void){
                         }else{
                             lcd.print("No LAN");
                         } 
-
-
-
                       } 
                       if (!network_startup){
                         #ifdef ENABLE_DEBUG
@@ -1142,6 +1148,7 @@ void Menu_network_test(void){
                                           Serial.println("NC");
                                       #endif 
                                       pingConnect=false;
+
                                     //switch on fail LED
                                       digitalWrite(26, HIGH);
                                     }
@@ -1234,6 +1241,7 @@ void Menu_Ping(void){
                                       pingConnect=false;
                                     //switch on fail LED
                                       digitalWrite(26, HIGH);
+
                                     }
                                 }
                                 else {
@@ -1780,7 +1788,7 @@ void Menu_sensors(void){
         if (config.trb){
             updateIntervalInMillis = updateIntervalInMinutes * 6000; 
         }  
-           // display_interval= 60000;
+           display_interval= 6000;
            while ((unsigned long)(millis() - previousMillis) <= display_interval) {
                       unsigned long now1 = millis();
                       nextExecuteMillis = now1 + updateIntervalInMillis;
@@ -2068,13 +2076,15 @@ int tempID=config.user_id + 8;
               
          
         //add second line for additional info
-           sprintf_P(buf2 + len2, PSTR("*%X%s$%s,%d,%s,%s"), 
+           sprintf_P(buf2 + len2, PSTR("*%X%s$%s,%d,%s,%s,%d,%d"), 
               (int)chk, \
               "\n", \
               HEADER_SENSOR,  \
               config.devid, \
               temperature_string, \
-              battery_string);
+              battery_string, \
+              dose.fails, \
+              dose.restarts);
               #ifdef ENABLE_DEBUG
                   Serial.println(buf2); 
               #endif 
@@ -2134,6 +2144,10 @@ int tempID=config.user_id + 8;
                  ctrl.conn_fail_cnt++;
                  lcd.setCursor(13,2);
                  lcd.print(" FAIL");
+                 //add fail to EEProm
+                 dose.fails++;
+                 Serial.println("dos.fail++");
+                 EEPROM_writeAnything(BMRDD_EEPROM_DOSE, dose);
 //                 char* last_failure="Send GW fail";
                  lcd.print(" ");
                  #ifdef ENABLE_DEBUG
@@ -2233,6 +2247,7 @@ int tempID=config.user_id + 8;
                    delay(250);
                    pinMode(28, INPUT);
                  //switch on fail LED
+                   EEPROM_writeAnything(BMRDD_EEPROM_DOSE, dose);
                   digitalWrite(26, HIGH);
                  
                  lcd.print(ctrl.conn_fail_cnt);
@@ -2312,6 +2327,10 @@ int tempID=config.user_id + 8;
                           ctrl.conn_fail_cnt++;
                           lcd.setCursor(13, 2);
                           lcd.print(" FAIL");
+                       //add fail to EEProm
+                         dose.fails++;
+                         Serial.println("dos.fail++");
+                         EEPROM_writeAnything(BMRDD_EEPROM_DOSE, dose);
                         //                 String last_failure="NC S2";
                           lcd.print(" ");
                         //                 Serial.print(last_failure);
@@ -2566,14 +2585,16 @@ else
 
 
 //add second line for addtional info
-sprintf_P(buf2 + len2, PSTR("*%X%s$%s,%d,%s,%d,%s"),
+sprintf_P(buf2 + len2, PSTR("*%X%s$%s,%d,%s,%d,%s,%d,%d"),
           (int)chk, \
           "\n", \
           HEADER_SENSOR,  \
           config.devid, \
           temperature_string, \
           rssi,  \
-          battery_string);
+          battery_string, \
+          dose.fails, \
+          dose.restarts);
 
 
   #ifdef ENABLE_DEBUG
@@ -2704,12 +2725,16 @@ else {
   if (ctrl.conn_fail_cnt >= MAX_FAILED_CONNS)
   {
     //first shut down 3G before reset
-      a3gs.end();
-      a3gs.shutdown();
-    CPU_RESTART;
+          a3gs.end();
+          a3gs.shutdown();
+          CPU_RESTART;
   }
 
   lcd.print(" FAIL");
+   //add fail to EEProm
+   dose.fails++;
+   Serial.println("dos.fail++");
+   EEPROM_writeAnything(BMRDD_EEPROM_DOSE, dose);
   failures++;
   //alarm peep
   digitalWrite(28, HIGH);
@@ -2774,13 +2799,13 @@ void loop() {
        // Serial.printf("%d:%d\n", left_mins, left_secs);
       //display current time 
            if (displayTimeOn){
-                lcd.setCursor(4, 2);
-                printDigits(hour());
-                lcd.print(":");
-                printDigits(minute());
-                lcd.print("GMT");
+                // lcd.setCursor(4, 2);
+                // printDigits(hour());
+                // lcd.print(":");
+                // printDigits(minute());
+                // lcd.print("GMT");
 
-                lcd.setCursor(13, 2);
+                lcd.setCursor(13, 3);
                 // lcd.printf("  %d:%d", left_mins, left_secs);
                 lcd.print("  ");
                 printDigits(left_mins);
@@ -2917,13 +2942,13 @@ void Menu_stat2() {
                lcd.print("m ");                
                lcd.setCursor(0,1);
                lcd.print("#logs=");
-               lcd.print("nnnn");
+               lcd.print(dose.logs);
                lcd.setCursor(0,2);
                lcd.print("#fail=");
                lcd.print(failures);
                lcd.setCursor(0,3);
-               lcd.print("Last Fail=");
-               lcd.print(last_failure);               
+               lcd.print("#restarts=");
+               lcd.print(dose.restarts);               
       }
  return;
 }
@@ -3052,7 +3077,8 @@ void setupOpenLog() {
 void createFile(char *fileName) {
     int result = 0;
     int safeguard = 0;
-
+    dose.logs++;
+    EEPROM_writeAnything(BMRDD_EEPROM_DOSE, dose);
     OpenLog.listen();
 
     do {
@@ -3281,8 +3307,7 @@ void WeeklyRestart(){
                      i++;
                 }
                 delay(3000);
-
-  CPU_RESTART;     
+        CPU_RESTART; 
 }
 
 

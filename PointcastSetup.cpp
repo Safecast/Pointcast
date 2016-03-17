@@ -34,6 +34,8 @@
   }
 }
 
+
+
 void PointcastSetup::loadFromFile(char * setupFile) {
   bool config_changed = false;
   char *config_buffer, *key, *value;
