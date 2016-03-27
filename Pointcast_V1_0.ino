@@ -235,7 +235,7 @@ char body3[512];
 
 
 //static
-    static char VERSION[] = "V3.7.7";
+    static char VERSION[] = "V3.7.8";
 
     #if ENABLE_3G
     static char path[LINE_SZ];
@@ -560,10 +560,12 @@ void Menu_startup(void){
     #ifdef ENABLE_DEBUG
         Serial.print("last_failure =");
         Serial.println(config.last_failure); 
-        Serial.print("restarts =");
-        Serial.println(dose.restarts); 
+        Serial.print("logs =");
+        Serial.println(dose.logs); 
         Serial.print("fails =");
         Serial.println(dose.fails); 
+        Serial.print("restarts =");
+        Serial.println(dose.restarts); 
      #endif   
 
         
@@ -1397,8 +1399,23 @@ void Menu_Ping(void){
   // create SDcard filename
       if (!finished_startup){
           if (openlog_ready) {
-              logfile_ready = true;
-              createFile(logfile_name);
+            logfile_ready = true;
+            createFile(logfile_name);
+            sprintf_P(strbuffer, PSTR(LOGFILE_HEADER));
+            OpenLog.print(strbuffer);
+            DEBUG_PRINT(strbuffer);
+            sprintf_P(strbuffer, PSTR(VERSION));
+            DEBUG_PRINTLN(strbuffer);
+            OpenLog.print(strbuffer);
+            //added extra info
+            sprintf_P(strbuffer, PSTR("# Logs=%d Fails=%d Restarts=%d"),  \
+              dose.logs, \
+              dose.fails, \
+              dose.restarts);
+            OpenLog.print(strbuffer);
+            DEBUG_PRINTLN(strbuffer);
+
+            
           }
         }
               
@@ -1779,6 +1796,9 @@ void Menu_sensors(void){
  void Menu_counting(void){
             // read battery     
            float battery =((read_voltage(VOLTAGE_PIN)));
+           float temperature = getTemp();
+           char temperature_string[5];
+           dtostrf(temperature, 0, 0, temperature_string);
            displayTimeOn= true;
            lcd.clear();
            previousMillis=millis() ;
@@ -1823,7 +1843,7 @@ void Menu_sensors(void){
               lcd.print("0"); 
               lcd.print("uSh");
               lcd.setCursor(0,2);
-              lcd.print("API:");
+              lcd.print(config.dev? "DEV:":"API:");
               lcd.setCursor(4, 2);
               printDigits(hour());
               lcd.print(":");
@@ -1833,9 +1853,9 @@ void Menu_sensors(void){
               lcd.print("STARTUP");
               lcd.setCursor(0,3);
               lcd.print("STS:");
-                  if (config.dev){
-                    lcd.print("DEV");
-                    }
+              lcd.setCursor(4,3);
+              lcd.print(temperature_string);
+              lcd.print("C");  
               lcd.setCursor(8,3);
               lcd.print(battery);
               lcd.print("V");
@@ -2012,7 +2032,7 @@ int tempID=config.user_id + 8;
       lcd.print(uSv2);
       lcd.print("uSh");
       lcd.setCursor(0,2);
-      lcd.print("API:");
+      lcd.print(config.dev? "DEV:":"API:");
 
 
 // convert degree to NMAE
@@ -2392,9 +2412,9 @@ int tempID=config.user_id + 8;
             //display battery
                 lcd.setCursor(0,3);
                 lcd.print("STS:");
-                  if (config.dev){
-                        lcd.print("DEV");
-                  }
+                lcd.setCursor(4,3);
+                lcd.print(temperature_string);
+                lcd.print("C");  
                 lcd.setCursor(8,3);
                 lcd.print(battery);
                 lcd.print("V");
@@ -2461,7 +2481,6 @@ if (CPM2 > (int)(config.S2peak)) {
 //Get temp and Battery
 float battery = ((read_voltage(VOLTAGE_PIN)));
 float temperature = getTemp();
-
 char temperature_string[5];
 dtostrf(temperature, 0, 0, temperature_string);
 char battery_string[5];
@@ -2507,7 +2526,7 @@ if (CPM2 >= 1000) {
 lcd.print(uSv2);
 lcd.print("uSh");
 lcd.setCursor(0, 2);
-lcd.print("API:");
+lcd.print(config.dev? "DEV:":"API:");
 lcd.print("sending ");
 
 
@@ -2698,11 +2717,11 @@ if (a3gs.httpPOST(strbuffer, port, path, header, body, res, &len, useHTTPS) == 0
   lcd.setCursor(13, 2);
   lcd.print("PASS   ");
   lcd.setCursor(0, 3);
-   lcd.setCursor(0,3);
+  lcd.setCursor(0,3);
   lcd.print("STS:");
-      if (config.dev){
-        lcd.print("DEV");
-        }
+  lcd.setCursor(4,3);
+  lcd.print(temperature_string);
+  lcd.print("C");  
   lcd.setCursor(8,3);
   lcd.print(battery);
   lcd.print("V");
@@ -2945,7 +2964,7 @@ void Menu_stat2() {
                lcd.print(dose.logs);
                lcd.setCursor(0,2);
                lcd.print("#fail=");
-               lcd.print(failures);
+               lcd.print(dose.fails);
                lcd.setCursor(0,3);
                lcd.print("#restarts=");
                lcd.print(dose.restarts);               

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE eagle SYSTEM "eagle.dtd">
-<eagle version="7.2.0">
+<eagle version="7.5.0">
 <drawing>
 <settings>
 <setting alwaysvectorfont="no"/>
@@ -11021,6 +11021,19 @@ Source: AVX .. aphvc.pdf</description>
 <wire x1="106.68" y1="185.42" x2="106.68" y2="193.04" width="0.1524" layer="91"/>
 <wire x1="106.68" y1="193.04" x2="114.3" y2="193.04" width="0.1524" layer="91"/>
 <pinref part="C2" gate="G$1" pin="2"/>
+</segment>
+</net>
+<net name="N$22" class="0">
+<segment>
+<pinref part="JP3" gate="G$1" pin="14"/>
+<wire x1="160.02" y1="198.12" x2="152.4" y2="198.12" width="0.1524" layer="91"/>
+<wire x1="152.4" y1="198.12" x2="152.4" y2="165.1" width="0.1524" layer="91"/>
+<wire x1="152.4" y1="165.1" x2="119.38" y2="165.1" width="0.1524" layer="91"/>
+<wire x1="119.38" y1="165.1" x2="119.38" y2="195.58" width="0.1524" layer="91"/>
+<wire x1="119.38" y1="195.58" x2="101.6" y2="195.58" width="0.1524" layer="91"/>
+<wire x1="101.6" y1="195.58" x2="101.6" y2="190.5" width="0.1524" layer="91"/>
+<pinref part="TEENSY" gate="G$1" pin="PGM"/>
+<wire x1="101.6" y1="190.5" x2="96.52" y2="190.5" width="0.1524" layer="91"/>
 </segment>
 </net>
 </nets>

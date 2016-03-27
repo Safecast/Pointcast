@@ -23,12 +23,15 @@
 #define BMRDD_EEPROM_MARKER 0x5afeF00d
 
 
-#define ENABLE_3G             0
-#define ENABLE_ETHERNET       1
+#define ENABLE_3G             1
+#define ENABLE_ETHERNET       0
 #define ENABLE_EEPROM_DOSE    1
 
 #define HEADER_SENSOR  "PNTXS"
 #define HEADER  "PNTDD"
+
+   // log file headers
+#define LOGFILE_HEADER "# NEW LOG\n# format="
 
    typedef enum {
     SENSOR_ENABLED_FALSE = 0,
