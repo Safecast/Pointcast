@@ -137,6 +137,8 @@ History Versions:
 2016-03-14 V3.7.5  moved countdown and delayed displaying countdown
 2016-03-16 V3.7.6  added fails, restarts and createfile numbers to EEprom. Added restarts and fails to secondline in SDCard
 2016-03-17 V3.7.7  file creation counts (logs in stats) added. 
+2016-03-27 V3.7.8  Display API/DEV toggle implemented , logging new lot to sdcard with stats
+2016-03-28 V3.7.9  Fixed after EPROM erase not counting error
 
 contact rob@yr-design.biz
  */
@@ -235,7 +237,7 @@ char body3[512];
 
 
 //static
-    static char VERSION[] = "V3.7.8";
+    static char VERSION[] = "V3.7.9";
 
     #if ENABLE_3G
     static char path[LINE_SZ];
@@ -534,7 +536,6 @@ void setup() {
         attachInterrupt(JOY_D_PIN, joyD_Callback, FALLING);     
         attachInterrupt(JOY_E_PIN, joyE_Callback, FALLING);   
 
-
           
     //set up the LCD's number of columns and rows: 
           lcd.begin(20, 4);
@@ -597,20 +598,6 @@ void Menu_startup(void){
                      lcd.setCursor(0, 3);
                      lcd.print("http://safecast.org");         
           
-              // SENSOR 1 setup
-              if (config.sensor1_enabled) {
-                  conversionCoefficient = 1/config.sensor1_cpm_factor; // 0.0029;
-                  pinMode(14, INPUT_PULLUP);
-                  attachInterrupt(14, onPulse, interruptMode);
-              }
-              
-              // SENSOR 2 setup
-               if (config.sensor2_enabled) {
-                  conversionCoefficient2 = 1/config.sensor2_cpm_factor; // 0.0029;
-                  pinMode(15,INPUT_PULLUP);
-                  attachInterrupt(15, onPulse2, interruptMode);
-                  
-              }
           
               //LED1(green) setup
                 pinMode(green_ledPin, OUTPUT);
@@ -790,7 +777,19 @@ void Menu_sdcard(void){
 
           }
        }
-     
+         // SENSOR 1 setup
+      if (config.sensor1_enabled) {
+          conversionCoefficient = 1/config.sensor1_cpm_factor; // 0.0029;
+          pinMode(14, INPUT_PULLUP);
+          attachInterrupt(14, onPulse, interruptMode);
+      }
+      
+    // SENSOR 2 setup
+       if (config.sensor2_enabled) {
+          conversionCoefficient2 = 1/config.sensor2_cpm_factor; // 0.0029;
+          pinMode(15,INPUT_PULLUP);
+          attachInterrupt(15, onPulse2, interruptMode);
+      }
 
   Menu_network();
 }  
@@ -1832,15 +1831,15 @@ void Menu_sensors(void){
 
               lcd.setCursor(0, 0);
               lcd.print("S1:");
-              lcd.print("0"); 
+              lcd.print("-"); 
               lcd.print(" CPM ");  
-              lcd.print("0"); 
+              lcd.print("-"); 
               lcd.print("uSh"); 
               lcd.setCursor(0,1);    
               lcd.print("S2:");
-              lcd.print("0"); 
+              lcd.print("-"); 
               lcd.print(" CPM ");
-              lcd.print("0"); 
+              lcd.print("-"); 
               lcd.print("uSh");
               lcd.setCursor(0,2);
               lcd.print(config.dev? "DEV:":"API:");
@@ -2866,6 +2865,10 @@ void loop() {
 
       float CPM = (float)counts_per_sample / (float)updateIntervalInMinutes/5;
       float CPM2 = (float)counts_per_sample2 / (float)updateIntervalInMinutes/5;
+      Serial.print("CPM=");
+      Serial.println(CPM);
+      Serial.print("CPM2=");
+      Serial.println(CPM2);
 
       counts_per_sample = 0;
       counts_per_sample2 = 0;

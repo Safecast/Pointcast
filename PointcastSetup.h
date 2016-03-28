@@ -33,10 +33,6 @@
    // log file headers
 #define LOGFILE_HEADER "# NEW LOG\n# format="
 
-   typedef enum {
-    SENSOR_ENABLED_FALSE = 0,
-    SENSOR_ENABLED_TRUE,
-  } SensorEnabled;
 
   typedef struct {
     unsigned long total_count;
