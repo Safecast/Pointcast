@@ -103,7 +103,7 @@ while(pos < line_lenght){
 
   // Search for '=' ignoring white spaces
   while(config_buffer[i] != '=') {
-    if(config_buffer[i] == ' ' || config_buffer[i] == '\t') config_buffer[i] = '\0';
+    if(config_buffer[i] == ' ' || config_buffer[i] == '\t'|| config_buffer[i] == '\r') config_buffer[i] = '\0';
     if(++i == buffer_lenght) {
       break;
     }

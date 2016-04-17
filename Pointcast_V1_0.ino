@@ -139,6 +139,8 @@ History Versions:
 2016-03-17 V3.7.7  file creation counts (logs in stats) added. 
 2016-03-27 V3.7.8  Display API/DEV toggle implemented , logging new lot to sdcard with stats
 2016-03-28 V3.7.9  Fixed after EPROM erase not counting error
+2016-04-02 V3.8.0  Sliding window cpm calaculation
+2016-04-02 V3.8.1  Reading sdcard remove "\r" (windows)
 
 contact rob@yr-design.biz
  */
@@ -162,6 +164,7 @@ contact rob@yr-design.biz
 #include <i2c_t3.h>
 #include <LiquidCrystal_I2C.h>
 #include <OneWire.h>
+#include <limits.h>
 #include "a3gim.h"
 #include "PointcastSetup.h"
 #include "PointcastDebug.h"
@@ -189,6 +192,11 @@ int red_ledPin=26;
 #define VOLTAGE_PIN A13
 #define VOLTAGE_R1 100000
 #define VOLTAGE_R2 10000
+
+//sliding windows counting variables
+#define NX 60
+#define TIME_INTERVAL 1000
+#define IS_READY (interruptCounterAvailable())
 
 //setup Onewire for temp sensor
 #include <OneWire.h>
@@ -237,7 +245,7 @@ char body3[512];
 
 
 //static
-    static char VERSION[] = "V3.7.9";
+    static char VERSION[] = "V3.8.1";
 
     #if ENABLE_3G
     static char path[LINE_SZ];
@@ -314,12 +322,52 @@ char body3[512];
     unsigned long elapsedTime(unsigned long startTime);
     unsigned long previousMillis=0;
     unsigned long currentmillis=0;
-    unsigned long total_count = 0;
     unsigned long total_time = 0;
     long display_days=0;
     long display_hours=0;
     long display_mins=0;
     long display_secs=0;
+
+//long for sliding window
+    unsigned long shift_reg[NX] = {0};
+    unsigned long shift_reg2[NX] = {0};
+    unsigned long reg_index = 0;
+    unsigned long reg_index2 = 0;
+    unsigned long total_count = 0;
+    unsigned long max_count = 0;
+    unsigned long uptime = 0;
+    unsigned long _start_time;
+    unsigned long _delay=1000;
+    unsigned long _count=0;
+    unsigned long cpm1=0, cpm2=0, cpb1=0, cpb2=0;
+
+unsigned long cpm_gen1()
+      {
+         unsigned int i;
+         unsigned long c_p_m1 = 0;
+
+         // sum up
+         for (i=0 ; i < NX ; i++)
+         c_p_m1 += shift_reg[i];
+         //  deadtime compensation (medcom international)
+//         c_p_m1 = (unsigned long)((float)c_p_m1/(1-(((float)c_p_m1*1.8833e-6))));
+         return c_p_m1;
+      }
+
+
+unsigned long cpm_gen2()
+      {
+         unsigned int i;
+         unsigned long c_p_m2 = 0;
+
+         // sum up
+         for (i=0 ; i < NX ; i++)
+         c_p_m2 += shift_reg2[i];
+
+         //  deadtime compensation (medcom international)
+//         c_p_m2 = (unsigned long)((float)c_p_m2/(1-(((float)c_p_m2*1.8833e-6))));
+         return c_p_m2;
+      }
  
 // Interval is how long display  wait
    int display_interval = 2000;
@@ -445,6 +493,42 @@ char body3[512];
     {
         counts_per_sample2++;
     }
+
+
+//sliding windows setup
+      void interruptCounterReset()
+      {
+        // set start time
+        _start_time = millis();
+        // set count to zero (optional)
+        counts_per_sample = 0;
+        counts_per_sample2 = 0;
+      }
+      
+      int interruptCounterAvailable()
+      {
+        // get current time
+        unsigned long now = millis();
+        // do basic check for millis overflow
+        if (now >= _start_time)
+          return (now - _start_time >= _delay);
+        else
+          return (ULONG_MAX + now - _start_time >= _delay);
+      }
+      
+      // return current number of counts
+      unsigned long interruptCounterCount()
+      {
+        return counts_per_sample;
+      }
+      
+      // return current number of counts
+      unsigned long interruptCounterCount2()
+      {
+        return counts_per_sample2;
+      }
+
+    
     
 //Joy Switch     
     void joyA_Callback()
@@ -579,7 +663,7 @@ void Menu_startup(void){
                      #ifdef ENABLE_DEBUG
                                 Serial.println ("Down");
                       #endif 
-                       joyCntA=!joyCntA;joyCntB=false;lcd.clear();display_interval=3000;Menu_system();return;}
+                     joyCntA=!joyCntA;joyCntB=false;lcd.clear();display_interval=3000;Menu_system();return;}
                      if (joyCntE){ 
                           #ifdef ENABLE_DEBUG
                               Serial.println ("Enter");
@@ -645,6 +729,12 @@ void Menu_startup(void){
                                 Serial.println ("Down");
                       #endif 
                       joyCntA=!joyCntA;joyCntB=false;lcd.clear();display_interval=3000;Menu_sdcard();return;}
+                      if (joyCntE){ 
+                          #ifdef ENABLE_DEBUG
+                              Serial.println ("Enter");
+                          #endif
+                          joyCntE=!joyCntE;joyCntB=false;joyCntA=false;display_interval=100000;}
+
 
                lcd.setCursor(0, 0);
                lcd.print("System");
@@ -720,16 +810,22 @@ void Menu_sdcard(void){
            while ((unsigned long)(millis() - previousMillis) <= display_interval) {
                      
            if (joyCntB){                           
-           #ifdef ENABLE_DEBUG
-                      Serial.println ("Up");
-            #endif 
+               #ifdef ENABLE_DEBUG
+                          Serial.println ("Up");
+                #endif 
             joyCntB=!joyCntB;joyCntA=false;lcd.clear();display_interval=3000;Menu_system();return;}
            
            if (joyCntA){                           
-           #ifdef ENABLE_DEBUG
-                      Serial.println ("Down");
-            #endif 
+               #ifdef ENABLE_DEBUG
+                          Serial.println ("Down");
+               #endif 
              joyCntA=!joyCntA;joyCntB=false;lcd.clear();display_interval=3000;Menu_network();return;}
+
+           if (joyCntE){ 
+              #ifdef ENABLE_DEBUG
+                  Serial.println ("Enter");
+              #endif
+          joyCntE=!joyCntE;joyCntB=false;joyCntA=false;display_interval=100000;}
                      if(!sdcard_startup){
                         lcd.setCursor(8, 0);
                         lcd.print(" PASS"); 
@@ -866,9 +962,10 @@ void Menu_network(void){
                               {
                           #ifdef ENABLE_DEBUG
                               Serial.println("Failed DHCP");
-                          #endif  
+                          #endif 
                           ethernetfailed = true;
                           Ethernet.begin(macAddress, localIP);
+
                            //alarm peep
                              digitalWrite(28, HIGH);
                              pinMode(28, OUTPUT);
@@ -932,6 +1029,12 @@ void Menu_network(void){
                                 Serial.println ("Down");
                       #endif 
                        joyCntA=!joyCntA;joyCntB=false;lcd.clear();display_interval=3000;Menu_datalogger();return;}
+
+                      if (joyCntE){ 
+                        #ifdef ENABLE_DEBUG
+                            Serial.println ("Enter");
+                        #endif
+                    joyCntE=!joyCntE;joyCntB=false;joyCntA=false;display_interval=100000;}
 
                         lcd.setCursor(0, 0);
                         lcd.print("NETWORK ETHER (DHCP)");
@@ -1042,6 +1145,12 @@ void Menu_network(void){
                                 Serial.println ("Down");
                       #endif 
                        joyCntA=!joyCntA;joyCntB=false;lcd.clear();display_interval=3000;Menu_network_test();return;}
+                       
+                      if (joyCntE){ 
+                        #ifdef ENABLE_DEBUG
+                            Serial.println ("Enter");
+                        #endif
+                        joyCntE=!joyCntE;joyCntB=false;joyCntA=false;display_interval=100000;}
 
                         lcd.setCursor(0, 0);
                         lcd.print("NETWORK 3G");
@@ -1089,13 +1198,20 @@ void Menu_network_test(void){
                      #ifdef ENABLE_DEBUG
                                 Serial.println ("Down");
                       #endif 
-                       joyCntA=!joyCntA;joyCntB=false;joyCntD=false;lcd.clear();display_interval=3000;Menu_datalogger();return;}
+                       joyCntA=!joyCntA;joyCntB=false;joyCntD=false;lcd.clear();display_interval=3000;Menu_Ping();return;}
 
                     if (joyCntD){                           
                      #ifdef ENABLE_DEBUG
                                 Serial.println ("Right");
                       #endif 
                        joyCntD=!joyCntD;joyCntA=false;joyCntB=false;lcd.clear();display_interval=5000;Menu_Ping();return;}
+
+
+                      if (joyCntE){ 
+                        #ifdef ENABLE_DEBUG
+                            Serial.println ("Enter");
+                        #endif
+                        joyCntE=!joyCntE;joyCntB=false;joyCntA=false;display_interval=100000;}
 
                         lcd.setCursor(0, 0);
                         lcd.print("NETWORK TEST ETHER");
@@ -1184,6 +1300,13 @@ void Menu_network_test(void){
                                 Serial.println ("Right");
                       #endif 
                        joyCntD=!joyCntD;joyCntA=false;joyCntB=false;lcd.clear();display_interval=5000;Menu_Ping();return;}
+
+
+                       if (joyCntE){ 
+                        #ifdef ENABLE_DEBUG
+                            Serial.println ("Enter");
+                        #endif
+                        joyCntE=!joyCntE;joyCntB=false;joyCntA=false;display_interval=100000;}
 
                         lcd.setCursor(0, 0);
                         lcd.print("NETWORK 3G TEST");
@@ -1318,6 +1441,13 @@ void Menu_Ping(void){
                       #endif 
                        joyCntA=!joyCntA;joyCntB=false;joyCntD=false;lcd.clear();display_interval=3000;Menu_network_test();return;}
 
+
+                      if (joyCntE){ 
+                        #ifdef ENABLE_DEBUG
+                            Serial.println ("Enter");
+                        #endif
+                        joyCntE=!joyCntE;joyCntB=false;joyCntA=false;display_interval=100000;}
+
                     lcd.setCursor(0, 0);
                     lcd.print("Ping Test ");
                     lcd.setCursor(0, 2);
@@ -1368,6 +1498,12 @@ void Menu_Ping(void){
                                 Serial.println ("Down");
                       #endif 
                        joyCntA=!joyCntA;joyCntB=false;lcd.clear();display_interval=3000;Menu_RTC();return;}
+
+                     if (joyCntE){ 
+                        #ifdef ENABLE_DEBUG
+                            Serial.println ("Enter");
+                        #endif
+                        joyCntE=!joyCntE;joyCntB=false;joyCntA=false;display_interval=100000;}
 
                     lcd.setCursor(0, 0);
                     lcd.print("TIME (GMT)");
@@ -1455,6 +1591,12 @@ void Menu_Ping(void){
                       #endif 
                        joyCntA=!joyCntA;joyCntB=false; joyCntD=false;lcd.clear();display_interval=3000;Menu_pointcast1();return;}
 
+                       if (joyCntE){ 
+                        #ifdef ENABLE_DEBUG
+                            Serial.println ("Enter");
+                        #endif
+                        joyCntE=!joyCntE;joyCntB=false;joyCntA=false;display_interval=100000;}
+
               
               if (!timeStatus()!= timeSet) {
                     lcd.setCursor(0, 0);
@@ -1511,6 +1653,12 @@ void Menu_pointcast1(void){
                       #endif 
                        joyCntA=!joyCntA;joyCntB=false;lcd.clear();display_interval=3000;Menu_pointcast2();return;}
 
+                     if (joyCntE){ 
+                        #ifdef ENABLE_DEBUG
+                            Serial.println ("Enter");
+                        #endif
+                        joyCntE=!joyCntE;joyCntB=false;joyCntA=false;display_interval=100000;}
+
                 lcd.setCursor(0, 0);
                 lcd.print("POINTCAST SETUP");
                 lcd.setCursor(0, 1);
@@ -1543,13 +1691,19 @@ void Menu_pointcast1(void){
                      #ifdef ENABLE_DEBUG
                                 Serial.println ("Up");
                       #endif 
- joyCntB=!joyCntB;joyCntA=false;lcd.clear();display_interval=3000;Menu_pointcast1();return;}
+                      joyCntB=!joyCntB;joyCntA=false;lcd.clear();display_interval=3000;Menu_pointcast1();return;}
                      
                      if (joyCntA){                           
                      #ifdef ENABLE_DEBUG
                                 Serial.println ("Down");
                       #endif 
                        joyCntA=!joyCntA;joyCntB=false;lcd.clear();display_interval=3000;Menu_gps();return;}
+                                             
+                     if (joyCntE){ 
+                        #ifdef ENABLE_DEBUG
+                            Serial.println ("Enter");
+                        #endif
+                        joyCntE=!joyCntE;joyCntB=false;joyCntA=false;display_interval=100000;}
 
                 lcd.setCursor(0, 0);
                 lcd.print("UPLOAD MODE");
@@ -1584,6 +1738,12 @@ void Menu_pointcast1(void){
                                 Serial.println ("Down");
                       #endif 
                        joyCntA=!joyCntA;joyCntB=false;lcd.clear();display_interval=3000;Menu_sensors();return;}
+
+                     if (joyCntE){ 
+                        #ifdef ENABLE_DEBUG
+                            Serial.println ("Enter");
+                        #endif
+                        joyCntE=!joyCntE;joyCntB=false;joyCntA=false;display_interval=100000;}
 
               lcd.setCursor(0, 0);
               lcd.print("GPS LOCATION");
@@ -1632,6 +1792,12 @@ void Menu_sensors(void){
                       #endif 
                        joyCntA=!joyCntA;joyCntB=false;lcd.clear();display_interval=3000;Menu_sensors_tests();return;}
 
+                     if (joyCntE){ 
+                        #ifdef ENABLE_DEBUG
+                            Serial.println ("Enter");
+                        #endif
+                        joyCntE=!joyCntE;joyCntB=false;joyCntA=false;display_interval=100000;}
+
               lcd.setCursor(0, 0);
               lcd.print("SENSORS ");
               if (config.sensor1_enabled & config.sensor2_enabled ) {
@@ -1669,13 +1835,20 @@ void Menu_sensors(void){
                      #ifdef ENABLE_DEBUG
                                 Serial.println ("Up");
                       #endif 
- joyCntB=!joyCntB;joyCntA=false;lcd.clear();display_interval=3000;Menu_sensors();return;}
+                      joyCntB=!joyCntB;joyCntA=false;lcd.clear();display_interval=3000;Menu_sensors();return;}
                      
                      if (joyCntA){                           
                      #ifdef ENABLE_DEBUG
                                 Serial.println ("Down");
                       #endif 
                        joyCntA=!joyCntA;joyCntB=false;lcd.clear();display_interval=3000;Menu_api();return;}
+
+
+                       if (joyCntE){ 
+                        #ifdef ENABLE_DEBUG
+                            Serial.println ("Enter");
+                        #endif
+                        joyCntE=!joyCntE;joyCntB=false;joyCntA=false;display_interval=100000;}
 
                 lcd.setCursor(0, 0);
                 lcd.print("SENSOR TEST");
@@ -1732,6 +1905,12 @@ void Menu_sensors(void){
                       #endif 
                        joyCntA=!joyCntA;joyCntB=false;lcd.clear();display_interval=3000;Menu_datalogger();return;}
 
+                     if (joyCntE){ 
+                        #ifdef ENABLE_DEBUG
+                            Serial.println ("Enter");
+                        #endif
+                        joyCntE=!joyCntE;joyCntB=false;joyCntA=false;display_interval=100000;}
+
               lcd.setCursor(0, 0);
               lcd.print("API");
               lcd.setCursor(5, 0);
@@ -1777,6 +1956,12 @@ void Menu_sensors(void){
                       #endif 
                        joyCntA=!joyCntA;joyCntB=false;lcd.clear();display_interval=3000;Menu_counting();return;}
 
+                     if (joyCntE){ 
+                        #ifdef ENABLE_DEBUG
+                            Serial.println ("Enter");
+                        #endif
+                        joyCntE=!joyCntE;joyCntB=false;joyCntA=false;display_interval=100000;}
+
                 lcd.setCursor(0, 0);
                 lcd.print("DATA LOGGER");
                 lcd.setCursor(0, 1);
@@ -1799,6 +1984,7 @@ void Menu_sensors(void){
            char temperature_string[5];
            dtostrf(temperature, 0, 0, temperature_string);
            displayTimeOn= true;
+
            lcd.clear();
            previousMillis=millis() ;
         if (!config.trb){
@@ -1807,7 +1993,7 @@ void Menu_sensors(void){
         if (config.trb){
             updateIntervalInMillis = updateIntervalInMinutes * 6000; 
         }  
-           display_interval= 6000;
+           display_interval= 1000;
            while ((unsigned long)(millis() - previousMillis) <= display_interval) {
                       unsigned long now1 = millis();
                       nextExecuteMillis = now1 + updateIntervalInMillis;
@@ -1828,6 +2014,13 @@ void Menu_sensors(void){
                           Serial.println ("Right");
                       #endif
                        joyCntD=!joyCntD;joyCntA=false;joyCntB=false;lcd.clear();display_interval=3000;Menu_term(); return;}
+
+
+                     if (joyCntE){ 
+                        #ifdef ENABLE_DEBUG
+                            Serial.println ("Enter");
+                        #endif
+                        joyCntE=!joyCntE;joyCntB=false;joyCntA=false;display_interval=100000;}
 
               lcd.setCursor(0, 0);
               lcd.print("S1:");
@@ -2802,35 +2995,29 @@ void loop() {
          finished_startup = true;
 
        //timer setup
-        if (!config.trb){
-            updateIntervalInMillis = updateIntervalInMinutes * 300000; 
-        }
-        if (config.trb){
-            updateIntervalInMillis = updateIntervalInMinutes * 6000; 
-        }   
+//        if (!config.trb){
+//            updateIntervalInMillis = updateIntervalInMinutes * 300000; 
+//        }
+//        if (config.trb){
+//            updateIntervalInMillis = updateIntervalInMinutes * 6000; 
+//        }   
 
            int leftMillis = (updateIntervalInMillis-elapsedTime(lastConnectionTime));
            int left_secs = leftMillis/1000; //convert milliseconds to seconds
            int left_mins=left_secs/60; //convert seconds to minutes          
            left_secs=left_secs-(left_mins*60); //subtract the converted seconds to minutes in order to display 59 secs max 
           
-       // Serial.printf("%d:%d\n", left_mins, left_secs);
-      //display current time 
+      //display current countdown time 
            if (displayTimeOn){
-                // lcd.setCursor(4, 2);
-                // printDigits(hour());
-                // lcd.print(":");
-                // printDigits(minute());
-                // lcd.print("GMT");
-
-                lcd.setCursor(13, 3);
-                // lcd.printf("  %d:%d", left_mins, left_secs);
+                lcd.setCursor(13, 3); 
                 lcd.print("  ");
                 printDigits(left_mins);
                 lcd.print(":");
                 printDigits(left_secs);
             }
-
+              
+              
+      unsigned long cpm=0, cpb1=0, cpb2=0;
            
       if (elapsedTime(lastConnectionTime) < updateIntervalInMillis)
       {
@@ -2858,24 +3045,102 @@ void loop() {
                           Serial.println ("Right"); 
                      #endif
                         joyCntD=!joyCntD;joyCntA=false;joyCntB=false;lcd.clear();joyCntE=false;display_interval=1000;Menu_term(); return;} 
+
+
+         //sliding window setup
+
+          if IS_READY {
+    
+            
+                  cpb1 = interruptCounterCount();
+                  cpb2 = interruptCounterCount2();
+            
+                  interruptCounterReset();
+            
+                  // insert count in sliding window and compute CPM
+                  shift_reg[reg_index] = cpb1;     // put the count in the correct bin
+                  reg_index = (reg_index+1) % NX; // increment register index
+                  cpm1 = cpm_gen1();                // compute sum over all bins
+            
+                  // insert count in sliding window and compute CPM2
+                  shift_reg2[reg_index2] = cpb2;    // put the count in the correct bin
+                  reg_index2 = (reg_index2+1) % NX; // increment register index
+                  cpm2 = cpm_gen2();  // compute sum over all bins
+
+  
+              }
+         
+         conversionCoefficient = 1/config.sensor1_cpm_factor; 
+         float uSv = cpm1 * conversionCoefficient;                   // convert CPM to Micro Sievers Per Hour
+         conversionCoefficient2 = 1/config.sensor2_cpm_factor; 
+         float uSv2 = cpm2 * conversionCoefficient2;                   // convert CPM to Micro Sievers Per Hour
+
+
+         lcd.setCursor(0, 0);
+         lcd.print("S1:");   
+          if(cpm1 >= 1000) {
+                dtostrf((float)(cpm1/1000.0), 4, 3, strbuffer);
+                strncpy (strbuffer1, strbuffer, 4);
+                if (strbuffer1[strlen(strbuffer1)-1] == '.') {
+                  strbuffer1[strlen(strbuffer1)-1] = 0;
+                }
+                lcd.print(strbuffer1);
+                sprintf_P(strbuffer, PSTR("kCPM "));
+                lcd.print(strbuffer);
+              } else {
+                dtostrf((float)cpm1, 0, 0, strbuffer);
+                lcd.print(strbuffer);
+                sprintf_P(strbuffer, PSTR(" CPM "));
+                lcd.print(strbuffer);
+              }   
+      lcd.print(uSv);
+      lcd.print("uSh"); 
+      lcd.setCursor(0,1);    
+      lcd.print("S2:");
+          if(cpm2 >= 1000) {
+                dtostrf((float)(cpm2/1000.0), 4, 3, strbuffer);
+                strncpy (strbuffer1, strbuffer, 4);
+                if (strbuffer1[strlen(strbuffer1)-1] == '.') {
+                  strbuffer1[strlen(strbuffer1)-1] = 0;
+                }
+                lcd.print(strbuffer1);
+                sprintf_P(strbuffer, PSTR("kCPM "));
+                lcd.print(strbuffer);
+              } else {
+                dtostrf((float)cpm2, 0, 0, strbuffer);
+                lcd.print(strbuffer);
+                sprintf_P(strbuffer, PSTR(" CPM "));
+                lcd.print(strbuffer);
+              }  
+      lcd.print(uSv2);
+      lcd.print("uSh");
+      lcd.setCursor(0,2);
+      lcd.print(config.dev? "DEV:":"API:");
+      
+         
+//        lcd.setCursor (0,1);
+//        lcd.print("S1=");
+//        lcd.print(cpm1);
+//        lcd.setCursor (0,2);
+//        lcd.print("S2=");
+//        lcd.print(cpm2);
+//        lcd.setCursor (0,3);
+
          Alarm.delay(0);
         return;
                 
       }
 
-      float CPM = (float)counts_per_sample / (float)updateIntervalInMinutes/5;
-      float CPM2 = (float)counts_per_sample2 / (float)updateIntervalInMinutes/5;
-      Serial.print("CPM=");
-      Serial.println(CPM);
-      Serial.print("CPM2=");
-      Serial.println(CPM2);
+//      float CPM = (float)counts_per_sample / (float)updateIntervalInMinutes/5;
+//      float CPM2 = (float)counts_per_sample2 / (float)updateIntervalInMinutes/5;
 
-      counts_per_sample = 0;
-      counts_per_sample2 = 0;
+//      counts_per_sample = 0;
+//      counts_per_sample2 = 0;
 
-      unsigned long now1 = millis();
+
   
-      SendDataToServer(CPM,CPM2);
+      SendDataToServer(cpm1,cpm2);
+      unsigned long now1 = millis();
   }
 
 
