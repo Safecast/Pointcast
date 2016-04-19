@@ -98,7 +98,7 @@ History Versions:
 2015-09-12 V3.2.6  Setup S1peak and S2peak and setup for uptime of sensor
 2015-09-15 V3.2.7  Terminal displays last failure
 2015-09-19 V3.2.8  Single sensor setup displaying no error on sensor test
-2015-09-19 V3.2.9  Reset every week on Saterday 9:30am (GMT)
+2015-09-19 V3.2.9  Reset every week on Saturday 9:30am (GMT)
 2015-10-03 V3.3.0  Beep 3 times and some display errors fix
 2015-10-09 V3.3.1  Added longer delay for 3G sending second sensor
 2015-10-09 V3.3.2  Fixed display failed error 3G.
@@ -113,33 +113,33 @@ History Versions:
 2015-12-16 V3.4.1  fixes fails display 
 2015-12-31 V3.4.2  Ethernet fixes fails display
 2016-01-05 V3.4.3  Change parameters in 3GIM for longer timeout of network and setup for 1024 body lenght  
-2016-01-07 V3.4.4  Changed delays in 3GIM for stablity
+2016-01-07 V3.4.4  Changed delays in 3GIM for stability
 2016-01-08 V3.4.5  Error messages fixed
 2016-01-15 V3.4.6  httpPost fixes for 3G
 2016-01-15 V3.4.7  serial confirm messages fix for 3G
-2016-01-24 V3.4.8  added code for swicing temperarture sensor 
-2016-01-26 V3.4.9  changed 3G send way by retsrating 3G module every time send.
+2016-01-24 V3.4.8  added code for switching temperature sensor 
+2016-01-26 V3.4.9  changed 3G send way by restarting 3G module every time send.
 2016-02-01 V3.5.0  Added Alarm function.
 2016-02-15 V3.5.1  3G fast reset
 2016-02-28 V3.5.8  reset after 5 times
-2016-03-02 V3.5.9  added code for correct data loggin name on SDcard.
-2016-03-03 V3.6.0  ethernet detect messages on fail
+2016-03-02 V3.5.9  added code for correct data login name on SDcard.
+2016-03-03 V3.6.0  Ethernet detect messages on fail
 2016-03-05 V3.6.3  redone menus
 2016-03-05 V3.6.4  Fixed time issues.
 2016-03-06 V3.6.5  Weekly restart redone
-2016-03-08 V3.6.6  cleanout code
+2016-03-08 V3.6.6  clean out code
 2016-03-09 V3.6.7  RTC menu
 2016-03-11 V3.6.8  Ping to api.safecast.org
-2016-03-13 V3.7.1  Redown screen flow
+2016-03-13 V3.7.1  Redone screen flow
 2016-03-13 V3.7.2  ping to Google.com/gw02/gw02 setup
 2016-03-14 V3.7.3  setup timing for 3G refresh
 2016-03-14 V3.7.4  ping http://safecast-production.s3.amazonaws.com
 2016-03-14 V3.7.5  moved countdown and delayed displaying countdown
-2016-03-16 V3.7.6  added fails, restarts and createfile numbers to EEprom. Added restarts and fails to secondline in SDCard
+2016-03-16 V3.7.6  added fails, restarts and create file numbers to EEprom. Added restarts and fails to second line in SDCard
 2016-03-17 V3.7.7  file creation counts (logs in stats) added. 
 2016-03-27 V3.7.8  Display API/DEV toggle implemented , logging new lot to sdcard with stats
 2016-03-28 V3.7.9  Fixed after EPROM erase not counting error
-2016-04-02 V3.8.0  Sliding window cpm calaculation
+2016-04-02 V3.8.0  Sliding window cpm calculation
 2016-04-02 V3.8.1  Reading sdcard remove "\r" (windows)
 
 contact rob@yr-design.biz
@@ -245,7 +245,7 @@ char body3[512];
 
 
 //static
-    static char VERSION[] = "V3.8.1";
+    static char VERSION[] = "V3.8.2";
 
     #if ENABLE_3G
     static char path[LINE_SZ];
@@ -2014,13 +2014,6 @@ void Menu_sensors(void){
                           Serial.println ("Right");
                       #endif
                        joyCntD=!joyCntD;joyCntA=false;joyCntB=false;lcd.clear();display_interval=3000;Menu_term(); return;}
-
-
-                     if (joyCntE){ 
-                        #ifdef ENABLE_DEBUG
-                            Serial.println ("Enter");
-                        #endif
-                        joyCntE=!joyCntE;joyCntB=false;joyCntA=false;display_interval=100000;}
 
               lcd.setCursor(0, 0);
               lcd.print("S1:");
