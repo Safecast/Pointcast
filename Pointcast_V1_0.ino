@@ -141,6 +141,8 @@ History Versions:
 2016-03-28 V3.7.9  Fixed after EPROM erase not counting error
 2016-04-02 V3.8.0  Sliding window cpm calculation
 2016-04-02 V3.8.1  Reading sdcard remove "\r" (windows)
+2016-04-19 V3.8.2  push down key delay for menu
+2016-04-21 V3.8.3  start counting oafter all screen of startup are done
 
 contact rob@yr-design.biz
  */
@@ -245,7 +247,7 @@ char body3[512];
 
 
 //static
-    static char VERSION[] = "V3.8.2";
+    static char VERSION[] = "V3.8.3";
 
     #if ENABLE_3G
     static char path[LINE_SZ];
@@ -1978,7 +1980,13 @@ void Menu_sensors(void){
 // Counting Screen
 /**************************************************************************/   
  void Menu_counting(void){
-            // read battery     
+
+           //start at 0
+           if (!finished_startup){
+           lastConnectionTime = millis();
+           }
+            
+            // read battery ]    
            float battery =((read_voltage(VOLTAGE_PIN)));
            float temperature = getTemp();
            char temperature_string[5];
@@ -2008,7 +2016,7 @@ void Menu_sensors(void){
                      #ifdef ENABLE_DEBUG
                                 Serial.println ("Down");
                       #endif 
-                       joyCntA=!joyCntA;joyCntB=false;display_interval=500;loop();return;}
+                     joyCntA=!joyCntA;joyCntB=false;display_interval=500;loop();return;}
                      if (joyCntD){ 
                       #ifdef ENABLE_DEBUG
                           Serial.println ("Right");
@@ -2339,7 +2347,7 @@ int tempID=config.user_id + 8;
                 #ifdef ENABLE_DEBUG
                     Serial.println("Connected");
                 #endif 
-                lastConnectionTime = millis();
+                
 
                 // clear the connection fail count if we have at least one successful connection
                 ctrl.conn_fail_cnt = 0;
@@ -2431,7 +2439,7 @@ int tempID=config.user_id + 8;
                 #ifdef ENABLE_DEBUG
                     Serial.println("Connected");
                 #endif 
-                lastConnectionTime = millis();
+       
 
                 // clear the connection fail count if we have at least one successful connection
                 ctrl.conn_fail_cnt = 0;
@@ -2552,7 +2560,7 @@ int tempID=config.user_id + 8;
                           {
                             CPU_RESTART;
                           }
-                          lastConnectionTime = millis();
+   
                           return;
                         }
 
@@ -2610,6 +2618,8 @@ int tempID=config.user_id + 8;
                 lcd.print(":");
                 printDigits(minute());
                 lcd.print("GMT");
+
+            lastConnectionTime = millis();
       return;
 
 #endif
@@ -2920,7 +2930,6 @@ if (a3gs.httpPOST(strbuffer, port, path, header, body, res, &len, useHTTPS) == 0
 else {
 
   lcd.setCursor(13, 2);
-  lastConnectionTime = millis();
       #ifdef ENABLE_DEBUG
           Serial.println("No connection to API!");
           Serial.println("saving to SDcard only");
@@ -2984,7 +2993,6 @@ lcd.print("GMT");
 void loop() {
 
     // Main Loop
-    
          finished_startup = true;
 
        //timer setup
