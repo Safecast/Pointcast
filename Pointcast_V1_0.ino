@@ -145,7 +145,8 @@ History Versions:
 2016-04-21 V3.8.3  start counting after all screen of startup are done
 2016-04-27 V3.8.4  5 minutes count test
 2016-04-28 V3.8.5  fix for Reading sdcard remove "\r\n" (windows)
-2016-04-28 V3.8.6  added phone number setup from sdcard for 3G, changed display data to 1 minute, changed NX to 12 and delay to 5000 for 5 seconds measuring, KCPM 2 charater after decimal point
+2016-04-29 V3.8.6  added phone number setup from sdcard for 3G, changed display data to 1 minute, changed NX to 12 and delay to 5000 for 5 seconds measuring, KCPM 2 charater after decimal point
+2016-04-30 V3.8.7  fixed new line on new log on sdcard
 
 contact rob@yr-design.biz
  */
@@ -250,7 +251,7 @@ char body3[512];
 
 
 //static
-    static char VERSION[] = "V3.8.6";
+    static char VERSION[] = "V3.8.7";
 
     #if ENABLE_3G
     static char path[LINE_SZ];
@@ -1549,9 +1550,9 @@ void Menu_Ping(void){
             DEBUG_PRINTLN(strbuffer);
             OpenLog.print(strbuffer);
             //added extra info
-            sprintf_P(strbuffer, PSTR("# Logs=%d Fails=%d Restarts=%d"),  \
+            sprintf_P(strbuffer, PSTR("# Logs=%d Fails=%d Restarts=%d \n"),  \
               dose.logs, \
-              dose.fails, \
+              dose.fails, \ 
               dose.restarts);
             OpenLog.print(strbuffer);
             DEBUG_PRINTLN(strbuffer);
@@ -3093,7 +3094,7 @@ void loop() {
                           lcd.print(strbuffer);
                         }   
                   lcd.print(uSv);
-                  lcd.print("uSh"); 
+                  lcd.print("uSh "); 
                   lcd.setCursor(0,1);    
                   lcd.print("S2:");
                     if(cpm2 >= 1000) {
@@ -3112,7 +3113,7 @@ void loop() {
                           lcd.print(strbuffer);
                         }  
                   lcd.print(uSv2);
-                  lcd.print("uSh");
+                  lcd.print("uSh ");
                   lcd.setCursor(0,2);
                   lcd.print(config.dev? "DEV:":"API:");
                   left_mins_old--;
