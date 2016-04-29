@@ -54,7 +54,7 @@ mOpenlog.write(13); //This is \r
 
 while(1) {
   if(mOpenlog.available())
-    if(mOpenlog.read() == '\r') break;
+    if(mOpenlog.read() == '\r\n' || mOpenlog.read() == '\r' ) break;
 }
 
 // Read config file in memory
@@ -333,23 +333,41 @@ else if(strcmp(key, "macid") == 0) {
   strcpy(mConfig.macid, value);
   config_changed = true;
   DEBUG_PRINTLN("   - Update macid");
+  }
 }
-}
-#if ENABLE_EEPROM_DOSE
-else if(strcmp(key, "dose") == 0) {
-     // Reset total dose in EEPROM
-memset(&mDose, 0, sizeof(mDose));
-EEPROM_writeAnything(BMRDD_EEPROM_DOSE, mDose);
-DEBUG_PRINTLN("   - Reset total dose in EEPROM");
-}
-#endif
 
+else if(strcmp(key, "tel") == 0) {
+ if (strcmp(mConfig.tel, value) != 0 ) {
+  strcpy(mConfig.tel, value);
+  config_changed = true;
+  DEBUG_PRINTLN("   - Update tel");
+  }
 }
-DEBUG_PRINTLN("   - Done.");
 
-if (config_changed) {
-  // Configuration is changed
-DEBUG_PRINTLN("Update configuration in EEPROM");
-EEPROM_writeAnything(BMRDD_EEPROM_SETUP, mConfig);
+else if(strcmp(key, "ntp") == 0) {
+ if (strcmp(mConfig.ntp, value) != 0 ) {
+  strcpy(mConfig.ntp, value);
+  config_changed = true;
+  DEBUG_PRINTLN("   - Update NTP");
+  }
 }
+
+
+  #if ENABLE_EEPROM_DOSE
+  else if(strcmp(key, "dose") == 0) {
+       // Reset total dose in EEPROM
+  memset(&mDose, 0, sizeof(mDose));
+  EEPROM_writeAnything(BMRDD_EEPROM_DOSE, mDose);
+  DEBUG_PRINTLN("   - Reset total dose in EEPROM");
+  }
+  #endif
+
+  }
+  DEBUG_PRINTLN("   - Done.");
+
+  if (config_changed) {
+    // Configuration is changed
+  DEBUG_PRINTLN("Update configuration in EEPROM");
+  EEPROM_writeAnything(BMRDD_EEPROM_SETUP, mConfig);
+  }
 }

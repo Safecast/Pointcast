@@ -23,8 +23,8 @@
 #define BMRDD_EEPROM_MARKER 0x5afeF00d
 
 
-#define ENABLE_3G             0
-#define ENABLE_ETHERNET       1
+#define ENABLE_3G             1
+#define ENABLE_ETHERNET       0
 #define ENABLE_EEPROM_DOSE    1
 
 #define HEADER_SENSOR  "PNTXS"
@@ -78,6 +78,9 @@
   unsigned int S1peak;      //S1 peak level
   unsigned int S2peak;      //S2 peak level
   char last_failure[12];    //Last failure message
+  char tel[12];             //Phone number for 3G
+  char ntp[12];             //NTP hardcoded
+
 } ConfigType;
 
 // Write a template value into EEPROM address [ee]

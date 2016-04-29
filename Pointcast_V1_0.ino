@@ -143,7 +143,9 @@ History Versions:
 2016-04-02 V3.8.1  Reading sdcard remove "\r" (windows)
 2016-04-19 V3.8.2  push down key delay for menu
 2016-04-21 V3.8.3  start counting after all screen of startup are done
-2016-04-27 V3.8.4  start counting after all screen of startup are done
+2016-04-27 V3.8.4  5 minutes count test
+2016-04-28 V3.8.5  fix for Reading sdcard remove "\r\n" (windows)
+2016-04-28 V3.8.6  added phone number setup from sdcard for 3G, changed display data to 1 minute, changed NX to 12 and delay to 5000 for 5 seconds measuring, KCPM 2 charater after decimal point
 
 contact rob@yr-design.biz
  */
@@ -197,8 +199,8 @@ int red_ledPin=26;
 #define VOLTAGE_R2 10000
 
 //sliding windows counting variables
-#define NX 60
-#define TIME_INTERVAL 1000
+#define NX 12
+#define TIME_INTERVAL 5000
 #define IS_READY (interruptCounterAvailable())
 
 //setup Onewire for temp sensor
@@ -248,7 +250,7 @@ char body3[512];
 
 
 //static
-    static char VERSION[] = "V3.8.4";
+    static char VERSION[] = "V3.8.6";
 
     #if ENABLE_3G
     static char path[LINE_SZ];
@@ -319,6 +321,7 @@ char body3[512];
     int S1peak;
     int S2peak;
     int failures;
+    int left_mins_old = 4;
 
 
 //long
@@ -340,7 +343,7 @@ char body3[512];
     unsigned long max_count = 0;
     unsigned long uptime = 0;
     unsigned long _start_time;
-    unsigned long _delay=1000;
+    unsigned long _delay=5000;
     unsigned long _count=0;
     unsigned long cpm1=0, cpm2=0, cpb1=0, cpb2=0;
 
@@ -353,7 +356,7 @@ unsigned long cpm_gen1()
          for (i=0 ; i < NX ; i++)
          c_p_m1 += shift_reg[i];
 //         deadtime compensation (medcom international)
-         c_p_m1 = (unsigned long)((float)c_p_m1/(1-(((float)c_p_m1*1.8833e-6))));
+        c_p_m1 = (unsigned long)((float)c_p_m1/(1-(((float)c_p_m1*1.8833e-6))));
          return c_p_m1;
       }
 
@@ -368,7 +371,7 @@ unsigned long cpm_gen2()
          c_p_m2 += shift_reg2[i];
 
 //          deadtime compensation (medcom international)
-         c_p_m2 = (unsigned long)((float)c_p_m2/(1-(((float)c_p_m2*1.8833e-6))));
+        c_p_m2 = (unsigned long)((float)c_p_m2/(1-(((float)c_p_m2*1.8833e-6))));
          return c_p_m2;
       }
  
@@ -1167,7 +1170,7 @@ void Menu_network(void){
                         lcd.print(config.apn);
                         lcd.setCursor(0, 3);
                         lcd.print("Phone: ");
-                        lcd.print("080XXXXYYYY");
+                        lcd.print(config.tel);
                  } 
           network_startup=true;   
         #endif  
@@ -2988,204 +2991,32 @@ lcd.print("GMT");
 }
 
 
-// /**************************************************************************/
-// // Main Loop sliding windows
-// /**************************************************************************/
-// void loop() {
-
-//     // Main Loop
-//          finished_startup = true;
-
-//        //timer setup
-// //        if (!config.trb){
-// //            updateIntervalInMillis = updateIntervalInMinutes * 300000; 
-// //        }
-// //        if (config.trb){
-// //            updateIntervalInMillis = updateIntervalInMinutes * 6000; 
-// //        }   
-
-//            int leftMillis = (updateIntervalInMillis-elapsedTime(lastConnectionTime));
-//            int left_secs = leftMillis/1000; //convert milliseconds to seconds
-//            int left_mins=left_secs/60; //convert seconds to minutes          
-//            left_secs=left_secs-(left_mins*60); //subtract the converted seconds to minutes in order to display 59 secs max 
-          
-//       //display current countdown time 
-//            if (displayTimeOn){
-//                 lcd.setCursor(13, 3); 
-//                 lcd.print("  ");
-//                 printDigits(left_mins);
-//                 lcd.print(":");
-//                 printDigits(left_secs);
-//             }
-              
-              
-//       unsigned long cpm=0, cpb1=0, cpb2=0;
-           
-//       if (elapsedTime(lastConnectionTime) < updateIntervalInMillis)
-//       {
-         
-//            if (joyCntB){                           
-//                      #ifdef ENABLE_DEBUG
-//                                 Serial.println ("Up");
-//                       #endif 
-//                        joyCntB=!joyCntB;joyCntA=false;joyCntD=false;joyCntE=false;lcd.clear();display_interval=1000;Menu_datalogger(); return;}
-         
-//            if (joyCntA){                           
-//                      #ifdef ENABLE_DEBUG
-//                           Serial.println ("Down");
-//                       #endif 
-//                        joyCntA=!joyCntA;joyCntD=false;joyCntB=false;joyCntE=false;lcd.clear();display_interval=1000;Menu_stat(); return;}
-//            if (joyCntE){
-
-//                      #ifdef ENABLE_DEBUG
-//                          Serial.println ("Enter");
-//                       #endif 
-//                         joyCntE=!joyCntE;joyCntD=false;joyCntB=false;joyCntA=false;digitalWrite(26, LOW); return;}
-//            if (joyCntD){ 
-
-//                      #ifdef ENABLE_DEBUG
-//                           Serial.println ("Right"); 
-//                      #endif
-//                         joyCntD=!joyCntD;joyCntA=false;joyCntB=false;lcd.clear();joyCntE=false;display_interval=1000;Menu_term(); return;} 
-
-
-//          //sliding window setup
-
-//           if IS_READY {
-    
-            
-//                   cpb1 = interruptCounterCount();
-//                   cpb2 = interruptCounterCount2();
-            
-//                   interruptCounterReset();
-            
-//                   // insert count in sliding window and compute CPM
-//                   shift_reg[reg_index] = cpb1;     // put the count in the correct bin
-//                   reg_index = (reg_index+1) % NX; // increment register index
-//                   cpm1 = cpm_gen1();                // compute sum over all bins
-            
-//                   // insert count in sliding window and compute CPM2
-//                   shift_reg2[reg_index2] = cpb2;    // put the count in the correct bin
-//                   reg_index2 = (reg_index2+1) % NX; // increment register index
-//                   cpm2 = cpm_gen2();  // compute sum over all bins
-
-  
-//               }
-         
-//          conversionCoefficient = 1/config.sensor1_cpm_factor; 
-//          float uSv = cpm1 * conversionCoefficient;                   // convert CPM to Micro Sievers Per Hour
-//          conversionCoefficient2 = 1/config.sensor2_cpm_factor; 
-//          float uSv2 = cpm2 * conversionCoefficient2;                   // convert CPM to Micro Sievers Per Hour
-
-
-//          lcd.setCursor(0, 0);
-//          lcd.print("S1:");   
-//           if(cpm1 >= 1000) {
-//                 dtostrf((float)(cpm1/1000.0), 4, 3, strbuffer);
-//                 strncpy (strbuffer1, strbuffer, 4);
-//                 if (strbuffer1[strlen(strbuffer1)-1] == '.') {
-//                   strbuffer1[strlen(strbuffer1)-1] = 0;
-//                 }
-//                 lcd.print(strbuffer1);
-//                 sprintf_P(strbuffer, PSTR("kCPM "));
-//                 lcd.print(strbuffer);
-//               } else {
-//                 dtostrf((float)cpm1, 0, 0, strbuffer);
-//                 lcd.print(strbuffer);
-//                 sprintf_P(strbuffer, PSTR(" CPM "));
-//                 lcd.print(strbuffer);
-//               }   
-//       lcd.print(uSv);
-//       lcd.print("uSh"); 
-//       lcd.setCursor(0,1);    
-//       lcd.print("S2:");
-//           if(cpm2 >= 1000) {
-//                 dtostrf((float)(cpm2/1000.0), 4, 3, strbuffer);
-//                 strncpy (strbuffer1, strbuffer, 4);
-//                 if (strbuffer1[strlen(strbuffer1)-1] == '.') {
-//                   strbuffer1[strlen(strbuffer1)-1] = 0;
-//                 }
-//                 lcd.print(strbuffer1);
-//                 sprintf_P(strbuffer, PSTR("kCPM "));
-//                 lcd.print(strbuffer);
-//               } else {
-//                 dtostrf((float)cpm2, 0, 0, strbuffer);
-//                 lcd.print(strbuffer);
-//                 sprintf_P(strbuffer, PSTR(" CPM "));
-//                 lcd.print(strbuffer);
-//               }  
-//       lcd.print(uSv2);
-//       lcd.print("uSh");
-//       lcd.setCursor(0,2);
-//       lcd.print(config.dev? "DEV:":"API:");
-      
-         
-// //        lcd.setCursor (0,1);
-// //        lcd.print("S1=");
-// //        lcd.print(cpm1);
-// //        lcd.setCursor (0,2);
-// //        lcd.print("S2=");
-// //        lcd.print(cpm2);
-// //        lcd.setCursor (0,3);
-
-//          Alarm.delay(0);
-//         return;
-                
-//       }
-
-// //      float CPM = (float)counts_per_sample / (float)updateIntervalInMinutes/5;
-// //      float CPM2 = (float)counts_per_sample2 / (float)updateIntervalInMinutes/5;
-
-// //      counts_per_sample = 0;
-// //      counts_per_sample2 = 0;
-
-
-  
-//       SendDataToServer(cpm1,cpm2);
-//       unsigned long now1 = millis();
-//   }
-
-
-
 /**************************************************************************/
-// Main Loop 5 minutes count
+// Main Loop sliding windows
 /**************************************************************************/
 void loop() {
 
-    // Main Loop
-    
+      // Main Loop
          finished_startup = true;
 
-       //timer setup
-        if (!config.trb){
-            updateIntervalInMillis = updateIntervalInMinutes * 300000; 
-        }
-        if (config.trb){
-            updateIntervalInMillis = updateIntervalInMinutes * 6000; 
-        }   
+      //timer setup
 
            int leftMillis = (updateIntervalInMillis-elapsedTime(lastConnectionTime));
            int left_secs = leftMillis/1000; //convert milliseconds to seconds
            int left_mins=left_secs/60; //convert seconds to minutes          
            left_secs=left_secs-(left_mins*60); //subtract the converted seconds to minutes in order to display 59 secs max 
           
-       // Serial.printf("%d:%d\n", left_mins, left_secs);
-      //display current time 
+      //display current countdown time 
            if (displayTimeOn){
-                // lcd.setCursor(4, 2);
-                // printDigits(hour());
-                // lcd.print(":");
-                // printDigits(minute());
-                // lcd.print("GMT");
-
-                lcd.setCursor(13, 3);
-                // lcd.printf("  %d:%d", left_mins, left_secs);
+                lcd.setCursor(13, 3); 
                 lcd.print("  ");
                 printDigits(left_mins);
                 lcd.print(":");
                 printDigits(left_secs);
             }
-
+              
+              
+         unsigned long cpm=0, cpb1=0, cpb2=0;
            
       if (elapsedTime(lastConnectionTime) < updateIntervalInMillis)
       {
@@ -3213,32 +3044,90 @@ void loop() {
                           Serial.println ("Right"); 
                      #endif
                         joyCntD=!joyCntD;joyCntA=false;joyCntB=false;lcd.clear();joyCntE=false;display_interval=1000;Menu_term(); return;} 
-         Alarm.delay(0);
-        return;
+
+
+         //sliding window setup
+
+          if IS_READY {
+    
+            
+                  cpb1 = interruptCounterCount();
+                  cpb2 = interruptCounterCount2();
+            
+                  interruptCounterReset();
+            
+                  // insert count in sliding window and compute CPM
+                  shift_reg[reg_index] = cpb1;     // put the count in the correct bin
+                  reg_index = (reg_index+1) % NX; // increment register index
+                  cpm1 = cpm_gen1();                // compute sum over all bins
+            
+                  // insert count in sliding window and compute CPM2
+                  shift_reg2[reg_index2] = cpb2;    // put the count in the correct bin
+                  reg_index2 = (reg_index2+1) % NX; // increment register index
+                  cpm2 = cpm_gen2();  // compute sum over all bins
+
+  
+              }
+         
+         conversionCoefficient = 1/config.sensor1_cpm_factor; 
+         float uSv = cpm1 * conversionCoefficient;                   // convert CPM to Micro Sievers Per Hour
+         conversionCoefficient2 = 1/config.sensor2_cpm_factor; 
+         float uSv2 = cpm2 * conversionCoefficient2;                   // convert CPM to Micro Sievers Per Hour
+
+         if (left_mins<left_mins_old){
+                   lcd.setCursor(0, 0);
+                   lcd.print("S1:");   
+                    if(cpm1 >= 1000) {
+                          dtostrf((float)(cpm1/1000.0), 4, 2, strbuffer);
+                          strncpy (strbuffer1, strbuffer, 4);
+                          if (strbuffer1[strlen(strbuffer1)-1] == '.') {
+                            strbuffer1[strlen(strbuffer1)-1] = 0;
+                          }
+                          lcd.print(strbuffer1);
+                          sprintf_P(strbuffer, PSTR("kCPM "));
+                          lcd.print(strbuffer);
+                        } else {
+                          dtostrf((float)cpm1, 0, 0, strbuffer);
+                          lcd.print(strbuffer);
+                          sprintf_P(strbuffer, PSTR(" CPM "));
+                          lcd.print(strbuffer);
+                        }   
+                  lcd.print(uSv);
+                  lcd.print("uSh"); 
+                  lcd.setCursor(0,1);    
+                  lcd.print("S2:");
+                    if(cpm2 >= 1000) {
+                          dtostrf((float)(cpm2/1000.0), 4, 2, strbuffer);
+                          strncpy (strbuffer1, strbuffer, 4);
+                          if (strbuffer1[strlen(strbuffer1)-1] == '.') {
+                            strbuffer1[strlen(strbuffer1)-1] = 0;
+                          }
+                          lcd.print(strbuffer1);
+                          sprintf_P(strbuffer, PSTR("kCPM "));
+                          lcd.print(strbuffer);
+                        } else {
+                          dtostrf((float)cpm2, 0, 0, strbuffer);
+                          lcd.print(strbuffer);
+                          sprintf_P(strbuffer, PSTR(" CPM "));
+                          lcd.print(strbuffer);
+                        }  
+                  lcd.print(uSv2);
+                  lcd.print("uSh");
+                  lcd.setCursor(0,2);
+                  lcd.print(config.dev? "DEV:":"API:");
+                  left_mins_old--;
+        }
+        
+
+        Alarm.delay(0);
+          return;
                 
       }
 
-      float CPM = (float)counts_per_sample / (float)updateIntervalInMinutes/5;
-      float CPM2 = (float)counts_per_sample2 / (float)updateIntervalInMinutes/5;
-      Serial.print("CPM=");
-      Serial.println(CPM);
-      Serial.print("CPM2=");
-      Serial.println(CPM2);
-
-      counts_per_sample = 0;
-      counts_per_sample2 = 0;
-
-      unsigned long now1 = millis();
   
-      SendDataToServer(CPM,CPM2);
+      SendDataToServer(cpm1,cpm2);
+      unsigned long now1 = millis();
   }
-
-
-
-
-
-
-
 
 
 ///**************************************************************************/
