@@ -147,6 +147,7 @@ History Versions:
 2016-04-28 V3.8.5  fix for Reading sdcard remove "\r\n" (windows)
 2016-04-29 V3.8.6  added phone number setup from sdcard for 3G, changed display data to 1 minute, changed NX to 12 and delay to 5000 for 5 seconds measuring, KCPM 2 charater after decimal point
 2016-04-30 V3.8.7  fixed new line on new log on sdcard
+2016-05-05 V3.8.8  5 minutes display
 
 contact rob@yr-design.biz
  */
@@ -251,7 +252,7 @@ char body3[512];
 
 
 //static
-    static char VERSION[] = "V3.8.7";
+    static char VERSION[] = "V3.8.8";
 
     #if ENABLE_3G
     static char path[LINE_SZ];
@@ -322,7 +323,7 @@ char body3[512];
     int S1peak;
     int S2peak;
     int failures;
-    int left_mins_old = 4;
+    int left_mins_old = 1;
 
 
 //long
