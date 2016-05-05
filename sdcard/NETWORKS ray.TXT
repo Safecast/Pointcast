@@ -1,0 +1,13 @@
+uid1=100231
+uid2=100232
+devt1=129
+devt2=130
+intf=EN
+macid=90:A2:DA:0E:E0:5E
+gw2=107.161.164.166
+gw1=107.161.164.163
+ssid=mywifi
+pwd=12345678
+gwn=test	
+dev=1
+apn=SORA

@@ -1,0 +1,35 @@
+Installing Pointcast
+
+Parts (pictures)
+	Hawk Radius(Geiger tube)
+	Cable
+	power adapter
+	SDCARD
+	Main unit
+
+Mounting 
+	Hawk
+		should be mounted outside and the grid facing out
+		cable needs to be though a hole connected to the main unit
+		one side of the cable needs to be connected to the Hawk Radius and other side (blue connector) needs to be connected to the main unit
+	Main unit
+		Needs to be connected by LAN cable to router or if 3G needs to be in a NTT coverage area.
+		Needs to be powered with DC 5V-9Volt adapter
+
+Internet connection
+	3G
+		will connect to APN by 3G or LTE (current use is setup for Soracom network)
+	Ethernet
+		connects to Internet (a ping at start up will confirm the connectivity)
+
+Setup
+	Ethernet
+	Main unit
+	Sdcard
+	Power setup
+
+Screen shots display
+
+Addtional information
+	links for real time 
+	links for api
