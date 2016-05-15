@@ -148,6 +148,7 @@ History Versions:
 2016-04-29 V3.8.6  added phone number setup from sdcard for 3G, changed display data to 1 minute, changed NX to 12 and delay to 5000 for 5 seconds measuring, KCPM 2 charater after decimal point
 2016-04-30 V3.8.7  fixed new line on new log on sdcard
 2016-05-05 V3.8.8  5 minutes display
+2016-05-15 V3.8.9  pool.ntp.org as time server dns based
 
 contact rob@yr-design.biz
  */
@@ -252,7 +253,7 @@ char body3[512];
 
 
 //static
-    static char VERSION[] = "V3.8.8";
+    static char VERSION[] = "V3.8.9";
 
     #if ENABLE_3G
     static char path[LINE_SZ];
@@ -292,7 +293,7 @@ char body3[512];
       byte macAddress[] = { 0x90, 0xA2, 0xDA, 0x0E, 0xE0, 0x5C };
       EthernetClient client;
       IPAddress localIP (192, 168, 100, 40);  
-      IPAddress timeServer(45,79,78,173); // poolntp.org
+      char timeServer[] = "pool.ntp.org";
       int resetPin = A1;   //
       int ethernet_powerdonwPin = 7; 
       const int timeZone = 0;
@@ -3619,7 +3620,11 @@ time_t getNtpTime()
     while (Udp.parsePacket() > 0) ; // discard any previously received packets
        #ifdef ENABLE_DEBUG
             Serial.println("Transmit NTP Request");
+            Serial.print("timeServer =");
+            Serial.println(timeServer);
         #endif 
+
+      
   sendNTPpacket(timeServer);
   uint32_t beginWait = millis();
   while (millis() - beginWait < 1500) {
@@ -3649,9 +3654,7 @@ time_t getNtpTime()
 
 // send an NTP request to the time server at the given address
 
-
-
-unsigned long sendNTPpacket(IPAddress &address)
+unsigned long sendNTPpacket(char* address)
 {
   // set all bytes in the buffer to 0
   memset(packetBuffer, 0, NTP_PACKET_SIZE);
