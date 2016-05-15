@@ -149,6 +149,7 @@ History Versions:
 2016-04-30 V3.8.7  fixed new line on new log on sdcard
 2016-05-05 V3.8.8  5 minutes display
 2016-05-15 V3.8.9  pool.ntp.org as time server dns based
+2016-05-15 V3.9.0  Xbee BLEbee setup  
 
 contact rob@yr-design.biz
  */
@@ -237,6 +238,7 @@ char body3[512];
 
 // OpenLog Settings --------------------------------------------------------------
     SoftwareSerial OpenLog =  SoftwareSerial(0, 1);
+    SoftwareSerial XbeeSerial =  SoftwareSerial(25, 24);
     static const int resetOpenLog = 3;
     #define OPENLOG_RETRY 500
     bool openlog_ready = false;
@@ -253,7 +255,7 @@ char body3[512];
 
 
 //static
-    static char VERSION[] = "V3.8.9";
+    static char VERSION[] = "V3.9.0";
 
     #if ENABLE_3G
     static char path[LINE_SZ];
@@ -570,6 +572,8 @@ unsigned long cpm_gen2()
 void setup() {  
      analogReference(INTERNAL);
 
+     
+
 //  //Read dose from EEPROM
         EEPROM_readAnything(BMRDD_EEPROM_DOSE, dose);
         dose.restarts++;
@@ -589,9 +593,9 @@ void setup() {
          
    // Load EEPROM settings
          PointcastSetup.initialize();
-
-   // write EEPROM settings
-         PointcastSetup.initialize();         
+  
+    //serial for Xbee
+    XbeeSerial.begin(9600);       
      
    //beep for loud piezo twice
                 int i=0;
@@ -2312,8 +2316,12 @@ int tempID=config.user_id + 8;
          if (openlog_ready) {
            //write to sd card sensor 1 info
            OpenLog.println(buf);
+           //write to Xbee info
+           XbeeSerial.print(buf);
           //write to sd card sensor 2 info
            OpenLog.println(buf2);
+            //write to Xbee info
+           XbeeSerial.print(buf2);
           }else{
              lcd.setCursor(13,2);
              lcd.print("SD FAIL");
@@ -2827,8 +2835,10 @@ if (openlog_ready) {
 //    createFile(logfile_name);
   //write to sd card sensor 1 info
   OpenLog.println(buf);
+  XbeeSerial.println(buf); 
   //write to sd card sensor 2 info
   OpenLog.println(buf2);
+    XbeeSerial.println(buf)2; 
 } else {
   lcd.setCursor(13, 2);
   lcd.print("SD FAIL");
