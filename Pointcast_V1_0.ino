@@ -150,6 +150,8 @@ History Versions:
 2016-05-05 V3.8.8  5 minutes display
 2016-05-15 V3.8.9  pool.ntp.org as time server dns based
 2016-05-15 V3.9.0  Xbee BLEbee setup  
+2016-05-15 V3.9.1  Menu fixes.
+
 
 contact rob@yr-design.biz
  */
@@ -159,7 +161,7 @@ contact rob@yr-design.biz
 /**************************************************************************/
  
 
-#define ENABLE_DEBUG 1
+#define ENABLE_DEBUG 
 
 #include <SPI.h>         // needed for Arduino versions later than 0018
 #include <Ethernet.h>
@@ -255,7 +257,7 @@ char body3[512];
 
 
 //static
-    static char VERSION[] = "V3.9.0";
+    static char VERSION[] = "V3.9.1";
 
     #if ENABLE_3G
     static char path[LINE_SZ];
@@ -989,7 +991,7 @@ void Menu_network(void){
                             }
                         
 
-                    // ping NTP
+                    // ping https://safecast-production.s3.amazonaws.com/uploads/bgeigie_import/source
 
                             if (client.connect(serverName, 80)) {
                                Serial.println("connected");
@@ -1035,13 +1037,13 @@ void Menu_network(void){
                      #ifdef ENABLE_DEBUG
                                 Serial.println ("Up");
                      #endif 
-                     joyCntB=!joyCntB;joyCntA=false;lcd.clear();display_interval=3000;Menu_api();return;}
+                     joyCntB=!joyCntB;joyCntA=false;lcd.clear();display_interval=3000;Menu_sdcard();return;}
                     
                      if (joyCntA){                           
                      #ifdef ENABLE_DEBUG
                                 Serial.println ("Down");
                       #endif 
-                       joyCntA=!joyCntA;joyCntB=false;lcd.clear();display_interval=3000;Menu_datalogger();return;}
+                       joyCntA=!joyCntA;joyCntB=false;lcd.clear();display_interval=3000;Menu_network_test();return;}
 
                       if (joyCntE){ 
                         #ifdef ENABLE_DEBUG
@@ -1452,7 +1454,7 @@ void Menu_Ping(void){
                      #ifdef ENABLE_DEBUG
                                 Serial.println ("Down");
                       #endif 
-                       joyCntA=!joyCntA;joyCntB=false;joyCntD=false;lcd.clear();display_interval=3000;Menu_network_test();return;}
+                       joyCntA=!joyCntA;joyCntB=false;joyCntD=false;lcd.clear();display_interval=3000;Menu_time();return;}
 
 
                       if (joyCntE){ 
@@ -2838,7 +2840,7 @@ if (openlog_ready) {
   XbeeSerial.println(buf); 
   //write to sd card sensor 2 info
   OpenLog.println(buf2);
-    XbeeSerial.println(buf)2; 
+    XbeeSerial.println(buf2); 
 } else {
   lcd.setCursor(13, 2);
   lcd.print("SD FAIL");
