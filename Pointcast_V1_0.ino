@@ -151,6 +151,7 @@ History Versions:
 2016-05-15 V3.8.9  pool.ntp.org as time server dns based
 2016-05-15 V3.9.0  Xbee BLEbee setup  
 2016-05-15 V3.9.1  Menu fixes.
+2016-06-09 V3.9.2  Boot delay 3 seconds
 
 
 contact rob@yr-design.biz
@@ -257,7 +258,7 @@ char body3[512];
 
 
 //static
-    static char VERSION[] = "V3.9.1";
+    static char VERSION[] = "V3.9.2";
 
     #if ENABLE_3G
     static char path[LINE_SZ];
@@ -296,7 +297,7 @@ char body3[512];
       //ethernet
       byte macAddress[] = { 0x90, 0xA2, 0xDA, 0x0E, 0xE0, 0x5C };
       EthernetClient client;
-      IPAddress localIP (192, 168, 100, 40);  
+      IPAddress localIP (192, 168, 100, 40);
       char timeServer[] = "pool.ntp.org";
       int resetPin = A1;   //
       int ethernet_powerdonwPin = 7; 
@@ -570,9 +571,28 @@ unsigned long cpm_gen2()
 /**************************************************************************/
 // Setup
 /**************************************************************************/
+uint32_t FreeRam(){ // for Teensy 3.0
+    uint32_t stackTop;
+    uint32_t heapTop;
+
+    // current position of the stack.
+    stackTop = (uint32_t) &stackTop;
+
+    // current position of heap.
+    void* hTop = malloc(1);
+    heapTop = (uint32_t) hTop;
+    free(hTop);
+
+    // The difference is the free, available ram.
+    return stackTop - heapTop;
+}
+
 
 void setup() {  
-     analogReference(INTERNAL);
+     //boot delay
+      delay(3000);
+      
+      analogReference(INTERNAL); 
 
      
 
@@ -594,10 +614,10 @@ void setup() {
       Alarm.alarmRepeat(dowSunday,3,37,0, WeeklyRestart);
          
    // Load EEPROM settings
-         PointcastSetup.initialize();
+       PointcastSetup.initialize();
   
     //serial for Xbee
-    XbeeSerial.begin(9600);       
+       XbeeSerial.begin(9600);       
      
    //beep for loud piezo twice
                 int i=0;
@@ -639,6 +659,7 @@ void setup() {
     //set up the LCD's number of columns and rows: 
           lcd.begin(20, 4);
 
+
    
                      
 Menu_startup();
@@ -666,6 +687,8 @@ void Menu_startup(void){
         Serial.println(dose.fails); 
         Serial.print("restarts =");
         Serial.println(dose.restarts); 
+        Serial.print("free ram = ");
+        Serial.println(FreeRam());
      #endif   
 
         
@@ -1401,8 +1424,9 @@ void Menu_Ping(void){
                               Serial.println("Disconnecting");
                           #endif 
                           client.stop();
-                        }        
-                    // ping NTP
+                        }   
+
+                    // ping https://safecast-production.s3.amazonaws.com/uploads/bgeigie_import/source
 
                             if (client.connect(serverName, 80)) {
                                Serial.println("connected");
@@ -2302,7 +2326,7 @@ int tempID=config.user_id + 8;
               
          
         //add second line for additional info
-           sprintf_P(buf2 + len2, PSTR("*%X%s$%s,%d,%s,%s,%d,%d"), 
+           sprintf_P(buf2 + len2, PSTR("*%X%s$%s,%d,%s,%s,%d,%d,%d"), 
               (int)chk, \
               "\n", \
               HEADER_SENSOR,  \
@@ -2310,7 +2334,8 @@ int tempID=config.user_id + 8;
               temperature_string, \
               battery_string, \
               dose.fails, \
-              dose.restarts);
+              dose.restarts,
+              FreeRam());
               #ifdef ENABLE_DEBUG
                   Serial.println(buf2); 
               #endif 
@@ -2816,7 +2841,7 @@ else
 
 
 //add second line for addtional info
-sprintf_P(buf2 + len2, PSTR("*%X%s$%s,%d,%s,%d,%s,%d,%d"),
+sprintf_P(buf2 + len2, PSTR("*%X%s$%s,%d,%s,%d,%s,%d,%d,%d"),
           (int)chk, \
           "\n", \
           HEADER_SENSOR,  \
@@ -2825,8 +2850,8 @@ sprintf_P(buf2 + len2, PSTR("*%X%s$%s,%d,%s,%d,%s,%d,%d"),
           rssi,  \
           battery_string, \
           dose.fails, \
-          dose.restarts);
-
+          dose.restarts,\
+          FreeRam());
 
   #ifdef ENABLE_DEBUG
       Serial.println(buf2);
@@ -3139,7 +3164,11 @@ void loop() {
                 
       }
 
-  
+      #ifdef ENABLE_DEBUG
+        Serial.print("FreeRam = ");
+        Serial.println(FreeRam());
+     #endif  
+     
       SendDataToServer(cpm1,cpm2);
       unsigned long now1 = millis();
   }
@@ -3176,6 +3205,8 @@ void Menu_stat() {
                lcd.print("S2peak=");
                lcd.print(config.S2peak);
                lcd.setCursor(0,3);
+               lcd.print("FreeRam=");
+               lcd.print(FreeRam()); 
  
      }
 }
@@ -3689,5 +3720,8 @@ unsigned long sendNTPpacket(char* address)
   
 }
 #endif
+
+
+
 
 
