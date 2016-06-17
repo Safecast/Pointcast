@@ -152,7 +152,8 @@ History Versions:
 2016-05-15 V3.9.0  Xbee BLEbee setup  
 2016-05-15 V3.9.1  Menu fixes.
 2016-06-09 V3.9.2  Boot delay 3 seconds
-
+2016-06-16 V3.9.3  Changed to 5 minutes count
+2016-06-17 V3.9.4  Added Ethernet.maintain() to renew lease before restart
 
 contact rob@yr-design.biz
  */
@@ -206,7 +207,7 @@ int red_ledPin=26;
 #define VOLTAGE_R2 10000
 
 //sliding windows counting variables
-#define NX 12
+#define NX 60
 #define TIME_INTERVAL 5000
 #define IS_READY (interruptCounterAvailable())
 
@@ -258,7 +259,7 @@ char body3[512];
 
 
 //static
-    static char VERSION[] = "V3.9.2";
+    static char VERSION[] = "V3.9.4";
 
     #if ENABLE_3G
     static char path[LINE_SZ];
@@ -288,7 +289,7 @@ char body3[512];
     char character;        
     const int port = 80;
     const int interruptMode = FALLING;
-    const int updateIntervalInMinutes = 1;
+    int updateIntervalInMinutes = 1;
     const char *header="Content-Type:application/json$r$n";
     const boolean useHTTPS = false;  // Use https(true) or http(false)
 
@@ -351,37 +352,39 @@ char body3[512];
     unsigned long max_count = 0;
     unsigned long uptime = 0;
     unsigned long _start_time;
-    unsigned long _delay=5000;
+    unsigned long _delay=TIME_INTERVAL;
     unsigned long _count=0;
     unsigned long cpm1=0, cpm2=0, cpb1=0, cpb2=0;
 
-unsigned long cpm_gen1()
-      {
-         unsigned int i;
-         unsigned long c_p_m1 = 0;
+    unsigned long cpm_gen1()
+          {
+             unsigned int i;
+             unsigned long c_p_m1 = 0;
 
-         // sum up
-         for (i=0 ; i < NX ; i++)
-         c_p_m1 += shift_reg[i];
-//         deadtime compensation (medcom international)
-        c_p_m1 = (unsigned long)((float)c_p_m1/(1-(((float)c_p_m1*1.8833e-6))));
-         return c_p_m1;
-      }
+             // sum up
+             for (i=0 ; i < NX ; i++)
+             c_p_m1 += shift_reg[i];
+            //deadtime compensation (medcom international)
+            c_p_m1 = (unsigned long)((float)c_p_m1/(1-(((float)c_p_m1*1.8833e-6)))/5);
+             return c_p_m1;
+          }
 
 
-unsigned long cpm_gen2()
-      {
-         unsigned int i;
-         unsigned long c_p_m2 = 0;
+      unsigned long cpm_gen2()
+            {
+               unsigned int i;
+               unsigned long c_p_m2 = 0;
 
-         // sum up
-         for (i=0 ; i < NX ; i++)
-         c_p_m2 += shift_reg2[i];
+               // sum up
+               for (i=0 ; i < NX ; i++)
+               c_p_m2 += shift_reg2[i];
 
-//          deadtime compensation (medcom international)
-        c_p_m2 = (unsigned long)((float)c_p_m2/(1-(((float)c_p_m2*1.8833e-6))));
-         return c_p_m2;
-      }
+              //deadtime compensation (medcom international)
+              c_p_m2 = (unsigned long)((float)c_p_m2/(1-(((float)c_p_m2*1.8833e-6)))/5);
+               return c_p_m2;
+            }
+
+
  
 // Interval is how long display  wait
    int display_interval = 2000;
@@ -390,7 +393,7 @@ unsigned long cpm_gen2()
    bool displayTimeOn;
    
 // Interval is how long LED blinks  
-    int blinkinterval=50;
+  int blinkinterval=50;
 
 //char
     char timestamp[19];
@@ -405,6 +408,7 @@ unsigned long cpm_gen2()
       char res4[a3gsMAX_RESULT_LENGTH+1];
       const int timeZone = 1;
     #endif
+
 
 //gateway setup    
     char gateway0[16] ;
@@ -423,6 +427,8 @@ unsigned long cpm_gen2()
     volatile boolean joyCntC = false;
     volatile boolean joyCntD = false;
     volatile boolean joyCntE = false;
+
+
     
 
 //WDT setup init
@@ -596,10 +602,11 @@ void setup() {
 
      
 
-//  //Read dose from EEPROM
+  //Read dose from EEPROM
         EEPROM_readAnything(BMRDD_EEPROM_DOSE, dose);
         dose.restarts++;
         EEPROM_writeAnything(BMRDD_EEPROM_DOSE, dose);
+
 
         
   //print last reset message and setup the patting of the dog
@@ -615,6 +622,10 @@ void setup() {
          
    // Load EEPROM settings
        PointcastSetup.initialize();
+
+    // setup fro trouble shooting
+    updateIntervalInMinutes = config.trb ? 1 : 5;
+    updateIntervalInMillis = updateIntervalInMinutes * 60 * 1000;   
   
     //serial for Xbee
        XbeeSerial.begin(9600);       
@@ -913,14 +924,14 @@ void Menu_sdcard(void){
        }
          // SENSOR 1 setup
       if (config.sensor1_enabled) {
-          conversionCoefficient = 1/config.sensor1_cpm_factor; // 0.0029;
+          conversionCoefficient = 1/config.sensor1_cpm_factor; 
           pinMode(14, INPUT_PULLUP);
           attachInterrupt(14, onPulse, interruptMode);
       }
       
     // SENSOR 2 setup
        if (config.sensor2_enabled) {
-          conversionCoefficient2 = 1/config.sensor2_cpm_factor; // 0.0029;
+          conversionCoefficient2 = 1/config.sensor2_cpm_factor; 
           pinMode(15,INPUT_PULLUP);
           attachInterrupt(15, onPulse2, interruptMode);
       }
@@ -1196,7 +1207,6 @@ void Menu_network(void){
                         lcd.print("Signal:");
                         lcd.print(rssi);
                         lcd.print(" dBm");
-      //                  lcd.print("[000000]"); 
                         lcd.setCursor(0, 2);        
                         lcd.print("Carrier:");
                         lcd.print(config.apn);
@@ -2032,12 +2042,13 @@ void Menu_sensors(void){
 
            lcd.clear();
            previousMillis=millis() ;
-        if (!config.trb){
-            updateIntervalInMillis = updateIntervalInMinutes * 300000; 
-        }
-        if (config.trb){
-            updateIntervalInMillis = updateIntervalInMinutes * 6000; 
-        }  
+
+            // if (!config.trb){
+            //     updateIntervalInMillis = updateIntervalInMinutes * 300000; 
+            // }
+            // if (config.trb){
+            //     updateIntervalInMillis = updateIntervalInMinutes * 6000; 
+            // }  
            display_interval= 1000;
            while ((unsigned long)(millis() - previousMillis) <= display_interval) {
                       unsigned long now1 = millis();
@@ -2416,10 +2427,14 @@ int tempID=config.user_id + 8;
                  //switch on fail LED
                   digitalWrite(26, HIGH);
                   lcd.print(ctrl.conn_fail_cnt);
-                if (ctrl.conn_fail_cnt >= MAX_FAILED_CONNS)
-                {
-                            CPU_RESTART;
-                }
+                  //restart
+                  Ethernet.maintain();
+                  delay (3000);
+                  CPU_RESTART;
+              // if (ctrl.conn_fail_cnt >= MAX_FAILED_CONNS)
+              //   {
+              //               CPU_RESTART;
+              //   }
                 lastConnectionTime = millis();
                 return;
               } 
@@ -2506,10 +2521,14 @@ int tempID=config.user_id + 8;
                   digitalWrite(26, HIGH);
                  
                  lcd.print(ctrl.conn_fail_cnt);
-                if (ctrl.conn_fail_cnt >= MAX_FAILED_CONNS)
-                {
-                            CPU_RESTART;
-                }
+                //restart
+                  Ethernet.maintain();
+                  delay (3000);
+                  CPU_RESTART;
+                  // if (ctrl.conn_fail_cnt >= MAX_FAILED_CONNS)
+                  //   {
+                  //               CPU_RESTART;
+                  //   }
                 lastConnectionTime = millis();
                 return;
               }
@@ -2598,10 +2617,14 @@ int tempID=config.user_id + 8;
                           digitalWrite(26, HIGH);
                         
                           lcd.print(ctrl.conn_fail_cnt);
-                          if (ctrl.conn_fail_cnt >= MAX_FAILED_CONNS)
-                          {
-                            CPU_RESTART;
-                          }
+                          //restart
+                          Ethernet.maintain();
+                          delay (3000);
+                          CPU_RESTART;
+                          // if (ctrl.conn_fail_cnt >= MAX_FAILED_CONNS)
+                          //   {
+                          //               CPU_RESTART;
+                          //   }
    
                           return;
                         }
@@ -2852,7 +2875,7 @@ sprintf_P(buf2 + len2, PSTR("*%X%s$%s,%d,%s,%d,%s,%d,%d,%d"),
           dose.fails, \
           dose.restarts,\
           FreeRam());
-
+  
   #ifdef ENABLE_DEBUG
       Serial.println(buf2);
   #endif 
@@ -3039,7 +3062,7 @@ void loop() {
       // Main Loop
          finished_startup = true;
 
-      //timer setup
+      //display timer setup
 
            int leftMillis = (updateIntervalInMillis-elapsedTime(lastConnectionTime));
            int left_secs = leftMillis/1000; //convert milliseconds to seconds
@@ -3089,7 +3112,6 @@ void loop() {
          //sliding window setup
 
           if IS_READY {
-    
             
                   cpb1 = interruptCounterCount();
                   cpb2 = interruptCounterCount2();
@@ -3098,8 +3120,8 @@ void loop() {
             
                   // insert count in sliding window and compute CPM
                   shift_reg[reg_index] = cpb1;     // put the count in the correct bin
-                  reg_index = (reg_index+1) % NX; // increment register index
-                  cpm1 = cpm_gen1();                // compute sum over all bins
+                  reg_index = (reg_index+1) % NX;  // increment register index
+                  cpm1 = cpm_gen1();               // compute sum over all bins
             
                   // insert count in sliding window and compute CPM2
                   shift_reg2[reg_index2] = cpb2;    // put the count in the correct bin
@@ -3109,54 +3131,54 @@ void loop() {
   
               }
          
-         conversionCoefficient = 1/config.sensor1_cpm_factor; 
-         float uSv = cpm1 * conversionCoefficient;                   // convert CPM to Micro Sievers Per Hour
-         conversionCoefficient2 = 1/config.sensor2_cpm_factor; 
-         float uSv2 = cpm2 * conversionCoefficient2;                   // convert CPM to Micro Sievers Per Hour
+        //  conversionCoefficient = 1/config.sensor1_cpm_factor; 
+        //  float uSv = cpm1 * conversionCoefficient;                   // convert CPM to Micro Sievers Per Hour
+        //  conversionCoefficient2 = 1/config.sensor2_cpm_factor; 
+        //  float uSv2 = cpm2 * conversionCoefficient2;                   // convert CPM to Micro Sievers Per Hour
 
-         if (left_mins<left_mins_old){
-                   lcd.setCursor(0, 0);
-                   lcd.print("S1:");   
-                    if(cpm1 >= 1000) {
-                          dtostrf((float)(cpm1/1000.0), 4, 2, strbuffer);
-                          strncpy (strbuffer1, strbuffer, 4);
-                          if (strbuffer1[strlen(strbuffer1)-1] == '.') {
-                            strbuffer1[strlen(strbuffer1)-1] = 0;
-                          }
-                          lcd.print(strbuffer1);
-                          sprintf_P(strbuffer, PSTR("kCPM "));
-                          lcd.print(strbuffer);
-                        } else {
-                          dtostrf((float)cpm1, 0, 0, strbuffer);
-                          lcd.print(strbuffer);
-                          sprintf_P(strbuffer, PSTR(" CPM "));
-                          lcd.print(strbuffer);
-                        }   
-                  lcd.print(uSv);
-                  lcd.print("uSh "); 
-                  lcd.setCursor(0,1);    
-                  lcd.print("S2:");
-                    if(cpm2 >= 1000) {
-                          dtostrf((float)(cpm2/1000.0), 4, 2, strbuffer);
-                          strncpy (strbuffer1, strbuffer, 4);
-                          if (strbuffer1[strlen(strbuffer1)-1] == '.') {
-                            strbuffer1[strlen(strbuffer1)-1] = 0;
-                          }
-                          lcd.print(strbuffer1);
-                          sprintf_P(strbuffer, PSTR("kCPM "));
-                          lcd.print(strbuffer);
-                        } else {
-                          dtostrf((float)cpm2, 0, 0, strbuffer);
-                          lcd.print(strbuffer);
-                          sprintf_P(strbuffer, PSTR(" CPM "));
-                          lcd.print(strbuffer);
-                        }  
-                  lcd.print(uSv2);
-                  lcd.print("uSh ");
-                  lcd.setCursor(0,2);
-                  lcd.print(config.dev? "DEV:":"API:");
-                  left_mins_old--;
-        }
+        //  // if (left_mins<left_mins_old){
+        //            lcd.setCursor(0, 0);
+        //            lcd.print("S1:");   
+        //             if(cpm1 >= 1000) {
+        //                   dtostrf((float)(cpm1/1000.0), 4, 2, strbuffer);
+        //                   strncpy (strbuffer1, strbuffer, 4);
+        //                   if (strbuffer1[strlen(strbuffer1)-1] == '.') {
+        //                     strbuffer1[strlen(strbuffer1)-1] = 0;
+        //                   }
+        //                   lcd.print(strbuffer1);
+        //                   sprintf_P(strbuffer, PSTR("kCPM "));
+        //                   lcd.print(strbuffer);
+        //                 } else {
+        //                   dtostrf((float)cpm1, 0, 0, strbuffer);
+        //                   lcd.print(strbuffer);
+        //                   sprintf_P(strbuffer, PSTR(" CPM "));
+        //                   lcd.print(strbuffer);
+        //                 }   
+        //           lcd.print(uSv);
+        //           lcd.print("uSh "); 
+        //           lcd.setCursor(0,1);    
+        //           lcd.print("S2:");
+        //             if(cpm2 >= 1000) {
+        //                   dtostrf((float)(cpm2/1000.0), 4, 2, strbuffer);
+        //                   strncpy (strbuffer1, strbuffer, 4);
+        //                   if (strbuffer1[strlen(strbuffer1)-1] == '.') {
+        //                     strbuffer1[strlen(strbuffer1)-1] = 0;
+        //                   }
+        //                   lcd.print(strbuffer1);
+        //                   sprintf_P(strbuffer, PSTR("kCPM "));
+        //                   lcd.print(strbuffer);
+        //                 } else {
+        //                   dtostrf((float)cpm2, 0, 0, strbuffer);
+        //                   lcd.print(strbuffer);
+        //                   sprintf_P(strbuffer, PSTR(" CPM "));
+        //                   lcd.print(strbuffer);
+        //                 }  
+        //           lcd.print(uSv2);
+        //           lcd.print("uSh ");
+        //           lcd.setCursor(0,2);
+        //           lcd.print(config.dev? "DEV:":"API:");
+        //           left_mins_old--;
+        // // }
         
 
         Alarm.delay(0);
