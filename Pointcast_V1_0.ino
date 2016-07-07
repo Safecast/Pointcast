@@ -154,6 +154,8 @@ History Versions:
 2016-06-09 V3.9.2  Boot delay 3 seconds
 2016-06-16 V3.9.3  Changed to 5 minutes count
 2016-06-17 V3.9.4  Added Ethernet.maintain() to renew lease before restart
+2016-07-04 V3.9.5  reset Wiz5100 modile at startup
+
 
 contact rob@yr-design.biz
  */
@@ -259,7 +261,7 @@ char body3[512];
 
 
 //static
-    static char VERSION[] = "V3.9.4";
+    static char VERSION[] = "V3.9.5";
 
     #if ENABLE_3G
     static char path[LINE_SZ];
@@ -599,7 +601,14 @@ void setup() {
       delay(3000);
       
       analogReference(INTERNAL); 
-
+      
+      //reset Ethernet wiz5100 
+       #if ENABLE_ETHERNET
+              pinMode(9,OUTPUT);
+              digitalWrite(9,HIGH);
+       #endif
+              
+      
      
 
   //Read dose from EEPROM
