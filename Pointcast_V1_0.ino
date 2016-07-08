@@ -155,7 +155,7 @@ History Versions:
 2016-06-16 V3.9.3  Changed to 5 minutes count
 2016-06-17 V3.9.4  Added Ethernet.maintain() to renew lease before restart
 2016-07-04 V3.9.5  reset Wiz5100 modile at startup
-
+2016-07-08 V3.9.6  move weekly reset in main loop and 3g gim restart first shutdown 3gim module.
 
 contact rob@yr-design.biz
  */
@@ -261,7 +261,7 @@ char body3[512];
 
 
 //static
-    static char VERSION[] = "V3.9.5";
+    static char VERSION[] = "V3.9.6";
 
     #if ENABLE_3G
     static char path[LINE_SZ];
@@ -627,7 +627,10 @@ void setup() {
          wdTimer.begin(KickDog, 10000000); // patt the dog every 10sec  
 
    // reset weekly
-      Alarm.alarmRepeat(dowSunday,3,37,0, WeeklyRestart);
+     // Alarm.alarmRepeat(dowFriday,14,38,0,WeeklyRestart);  // 8:30:30 every Saturday 
+
+     // Alarm.delay(0);
+
          
    // Load EEPROM settings
        PointcastSetup.initialize();
@@ -989,6 +992,7 @@ void Menu_network(void){
                        Udp.begin(localPort);
                        setSyncProvider(getNtpTime);
                        Teensy3Clock.set(now()); 
+                       Alarm.alarmRepeat(dowSunday,00,53,30,WeeklyRestart); 
             }
 
                 
@@ -1088,11 +1092,11 @@ void Menu_network(void){
                       #endif 
                        joyCntA=!joyCntA;joyCntB=false;lcd.clear();display_interval=3000;Menu_network_test();return;}
 
-                      if (joyCntE){ 
+                     if (joyCntE){ 
                         #ifdef ENABLE_DEBUG
                             Serial.println ("Enter");
                         #endif
-                    joyCntE=!joyCntE;joyCntB=false;joyCntA=false;display_interval=100000;}
+                      joyCntE=!joyCntE;joyCntB=false;joyCntA=false;display_interval=100000;}
 
                         lcd.setCursor(0, 0);
                         lcd.print("NETWORK ETHER (DHCP)");
@@ -1162,6 +1166,8 @@ void Menu_network(void){
                                      setTime(seconds);
                                      adjustTime(-32400);
                                      Teensy3Clock.set(now());
+                                     Alarm.alarmRepeat(dowSunday,00,53,30,WeeklyRestart);  
+
                                      #ifdef ENABLE_DEBUG
                                          Serial.print(seconds);
                                          Serial.println(" Sec.");
@@ -3071,6 +3077,10 @@ void loop() {
       // Main Loop
          finished_startup = true;
 
+      // check for weekly alarm
+          Alarm.delay(0);
+
+
       //display timer setup
 
            int leftMillis = (updateIntervalInMillis-elapsedTime(lastConnectionTime));
@@ -3189,8 +3199,7 @@ void loop() {
         //           left_mins_old--;
         // // }
         
-
-        Alarm.delay(0);
+          Alarm.delay(0);
           return;
                 
       }
@@ -3656,6 +3665,11 @@ void WeeklyRestart(){
                      i++;
                 }
                 delay(3000);
+
+      #if ENABLE_3G
+          a3gs.end();
+          a3gs.shutdown();
+      #endif
         CPU_RESTART; 
 }
 
