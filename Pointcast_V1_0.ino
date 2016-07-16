@@ -154,9 +154,9 @@ History Versions:
 2016-06-09 V3.9.2  Boot delay 3 seconds
 2016-06-16 V3.9.3  Changed to 5 minutes count
 2016-06-17 V3.9.4  Added Ethernet.maintain() to renew lease before restart
-2016-07-04 V3.9.5  reset Wiz5100 modile at startup
+2016-07-04 V3.9.5  reset Wiz5100 modified at startup
 2016-07-08 V3.9.6  move weekly reset in main loop and 3g gim restart first shutdown 3gim module.
-
+2016-07-16 V3.9.7  reset counter just before main loop to avoid wrong first count
 contact rob@yr-design.biz
  */
  
@@ -185,7 +185,7 @@ contact rob@yr-design.biz
 #include "PointcastDebug.h"
 
 //setup LCD I2C
-#define I2C_ADDR    0x27  // Define I2C Address where the PCF8574A is for LCD2004 form http://www.sainsmart.com
+#define I2C_ADDR    0x27  // Define I2C Address where the PCF8574 is for LCD2004 form http://www.sainsmart.com  the PCF8574A is 0x3f
 #define BACKLIGHT_PIN     3
 #define En_pin  2
 #define Rw_pin  1
@@ -284,7 +284,7 @@ char body3[512];
     } devctrl_t;
     static devctrl_t ctrl;
 
-//const
+//Const
     const char *server = "107.161.164.163";
     const char serverName[] = "safecast-production.s3.amazonaws.com"; 
     String replyserver = "";
@@ -328,7 +328,6 @@ char body3[512];
     int conn_fail_cnt;
     int NORMAL = 0;
     int RESET = 1;
-//    int Dose = 0;
     int S1peak;
     int S2peak;
     int failures;
@@ -391,13 +390,13 @@ char body3[512];
 // Interval is how long display  wait
    int display_interval = 2000;
 
-//display time on display
+// Display time on display
    bool displayTimeOn;
    
 // Interval is how long LED blinks  
   int blinkinterval=50;
 
-//char
+// Char
     char timestamp[19];
     char lat[8];
     char lon[9];
@@ -411,13 +410,12 @@ char body3[512];
       const int timeZone = 1;
     #endif
 
-
-//gateway setup    
+// Gateway setup    
     char gateway0[16] ;
     char gateway1[16] ;
     char *gateway[2];
 
-//joystick pins setup
+// Joystick pins setup
     const int JOY_A_PIN = 17;
     const int JOY_B_PIN = 20;
     const int JOY_C_PIN = 21;
@@ -431,7 +429,6 @@ char body3[512];
     volatile boolean joyCntE = false;
 
 
-    
 
 //WDT setup init
 
@@ -447,7 +444,8 @@ char body3[512];
     #define RCM_SRS1_MDM_AP                     0x08
     #define RCM_SRS1_SACKERR                    0x20
     
-    //WDT timer
+
+//WDT timer
     IntervalTimer wdTimer;
 
 //reset marco
@@ -1247,30 +1245,29 @@ void Menu_network_test(void){
             lcd.print("NETWORK TEST ETHER");
       
       
-                 lcd.clear();
                  previousMillis=millis() ;
                  while ((unsigned long)(millis() - previousMillis) <= display_interval) {
                     
                      if (joyCntB){                           
-                     #ifdef ENABLE_DEBUG
-                                Serial.println ("Up");
-                      #endif 
-                      joyCntB=!joyCntB;joyCntA=false;joyCntD=false;lcd.clear();display_interval=3000;Menu_network();return;}
+                       #ifdef ENABLE_DEBUG
+                                  Serial.println ("Up");
+                        #endif 
+                        joyCntB=!joyCntB;joyCntA=false;joyCntD=false;lcd.clear();display_interval=3000;Menu_network();return;}
                     
                      if (joyCntA){                           
-                     #ifdef ENABLE_DEBUG
-                                Serial.println ("Down");
-                      #endif 
-                       joyCntA=!joyCntA;joyCntB=false;joyCntD=false;lcd.clear();display_interval=3000;Menu_Ping();return;}
+                       #ifdef ENABLE_DEBUG
+                                  Serial.println ("Down");
+                        #endif 
+                         joyCntA=!joyCntA;joyCntB=false;joyCntD=false;lcd.clear();display_interval=3000;Menu_Ping();return;}
 
-                    if (joyCntD){                           
-                     #ifdef ENABLE_DEBUG
-                                Serial.println ("Right");
-                      #endif 
-                       joyCntD=!joyCntD;joyCntA=false;joyCntB=false;lcd.clear();display_interval=5000;Menu_Ping();return;}
+                     if (joyCntD){                           
+                       #ifdef ENABLE_DEBUG
+                                  Serial.println ("Right");
+                       #endif 
+                         joyCntD=!joyCntD;joyCntA=false;joyCntB=false;lcd.clear();display_interval=5000;Menu_Ping();return;}
 
 
-                      if (joyCntE){ 
+                     if (joyCntE){ 
                         #ifdef ENABLE_DEBUG
                             Serial.println ("Enter");
                         #endif
@@ -2047,6 +2044,9 @@ void Menu_sensors(void){
            if (!finished_startup){
            lastConnectionTime = millis();
            }
+
+           //reset counter
+           interruptCounterReset();
             
             // read battery ]    
            float battery =((read_voltage(VOLTAGE_PIN)));
