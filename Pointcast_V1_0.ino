@@ -157,6 +157,8 @@ History Versions:
 2016-07-04 V3.9.5  reset Wiz5100 modified at startup
 2016-07-08 V3.9.6  move weekly reset in main loop and 3g gim restart first shutdown 3gim module.
 2016-07-16 V3.9.7  reset counter just before main loop to avoid wrong first count
+2016-07-21 V3.9.8  random minute restart weekly restart
+
 contact rob@yr-design.biz
  */
  
@@ -261,7 +263,7 @@ char body3[512];
 
 
 //static
-    static char VERSION[] = "V3.9.6";
+    static char VERSION[] = "V3.9.8";
 
     #if ENABLE_3G
     static char path[LINE_SZ];
@@ -577,63 +579,56 @@ char body3[512];
 /**************************************************************************/
 // Setup
 /**************************************************************************/
-uint32_t FreeRam(){ // for Teensy 3.0
-    uint32_t stackTop;
-    uint32_t heapTop;
 
-    // current position of the stack.
-    stackTop = (uint32_t) &stackTop;
+//  freeRam for Teensy 3.0
+      uint32_t FreeRam(){ 
+          uint32_t stackTop;
+          uint32_t heapTop;
 
-    // current position of heap.
-    void* hTop = malloc(1);
-    heapTop = (uint32_t) hTop;
-    free(hTop);
+          // current position of the stack.
+          stackTop = (uint32_t) &stackTop;
 
-    // The difference is the free, available ram.
-    return stackTop - heapTop;
-}
+          // current position of heap.
+          void* hTop = malloc(1);
+          heapTop = (uint32_t) hTop;
+          free(hTop);
 
+          // The difference is the free, available ram.
+          return stackTop - heapTop;
+      }
 
+  
+
+  
 void setup() {  
-     //boot delay
+   //boot delay
       delay(3000);
       
       analogReference(INTERNAL); 
       
-      //reset Ethernet wiz5100 
+   //reset Ethernet wiz5100 
        #if ENABLE_ETHERNET
               pinMode(9,OUTPUT);
               digitalWrite(9,HIGH);
        #endif
-              
-      
-     
 
+      
   //Read dose from EEPROM
         EEPROM_readAnything(BMRDD_EEPROM_DOSE, dose);
         dose.restarts++;
         EEPROM_writeAnything(BMRDD_EEPROM_DOSE, dose);
-
-
         
   //print last reset message and setup the patting of the dog
          delay(100);
          printResetType();
 
-
    //start WDT  
          wdTimer.begin(KickDog, 10000000); // patt the dog every 10sec  
-
-   // reset weekly
-     // Alarm.alarmRepeat(dowFriday,14,38,0,WeeklyRestart);  // 8:30:30 every Saturday 
-
-     // Alarm.delay(0);
-
          
    // Load EEPROM settings
        PointcastSetup.initialize();
 
-    // setup fro trouble shooting
+    // setup for trouble shooting
     updateIntervalInMinutes = config.trb ? 1 : 5;
     updateIntervalInMillis = updateIntervalInMinutes * 60 * 1000;   
   
@@ -651,9 +646,6 @@ void setup() {
                      i++;
                 }
 
-
-    //beep for normal piezo
-       //tone(28, 600, 200);
     
     //button reset
           pinMode(27, INPUT_PULLUP);
@@ -679,9 +671,6 @@ void setup() {
           
     //set up the LCD's number of columns and rows: 
           lcd.begin(20, 4);
-
-
-   
                      
 Menu_startup();
 }
@@ -696,7 +685,6 @@ void Menu_startup(void){
 
        displayTimeOn= false;
        float battery =((read_voltage(VOLTAGE_PIN)));
-//       float temperature = getTemp();
 
     //setup failure message 
     #ifdef ENABLE_DEBUG
@@ -810,13 +798,11 @@ void Menu_startup(void){
                lcd.setCursor(0, 2);
                lcd.print("Bat:");
                int battery1=((battery-2.9)*100);
-//                if (battery < 4.4) {
                    if (battery1 < 0) battery1=1;
                    if (battery1 > 100) battery1=100;
                    sprintf_P(strbuffer, PSTR("%02d"), battery1);
                    lcd.print(strbuffer);
                    lcd.print("%");
-//                }
                lcd.setCursor(11, 2);
                lcd.print("TNSY:");
                lcd.print("3.3");
@@ -852,7 +838,6 @@ void Menu_sdcard(void){
             if (!openlog_ready) {
                   lcd.setCursor(8, 0);
                   lcd.print("FAIL");
-//                  config.last_failure="SDcard fail";
                   #ifdef ENABLE_DEBUG
                     Serial.print(config.last_failure);
                   #endif
@@ -990,7 +975,12 @@ void Menu_network(void){
                        Udp.begin(localPort);
                        setSyncProvider(getNtpTime);
                        Teensy3Clock.set(now()); 
-                       Alarm.alarmRepeat(dowSunday,00,53,30,WeeklyRestart); 
+                       
+                     // true random generator for weekly restarts
+                       randomSeed(analogRead(0));
+                      int random1=(random(60));
+                      
+                       Alarm.alarmRepeat(dowSunday,00,random1,0,WeeklyRestart); 
             }
 
                 
@@ -1072,7 +1062,8 @@ void Menu_network(void){
 
                           }
 
-                  //end ping api
+                  //end ping S3
+
                  network_startup=true;
                  previousMillis=millis() ;
                  lcd.clear();
@@ -2058,12 +2049,6 @@ void Menu_sensors(void){
            lcd.clear();
            previousMillis=millis() ;
 
-            // if (!config.trb){
-            //     updateIntervalInMillis = updateIntervalInMinutes * 300000; 
-            // }
-            // if (config.trb){
-            //     updateIntervalInMillis = updateIntervalInMinutes * 6000; 
-            // }  
            display_interval= 1000;
            while ((unsigned long)(millis() - previousMillis) <= display_interval) {
                       unsigned long now1 = millis();
@@ -2417,7 +2402,7 @@ int tempID=config.user_id + 8;
                 #endif 
                 
 
-                // clear the connection fail count if we have at least one successful connection
+              // clear the connection fail count if we have at least one successful connection
                 ctrl.conn_fail_cnt = 0;
               }
               else
@@ -2429,7 +2414,6 @@ int tempID=config.user_id + 8;
                  dose.fails++;
                  Serial.println("dos.fail++");
                  EEPROM_writeAnything(BMRDD_EEPROM_DOSE, dose);
-//                 char* last_failure="Send GW fail";
                  lcd.print(" ");
                  #ifdef ENABLE_DEBUG
                      Serial.print(last_failure);
@@ -2446,10 +2430,6 @@ int tempID=config.user_id + 8;
                   Ethernet.maintain();
                   delay (3000);
                   CPU_RESTART;
-              // if (ctrl.conn_fail_cnt >= MAX_FAILED_CONNS)
-              //   {
-              //               CPU_RESTART;
-              //   }
                 lastConnectionTime = millis();
                 return;
               } 
@@ -2540,10 +2520,6 @@ int tempID=config.user_id + 8;
                   Ethernet.maintain();
                   delay (3000);
                   CPU_RESTART;
-                  // if (ctrl.conn_fail_cnt >= MAX_FAILED_CONNS)
-                  //   {
-                  //               CPU_RESTART;
-                  //   }
                 lastConnectionTime = millis();
                 return;
               }
@@ -2617,13 +2593,10 @@ int tempID=config.user_id + 8;
                           lcd.setCursor(13, 2);
                           lcd.print(" FAIL");
                        //add fail to EEProm
-                         dose.fails++;
-                         Serial.println("dos.fail++");
-                         EEPROM_writeAnything(BMRDD_EEPROM_DOSE, dose);
-                        //                 String last_failure="NC S2";
+                          dose.fails++;
+                          Serial.println("dos.fail++");
+                          EEPROM_writeAnything(BMRDD_EEPROM_DOSE, dose);
                           lcd.print(" ");
-                        //                 Serial.print(last_failure);
-                        //  alarm peep
                           digitalWrite(28, HIGH);
                           pinMode(28, OUTPUT);
                           delay(250);
@@ -2636,10 +2609,6 @@ int tempID=config.user_id + 8;
                           Ethernet.maintain();
                           delay (3000);
                           CPU_RESTART;
-                          // if (ctrl.conn_fail_cnt >= MAX_FAILED_CONNS)
-                          //   {
-                          //               CPU_RESTART;
-                          //   }
    
                           return;
                         }
