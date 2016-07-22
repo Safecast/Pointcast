@@ -1155,7 +1155,12 @@ void Menu_network(void){
                                      setTime(seconds);
                                      adjustTime(-32400);
                                      Teensy3Clock.set(now());
-                                     Alarm.alarmRepeat(dowSunday,00,53,30,WeeklyRestart);  
+
+                                   // true random generator for weekly restarts
+                                     randomSeed(analogRead(0));
+                                     int random1=(random(60));
+                                     Alarm.alarmRepeat(dowSunday,00,random1,0,WeeklyRestart); 
+ 
 
                                      #ifdef ENABLE_DEBUG
                                          Serial.print(seconds);
