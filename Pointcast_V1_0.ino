@@ -158,6 +158,7 @@ History Versions:
 2016-07-08 V3.9.6  move weekly reset in main loop and 3g gim restart first shutdown 3gim module.
 2016-07-16 V3.9.7  reset counter just before main loop to avoid wrong first count
 2016-07-21 V3.9.8  random minute restart weekly restart
+2016-07-21 V3.9.9  fix for DS18S20 to report correctly
 
 contact rob@yr-design.biz
  */
@@ -216,7 +217,6 @@ int red_ledPin=26;
 #define IS_READY (interruptCounterAvailable())
 
 //setup Onewire for temp sensor
-#include <OneWire.h>
 OneWire  ds(32);  // on pin 10 of extra header(a 4.7K resistor is necessary)
 
 //main menu variable
@@ -263,7 +263,7 @@ char body3[512];
 
 
 //static
-    static char VERSION[] = "V3.9.8";
+    static char VERSION[] = "V3.9.9";
 
     #if ENABLE_3G
     static char path[LINE_SZ];
@@ -2044,11 +2044,16 @@ void Menu_sensors(void){
            //reset counter
            interruptCounterReset();
             
-            // read battery ]    
-           float battery =((read_voltage(VOLTAGE_PIN)));
-           float temperature = getTemp();
-           char temperature_string[5];
-           dtostrf(temperature, 0, 0, temperature_string);
+            // read temperature    
+            float temperature = getTemp();
+            char temperature_string[5];
+            dtostrf(temperature, 0, 0, temperature_string);
+            
+            // read battery  
+            float battery = ((read_voltage(VOLTAGE_PIN)));
+            char battery_string[5];
+            dtostrf(battery, 0, 2, battery_string);
+
            displayTimeOn= true;
 
            lcd.clear();
@@ -2100,9 +2105,9 @@ void Menu_sensors(void){
               lcd.setCursor(0,3);
               lcd.print("STS:");
               lcd.setCursor(4,3);
-              lcd.print(temperature_string);
+              lcd.print(temperature);
               lcd.print("C");  
-              lcd.setCursor(8,3);
+              lcd.setCursor(10,3);
               lcd.print(battery);
               lcd.print("V");
                   #if ENABLE_3G
@@ -2230,12 +2235,13 @@ int tempID=config.user_id + 8;
 
     
     //Get temp and Battery 
-     float battery =((read_voltage(VOLTAGE_PIN)));
-     float temperature = getTemp();    
-     char temperature_string[5];
-     dtostrf(temperature, 0, 0, temperature_string);
-     char battery_string[5];
-     dtostrf(battery, 0, 2, battery_string);
+        float temperature = getTemp();
+        char temperature_string[5];
+        dtostrf(temperature, 0, 0, temperature_string);
+        
+        float battery = ((read_voltage(VOLTAGE_PIN)));
+        char battery_string[5];
+        dtostrf(battery, 0, 2, battery_string);
 
     //display geiger info
       lcd.clear();
@@ -2662,7 +2668,7 @@ int tempID=config.user_id + 8;
                 lcd.setCursor(4,3);
                 lcd.print(temperature_string);
                 lcd.print("C");  
-                lcd.setCursor(8,3);
+                lcd.setCursor(10,3);
                 lcd.print(battery);
                 lcd.print("V");
                 
@@ -2685,6 +2691,17 @@ int tempID=config.user_id + 8;
 
 
 #if ENABLE_3G
+
+
+//Get temp and Battery
+float temperature = getTemp();
+char temperature_string[5];
+dtostrf(temperature, 0, 0, temperature_string);
+
+float battery = ((read_voltage(VOLTAGE_PIN)));
+char battery_string[5];
+dtostrf(battery, 0, 2, battery_string);
+
 
 // Convert from cpm to µSv/h with the pre-defined coefficient
 if (a3gs.begin() == 0)
@@ -2727,13 +2744,7 @@ if (CPM2 > (int)(config.S2peak)) {
       Serial.println (config.S2peak);
   #endif 
 
-//Get temp and Battery
-float battery = ((read_voltage(VOLTAGE_PIN)));
-float temperature = getTemp();
-char temperature_string[5];
-dtostrf(temperature, 0, 0, temperature_string);
-char battery_string[5];
-dtostrf(battery, 0, 2, battery_string);
+
 
 lcd.clear();
 lcd.setCursor(0, 0);
@@ -2973,7 +2984,7 @@ if (a3gs.httpPOST(strbuffer, port, path, header, body, res, &len, useHTTPS) == 0
   lcd.setCursor(4,3);
   lcd.print(temperature_string);
   lcd.print("C");  
-  lcd.setCursor(8,3);
+  lcd.setCursor(10,3);
   lcd.print(battery);
   lcd.print("V");
       #if ENABLE_3G
@@ -3064,8 +3075,8 @@ void loop() {
           
       //display current countdown time 
            if (displayTimeOn){
-                lcd.setCursor(13, 3); 
-                lcd.print("  ");
+                lcd.setCursor(15, 3); 
+                lcd.print("");
                 printDigits(left_mins);
                 lcd.print(":");
                 printDigits(left_secs);
@@ -3486,11 +3497,18 @@ void createFile(char *fileName) {
       byte addr[8];
       byte type_s;
       float celsius, fahrenheit;
-
+    
+      ds.reset();
+      ds.select(addr);
+      ds.reset_search();
+      
       if ( !ds.search(addr)) {
       //no more sensors on chain, reset search
-      ds.reset_search();
-      return -1000;
+          ds.reset_search();
+                #ifdef ENABLE_DEBUG  
+                    Serial.println("no more sensors on chain");  // or old DS1820
+                #endif 
+          return -1000;
       }
 
       
@@ -3529,9 +3547,9 @@ void createFile(char *fileName) {
       
       ds.reset();
       ds.select(addr);
-      ds.write(0x44,1); // start conversion, with parasite power on at the end
+      ds.write(0x44,0); // start conversion, with parasite power on at the end
       
-      delay(1000);
+      delay(750);
       
       byte present = ds.reset();
       ds.select(addr);
