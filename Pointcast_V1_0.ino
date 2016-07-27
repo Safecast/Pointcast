@@ -158,8 +158,8 @@ History Versions:
 2016-07-08 V3.9.6  move weekly reset in main loop and 3g gim restart first shutdown 3gim module.
 2016-07-16 V3.9.7  reset counter just before main loop to avoid wrong first count
 2016-07-21 V3.9.8  random minute restart weekly restart
-2016-07-21 V3.9.9  fix for DS18S20 to report correctly
-
+2016-07-27 V3.9.9  fix for DS18S20 to report correctly
+2016-07-27 V4.0.0  adjusted display for ethernet and 3G to display count down in 4 digits and get even spaces for the voltage and temperature.
 contact rob@yr-design.biz
  */
  
@@ -263,7 +263,7 @@ char body3[512];
 
 
 //static
-    static char VERSION[] = "V3.9.9";
+    static char VERSION[] = "V4.0.0";
 
     #if ENABLE_3G
     static char path[LINE_SZ];
@@ -2047,7 +2047,7 @@ void Menu_sensors(void){
             // read temperature    
             float temperature = getTemp();
             char temperature_string[5];
-            dtostrf(temperature, 0, 0, temperature_string);
+            dtostrf(temperature, 0, 1, temperature_string);
             
             // read battery  
             float battery = ((read_voltage(VOLTAGE_PIN)));
@@ -2105,16 +2105,16 @@ void Menu_sensors(void){
               lcd.setCursor(0,3);
               lcd.print("STS:");
               lcd.setCursor(4,3);
-              lcd.print(temperature);
+              lcd.print(temperature_string);
               lcd.print("C");  
               lcd.setCursor(10,3);
-              lcd.print(battery);
+              lcd.print(battery_string);
               lcd.print("V");
-                  #if ENABLE_3G
-                      lcd.setCursor(13,3);
-                      lcd.print(rssi);
-                      lcd.print("dBm");
-                  #endif
+//                  #if ENABLE_3G
+//                      lcd.setCursor(13,3);
+//                      lcd.print(rssi);
+//                      lcd.print("dBm");
+//                  #endif
 
            }
      
@@ -2159,6 +2159,13 @@ void printDigits(int digits){
     lcd.print('0');
     lcd.print(digits);
 }
+void printDigitsSingle(int digits){
+  // utility function for digital clock display: prints preceding colon and leading space
+  if(digits < 10)
+    lcd.print(' ');
+    lcd.print(digits);
+}
+
 
 void printDigitsSerial(int digits){
   // utility function for digital clock display: prints preceding colon and leading 0
@@ -2237,7 +2244,7 @@ int tempID=config.user_id + 8;
     //Get temp and Battery 
         float temperature = getTemp();
         char temperature_string[5];
-        dtostrf(temperature, 0, 0, temperature_string);
+        dtostrf(temperature, 0, 1, temperature_string);
         
         float battery = ((read_voltage(VOLTAGE_PIN)));
         char battery_string[5];
@@ -2669,7 +2676,7 @@ int tempID=config.user_id + 8;
                 lcd.print(temperature_string);
                 lcd.print("C");  
                 lcd.setCursor(10,3);
-                lcd.print(battery);
+                lcd.print(battery_string);
                 lcd.print("V");
                 
              // report to LCD
@@ -2696,7 +2703,7 @@ int tempID=config.user_id + 8;
 //Get temp and Battery
 float temperature = getTemp();
 char temperature_string[5];
-dtostrf(temperature, 0, 0, temperature_string);
+dtostrf(temperature, 0, 1, temperature_string);
 
 float battery = ((read_voltage(VOLTAGE_PIN)));
 char battery_string[5];
@@ -2987,11 +2994,11 @@ if (a3gs.httpPOST(strbuffer, port, path, header, body, res, &len, useHTTPS) == 0
   lcd.setCursor(10,3);
   lcd.print(battery);
   lcd.print("V");
-      #if ENABLE_3G
-          lcd.setCursor(13,3);
-          lcd.print(rssi);
-          lcd.print("dBm");
-      #endif
+//      #if ENABLE_3G
+//          lcd.setCursor(13,3);
+//          lcd.print(rssi);
+//          lcd.print("dBm");
+//      #endif
 
 }
 else {
@@ -3076,12 +3083,12 @@ void loop() {
       //display current countdown time 
            if (displayTimeOn){
                 lcd.setCursor(15, 3); 
-                lcd.print("");
-                printDigits(left_mins);
+                printDigitsSingle(left_mins);  
                 lcd.print(":");
                 printDigits(left_secs);
             }
-              
+
+
               
          unsigned long cpm=0, cpb1=0, cpb2=0;
            

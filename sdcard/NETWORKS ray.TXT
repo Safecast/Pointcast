@@ -8,6 +8,6 @@ gw2=107.161.164.166
 gw1=107.161.164.163
 ssid=mywifi
 pwd=12345678
-gwn=test	
+gwn=test
 dev=1
 apn=SORA
