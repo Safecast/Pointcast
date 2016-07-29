@@ -154,12 +154,16 @@ History Versions:
 2016-06-09 V3.9.2  Boot delay 3 seconds
 2016-06-16 V3.9.3  Changed to 5 minutes count
 2016-06-17 V3.9.4  Added Ethernet.maintain() to renew lease before restart
-2016-07-04 V3.9.5  reset Wiz5100 modified at startup
+2016-07-04 V3.9.5  reset Wiz820IO modified at startup
 2016-07-08 V3.9.6  move weekly reset in main loop and 3g gim restart first shutdown 3gim module.
 2016-07-16 V3.9.7  reset counter just before main loop to avoid wrong first count
 2016-07-21 V3.9.8  random minute restart weekly restart
 2016-07-27 V3.9.9  fix for DS18S20 to report correctly
 2016-07-27 V4.0.0  adjusted display for ethernet and 3G to display count down in 4 digits and get even spaces for the voltage and temperature.
+2016-07-29 V4.0.1  3GIM and Wiz820IO modules reset at startup
+2016-07-29 V4.0.2  
+
+  
 contact rob@yr-design.biz
  */
  
@@ -263,7 +267,7 @@ char body3[512];
 
 
 //static
-    static char VERSION[] = "V4.0.0";
+    static char VERSION[] = "V4.0.2";
 
     #if ENABLE_3G
     static char path[LINE_SZ];
@@ -296,7 +300,11 @@ char body3[512];
     int updateIntervalInMinutes = 1;
     const char *header="Content-Type:application/json$r$n";
     const boolean useHTTPS = false;  // Use https(true) or http(false)
-
+   
+    
+    #if ENABLE_3G
+        const int PowerPin = 6; 
+    #endif
 
     #if ENABLE_ETHERNET
       //ethernet
@@ -601,17 +609,8 @@ char body3[512];
 
   
 void setup() {  
-   //boot delay
-      delay(3000);
-      
-      analogReference(INTERNAL); 
-      
-   //reset Ethernet wiz5100 
-       #if ENABLE_ETHERNET
-              pinMode(9,OUTPUT);
-              digitalWrite(9,HIGH);
-       #endif
 
+      analogReference(INTERNAL); 
       
   //Read dose from EEPROM
         EEPROM_readAnything(BMRDD_EEPROM_DOSE, dose);
@@ -668,9 +667,53 @@ void setup() {
         attachInterrupt(JOY_D_PIN, joyD_Callback, FALLING);     
         attachInterrupt(JOY_E_PIN, joyE_Callback, FALLING);   
 
+
+//power down and up 3GIM module
+      #if ENABLE_3G
+           delay(1000);
+           pinMode(PowerPin, OUTPUT); digitalWrite(PowerPin, HIGH); 
+           #ifdef ENABLE_DEBUG
+                Serial.println("3GIM power down");
+            #endif   
+           delay(1000);
+           digitalWrite(PowerPin, LOW); 
+            #ifdef ENABLE_DEBUG
+                Serial.println("3GIM power up");
+            #endif 
+           delay(1000);
+     #endif 
+
+     //power down and up Ethernet module
+     #if ENABLE_ETHERNET
+           delay(1000);
+           pinMode(ethernet_powerdonwPin, OUTPUT); digitalWrite(ethernet_powerdonwPin, HIGH); 
+           #ifdef ENABLE_DEBUG
+                Serial.println("Ethernet power down");
+            #endif   
+           delay(1000);
+           digitalWrite(ethernet_powerdonwPin, LOW); 
+            #ifdef ENABLE_DEBUG
+                Serial.println("Ethernet power up");
+            #endif 
+           delay(1000);
+                      
+                      
+        // reset Ethernet wiz820iIO
+           pinMode(resetPin, OUTPUT); digitalWrite(resetPin, LOW); 
+           #ifdef ENABLE_DEBUG
+                Serial.println("Ethernet reset");
+            #endif   
+           delay(1000);
+           digitalWrite(resetPin, HIGH); 
+     #endif 
           
     //set up the LCD's number of columns and rows: 
           lcd.begin(20, 4);
+
+    //boot delay
+      delay(3000);
+
+      
                      
 Menu_startup();
 }
@@ -1138,7 +1181,7 @@ void Menu_network(void){
                                     #endif  
                                  }else{
                                     lcd.setCursor(0, 1);
-                                    lcd.print("FAIL");
+                                    lcd.print("FAIL                ");
                                     String last_failure="3G not starting";
                                      //alarm peep
                                        digitalWrite(28, HIGH);
@@ -2190,9 +2233,9 @@ int tempID=config.user_id + 8;
 //setup alarm
 
   if(CPM > config.alm){
-   //beep for loud piezo 20 times
+   //beep for loud piezo 10 times
                 int i=0;
-                 while (i<20) {
+                 while (i<10) {
                      digitalWrite(28, HIGH);
                      pinMode(28, OUTPUT);
                      delay(250);
@@ -2711,7 +2754,7 @@ dtostrf(battery, 0, 2, battery_string);
 
 
 // Convert from cpm to µSv/h with the pre-defined coefficient
-if (a3gs.begin() == 0)
+if (a3gs.begin() == 0) 
   #ifdef ENABLE_DEBUG
       Serial.println("Succeeded.");
   #endif 

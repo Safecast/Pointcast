@@ -14,10 +14,8 @@
 
 
 // Configuration 
-  DEBUG_PRINTLN("Loading EEPROM configuration");
   memset(&mConfig, 0, sizeof(mConfig));
   EEPROM_readAnything(BMRDD_EEPROM_SETUP, mConfig);
-
   DEBUG_PRINTLN("Loading EEPROM configuration");
 
   if (mConfig.marker != BMRDD_EEPROM_MARKER) {
@@ -26,11 +24,6 @@
     memset(&mConfig, 0, sizeof(mConfig));
     mConfig.marker = BMRDD_EEPROM_MARKER;
     EEPROM_writeAnything(BMRDD_EEPROM_SETUP, mConfig);
-
-//#if ENABLE_EEPROM_DOSE
-//    memset(&mDose, 0, sizeof(mDose));
-//    EEPROM_writeAnything(BMRDD_EEPROM_DOSE, mDose);
-//#endif
   }
 }
 
@@ -50,7 +43,7 @@ void PointcastSetup::loadFromFile(char * setupFile) {
 
   sprintf_P(mBuffer, PSTR("read %s 0 %d"), setupFile, mBufferSize);
   mOpenlog.print(mBuffer);
-mOpenlog.write(13); //This is \r
+  mOpenlog.write(13); //This is \r
 
 while(1) {
   if(mOpenlog.available())
