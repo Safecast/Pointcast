@@ -75,11 +75,13 @@
   char apn[3];              //APN name
   char macid[18];           //MAC id for Ethernet card
   int fails;                //fails (not on sdcard)
+  int rst;                  //days for reboot 
   unsigned int S1peak;      //S1 peak level
   unsigned int S2peak;      //S2 peak level
   char last_failure[12];    //Last failure message
   char tel[12];             //Phone number for 3G
   char ntp[12];             //NTP hardcoded
+
 
 } ConfigType;
 

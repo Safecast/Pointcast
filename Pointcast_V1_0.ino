@@ -161,8 +161,8 @@ History Versions:
 2016-07-27 V3.9.9  fix for DS18S20 to report correctly
 2016-07-27 V4.0.0  adjusted display for ethernet and 3G to display count down in 4 digits and get even spaces for the voltage and temperature.
 2016-07-29 V4.0.1  3GIM and Wiz820IO modules reset at startup
-2016-07-29 V4.0.2  
-
+2016-07-31 V4.0.2  setup weekly restarts
+2016-08-01 V4.0.3  improved weekly restart based on rst value on sdcard
   
 contact rob@yr-design.biz
  */
@@ -267,7 +267,7 @@ char body3[512];
 
 
 //static
-    static char VERSION[] = "V4.0.2";
+    static char VERSION[] = "V4.0.3";
 
     #if ENABLE_3G
     static char path[LINE_SZ];
@@ -1019,11 +1019,16 @@ void Menu_network(void){
                        setSyncProvider(getNtpTime);
                        Teensy3Clock.set(now()); 
                        
-                     // true random generator for weekly restarts
-                       randomSeed(analogRead(0));
-                      int random1=(random(60));
-                      
-                       Alarm.alarmRepeat(dowSunday,00,random1,0,WeeklyRestart); 
+                                     // weekly restarts based on weeks
+                                     if (config.rst > 0){
+                                        unsigned long pointcast_reboot=config.rst*60*60*24;
+                                        Alarm.alarmRepeat(pointcast_reboot,WeeklyRestart);
+                                        #ifdef ENABLE_DEBUG
+                                            Serial.print("Reboots every ");                                             
+                                            Serial.print(config.rst);
+                                            Serial.println(" days");
+                                        #endif 
+                                     }
             }
 
                 
@@ -1198,11 +1203,17 @@ void Menu_network(void){
                                      setTime(seconds);
                                      adjustTime(-32400);
                                      Teensy3Clock.set(now());
-
-                                   // true random generator for weekly restarts
-                                     randomSeed(analogRead(0));
-                                     int random1=(random(60));
-                                     Alarm.alarmRepeat(dowSunday,00,random1,0,WeeklyRestart); 
+                                     
+                                     // weekly restarts based on weeks
+                                     if (config.rst > 0){
+                                        unsigned long pointcast_reboot=config.rst*60*60*24;
+                                        Alarm.alarmRepeat(pointcast_reboot,WeeklyRestart);
+                                        #ifdef ENABLE_DEBUG
+                                            Serial.print("Reboots every ");                                             
+                                            Serial.print(config.rst);
+                                            Serial.println(" days");
+                                        #endif 
+                                     }
  
 
                                      #ifdef ENABLE_DEBUG

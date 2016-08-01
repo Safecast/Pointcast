@@ -307,6 +307,13 @@ while(pos < line_lenght){
       DEBUG_PRINTLN("   - Update aux input is active");
     }
   }
+  else if(strcmp(key, "rst") == 0) {
+    if (mConfig.rst != atoi(value)) {
+      mConfig.rst = atoi(value);
+      config_changed = true;
+      DEBUG_PRINTLN("   - Days of reboot changed");
+    }
+  } 
   else if(strcmp(key, "trb") == 0) {
     if (mConfig.trb != atoi(value)) {
       mConfig.trb = atoi(value);
@@ -344,6 +351,7 @@ else if(strcmp(key, "ntp") == 0) {
   DEBUG_PRINTLN("   - Update NTP");
   }
 }
+
 
 
   #if ENABLE_EEPROM_DOSE
