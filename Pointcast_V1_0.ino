@@ -155,7 +155,7 @@ History Versions:
 2016-06-16 V3.9.3  Changed to 5 minutes count
 2016-06-17 V3.9.4  Added Ethernet.maintain() to renew lease before restart
 2016-07-04 V3.9.5  reset Wiz820IO modified at startup
-2016-07-08 V3.9.6  move weekly reset in main loop and 3g gim restart first shutdown 3gim module.
+2016-07-08 V3.9.6  move weekourly reset in main loop and 3g gim restart first shutdown 3gim module.
 2016-07-16 V3.9.7  reset counter just before main loop to avoid wrong first count
 2016-07-21 V3.9.8  random minute restart weekly restart
 2016-07-27 V3.9.9  fix for DS18S20 to report correctly
