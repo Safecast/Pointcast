@@ -1,0 +1,12 @@
+devid=10003
+lat=34.4883
+lon=136.165
+api=q1LKu7RQ8s5pmyxunnDW
+tws=300
+alt=535
+ups=300
+autow=1
+rst=0
+alm=150
+tz=-9
+trb=0

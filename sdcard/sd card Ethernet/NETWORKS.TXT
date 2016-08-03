@@ -1,0 +1,13 @@
+uid1=100161
+uid2=100162
+devt1=129
+devt2=130
+intf=EN
+ntp=pool.ntp.org
+macid=00:50:C2:97:2A:07
+gw1=gw01.safecast.org
+gw2=gw02.safecast.org
+ssid=mywifi
+pwd=12345678
+gwn=test
+dev=1
