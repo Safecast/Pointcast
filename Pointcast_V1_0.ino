@@ -163,6 +163,8 @@ History Versions:
 2016-07-29 V4.0.1  3GIM and Wiz820IO modules reset at startup
 2016-07-31 V4.0.2  setup weekly restarts
 2016-08-01 V4.0.3  improved weekly restart based on rst value on sdcard
+2016-08-05 V4.0.4  daily RTC update 
+2016-08-10 V4.0.5   moved 3Gpower down/up more sooner in startup. to allow 3GIM module to settle down before accesing it
   
 contact rob@yr-design.biz
  */
@@ -267,7 +269,7 @@ char body3[512];
 
 
 //static
-    static char VERSION[] = "V4.0.3";
+    static char VERSION[] = "V4.0.5";
 
     #if ENABLE_3G
     static char path[LINE_SZ];
@@ -300,7 +302,7 @@ char body3[512];
     int updateIntervalInMinutes = 1;
     const char *header="Content-Type:application/json$r$n";
     const boolean useHTTPS = false;  // Use https(true) or http(false)
-   
+    uint32_t seconds;
     
     #if ENABLE_3G
         const int PowerPin = 6; 
@@ -608,7 +610,47 @@ char body3[512];
   
 
   
-void setup() {  
+void setup() { 
+
+   
+//power down and up 3GIM module
+      #if ENABLE_3G
+           delay(1000);
+           pinMode(PowerPin, OUTPUT); digitalWrite(PowerPin, HIGH); 
+           #ifdef ENABLE_DEBUG
+                Serial.println("3GIM power down");
+            #endif   
+           delay(1000);
+           digitalWrite(PowerPin, LOW); 
+            #ifdef ENABLE_DEBUG
+                Serial.println("3GIM power up");
+            #endif 
+           delay(3000);
+     #endif 
+
+     //power down and up Ethernet module
+     #if ENABLE_ETHERNET
+           delay(1000);
+           pinMode(ethernet_powerdonwPin, OUTPUT); digitalWrite(ethernet_powerdonwPin, HIGH); 
+           #ifdef ENABLE_DEBUG
+                Serial.println("Ethernet power down");
+            #endif   
+           delay(1000);
+           digitalWrite(ethernet_powerdonwPin, LOW); 
+            #ifdef ENABLE_DEBUG
+                Serial.println("Ethernet power up");
+            #endif 
+           delay(1000);
+                      
+                      
+        // reset Ethernet wiz820iIO
+           pinMode(resetPin, OUTPUT); digitalWrite(resetPin, LOW); 
+           #ifdef ENABLE_DEBUG
+                Serial.println("Ethernet reset");
+            #endif   
+           delay(1000);
+           digitalWrite(resetPin, HIGH); 
+     #endif 
 
       analogReference(INTERNAL); 
       
@@ -668,44 +710,6 @@ void setup() {
         attachInterrupt(JOY_E_PIN, joyE_Callback, FALLING);   
 
 
-//power down and up 3GIM module
-      #if ENABLE_3G
-           delay(1000);
-           pinMode(PowerPin, OUTPUT); digitalWrite(PowerPin, HIGH); 
-           #ifdef ENABLE_DEBUG
-                Serial.println("3GIM power down");
-            #endif   
-           delay(1000);
-           digitalWrite(PowerPin, LOW); 
-            #ifdef ENABLE_DEBUG
-                Serial.println("3GIM power up");
-            #endif 
-           delay(1000);
-     #endif 
-
-     //power down and up Ethernet module
-     #if ENABLE_ETHERNET
-           delay(1000);
-           pinMode(ethernet_powerdonwPin, OUTPUT); digitalWrite(ethernet_powerdonwPin, HIGH); 
-           #ifdef ENABLE_DEBUG
-                Serial.println("Ethernet power down");
-            #endif   
-           delay(1000);
-           digitalWrite(ethernet_powerdonwPin, LOW); 
-            #ifdef ENABLE_DEBUG
-                Serial.println("Ethernet power up");
-            #endif 
-           delay(1000);
-                      
-                      
-        // reset Ethernet wiz820iIO
-           pinMode(resetPin, OUTPUT); digitalWrite(resetPin, LOW); 
-           #ifdef ENABLE_DEBUG
-                Serial.println("Ethernet reset");
-            #endif   
-           delay(1000);
-           digitalWrite(resetPin, HIGH); 
-     #endif 
           
     //set up the LCD's number of columns and rows: 
           lcd.begin(20, 4);
@@ -1029,6 +1033,13 @@ void Menu_network(void){
                                             Serial.println(" days");
                                         #endif 
                                      }
+                                     // Daily RTC
+                                     if (config.rst > 0){
+                                        Alarm.alarmRepeat(12,30,0,DailyRTC);
+                                        #ifdef ENABLE_DEBUG
+                                            Serial.print("Daily RTC setup");                                             
+                                        #endif 
+                                     }
             }
 
                 
@@ -1196,8 +1207,6 @@ void Menu_network(void){
                                      //switch on fail LED
                                       digitalWrite(26, HIGH);
                                  }
-                
-                                uint32_t seconds;
                              
                                 if (a3gs.getTime2(seconds) == 0) {
                                      setTime(seconds);
@@ -1214,7 +1223,11 @@ void Menu_network(void){
                                             Serial.println(" days");
                                         #endif 
                                      }
- 
+                                     // Daily RTC
+                                        Alarm.alarmRepeat(12,30,0,DailyRTC);
+                                        #ifdef ENABLE_DEBUG
+                                            Serial.print("Daily RTC setup");                                             
+                                        #endif 
 
                                      #ifdef ENABLE_DEBUG
                                          Serial.print(seconds);
@@ -3725,6 +3738,43 @@ void WeeklyRestart(){
       #endif
         CPU_RESTART; 
 }
+
+void DailyRTC(){
+  Serial.println("Alarm: - Daily RTC"); 
+               //alarm peep 2 times 
+                int i=0;
+                 while (i<3) {
+                     digitalWrite(28, HIGH);
+                     pinMode(28, OUTPUT);
+                     delay(250);
+                     pinMode(28, INPUT);
+                     delay(250);
+                     i++;
+                }
+                delay(3000);
+
+          #if ENABLE_3G
+              if (a3gs.getTime2(seconds) == 0) {
+                   setTime(seconds);
+                   adjustTime(-32400);
+                   Teensy3Clock.set(now());
+              }
+          #endif
+          
+          #if ENABLE_ETHERNET
+                    if (Ethernet.begin(macAddress) == 0) {
+                      {
+                        Ethernet.begin(macAddress, localIP);
+                      }
+                    }
+                   Udp.begin(localPort);
+                   setSyncProvider(getNtpTime);
+                   Teensy3Clock.set(now()); 
+          #endif
+
+}
+
+
 
 
 void eepromclear(){
