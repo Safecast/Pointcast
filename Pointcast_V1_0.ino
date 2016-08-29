@@ -165,7 +165,9 @@ History Versions:
 2016-08-01 V4.0.3  improved weekly restart based on rst value on sdcard
 2016-08-05 V4.0.4  daily RTC update 
 2016-08-10 V4.0.5   moved 3Gpower down/up more sooner in startup. to allow 3GIM module to settle down before accesing it
-  
+2016-08-30 V4.0.6  fixed bug with pin assingment of ethernet
+
+ 
 contact rob@yr-design.biz
  */
  
@@ -269,7 +271,7 @@ char body3[512];
 
 
 //static
-    static char VERSION[] = "V4.0.5";
+    static char VERSION[] = "V4.0.6";
 
     #if ENABLE_3G
     static char path[LINE_SZ];
@@ -314,8 +316,8 @@ char body3[512];
       EthernetClient client;
       IPAddress localIP (192, 168, 100, 40);
       char timeServer[] = "pool.ntp.org";
-      int resetPin = A1;   //
-      int ethernet_powerdonwPin = 7; 
+      int resetPin = 9;   //
+      int ethernet_powerdonwPin = A2; 
       const int timeZone = 0;
       boolean timeset_on =false;
       EthernetUDP Udp;
@@ -644,12 +646,12 @@ void setup() {
                       
                       
         // reset Ethernet wiz820iIO
-           pinMode(resetPin, OUTPUT); digitalWrite(resetPin, LOW); 
+           pinMode(resetPin, OUTPUT); digitalWrite(resetPin, HIGH); 
            #ifdef ENABLE_DEBUG
                 Serial.println("Ethernet reset");
             #endif   
            delay(1000);
-           digitalWrite(resetPin, HIGH); 
+           digitalWrite(resetPin, LOW); 
      #endif 
 
       analogReference(INTERNAL); 
