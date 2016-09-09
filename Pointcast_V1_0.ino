@@ -167,7 +167,10 @@ History Versions:
 2016-08-10 V4.0.5   moved 3Gpower down/up more sooner in startup. to allow 3GIM module to settle down before accesing it
 2016-08-30 V4.0.6  fixed bug with pin assingment of ethernet
 2016-09-09 V4.0.7  fixed retries connect ethernet
- 
+2016-09-09 V4.0.8  added delay between retries Etherenet connect
+
+
+
 contact rob@yr-design.biz
  */
  
@@ -271,7 +274,7 @@ char body3[512];
 
 
 //static
-    static char VERSION[] = "V4.0.7";
+    static char VERSION[] = "V4.0.8";
 
     #if ENABLE_3G
     static char path[LINE_SZ];
@@ -2519,6 +2522,7 @@ sendEN:
                   digitalWrite(26, HIGH);
                   lcd.print(ctrl.conn_fail_cnt);
                   lastConnectionTime = millis();
+                  delay (3000);
                   goto sendEN;
                    return;
               } 
