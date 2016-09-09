@@ -166,7 +166,7 @@ History Versions:
 2016-08-05 V4.0.4  daily RTC update 
 2016-08-10 V4.0.5   moved 3Gpower down/up more sooner in startup. to allow 3GIM module to settle down before accesing it
 2016-08-30 V4.0.6  fixed bug with pin assingment of ethernet
-
+2016-09-09 V4.0.7  fixed retries connect ethernet
  
 contact rob@yr-design.biz
  */
@@ -271,7 +271,7 @@ char body3[512];
 
 
 //static
-    static char VERSION[] = "V4.0.6";
+    static char VERSION[] = "V4.0.7";
 
     #if ENABLE_3G
     static char path[LINE_SZ];
@@ -2464,9 +2464,7 @@ int tempID=config.user_id + 8;
    
           }
 
-      
-    
-
+sendEN:     
 
 //send  sensor  1
 
@@ -2495,6 +2493,13 @@ int tempID=config.user_id + 8;
               else
               {
                  ctrl.conn_fail_cnt++;
+                   if (ctrl.conn_fail_cnt >= MAX_FAILED_CONNS)
+                        {
+                          //restart
+                            delay (3000);
+                            CPU_RESTART;
+                        }
+                                       
                  lcd.setCursor(13,2);
                  lcd.print(" FAIL");
                  //add fail to EEProm
@@ -2513,12 +2518,9 @@ int tempID=config.user_id + 8;
                  //switch on fail LED
                   digitalWrite(26, HIGH);
                   lcd.print(ctrl.conn_fail_cnt);
-                  //restart
-                  Ethernet.maintain();
-                  delay (3000);
-                  CPU_RESTART;
-                lastConnectionTime = millis();
-                return;
+                  lastConnectionTime = millis();
+                  goto sendEN;
+                   return;
               } 
 
             // prepare the log entry for sensor 1
@@ -2586,6 +2588,13 @@ int tempID=config.user_id + 8;
               else
               {
                  ctrl.conn_fail_cnt++;
+                    if (ctrl.conn_fail_cnt >= MAX_FAILED_CONNS)
+                        {
+                          //restart
+                            delay (3000);
+                            CPU_RESTART;
+                        }
+                           
                  lcd.setCursor(13,2);
                  lcd.print(" FAIL");
                  String last_failure="NC S2";
@@ -2601,7 +2610,7 @@ int tempID=config.user_id + 8;
                  //switch on fail LED
                    EEPROM_writeAnything(BMRDD_EEPROM_DOSE, dose);
                   digitalWrite(26, HIGH);
-                 
+      
                  lcd.print(ctrl.conn_fail_cnt);
                 //restart
                   Ethernet.maintain();
