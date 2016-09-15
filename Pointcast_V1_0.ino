@@ -168,7 +168,7 @@ History Versions:
 2016-08-30 V4.0.6  fixed bug with pin assingment of ethernet
 2016-09-09 V4.0.7  fixed retries connect ethernet
 2016-09-09 V4.0.8  added delay between retries Etherenet connect
-
+2016-09-14 V4.0.9  fixed in time sync provider
 
 
 contact rob@yr-design.biz
@@ -274,7 +274,7 @@ char body3[512];
 
 
 //static
-    static char VERSION[] = "V4.0.8";
+    static char VERSION[] = "V4.0.9";
 
     #if ENABLE_3G
     static char path[LINE_SZ];
@@ -1174,7 +1174,7 @@ void Menu_network(void){
                             Serial.println(macstr); 
                         #endif  
                         }                 
-           getTimeStamp=false;
+           // getTimeStamp=false;
            #ifdef ENABLE_DEBUG
                Serial.print("RTC timestamp flag is set to ");
                Serial.println(getTimeStamp);
@@ -3499,7 +3499,7 @@ void setupOpenLog() {
     digitalWrite(resetOpenLog, HIGH);
 
     if (!waitOpenLog(true)) {
-        logfile_ready = true;
+        openlog_ready = true;
     } else {
         openlog_ready = true;
     }
@@ -3856,6 +3856,7 @@ time_t getNtpTime()
   lcd.print("Timeserver no reply");
   return 0; // return 0 if unable to get the time
  }
+ return 0;
 }
 
 // send an NTP request to the time server at the given address
