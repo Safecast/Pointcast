@@ -98,7 +98,7 @@ History Versions:
 2015-09-12 V3.2.6  Setup S1peak and S2peak and setup for uptime of sensor
 2015-09-15 V3.2.7  Terminal displays last failure
 2015-09-19 V3.2.8  Single sensor setup displaying no error on sensor test
-2015-09-19 V3.2.9  Reset every week on Saturday 9:30am (GMT)
+2015-09-19 V3.2.9  Reset every week on Saturday 9:30am (UTC)
 2015-10-03 V3.3.0  Beep 3 times and some display errors fix
 2015-10-09 V3.3.1  Added longer delay for 3G sending second sensor
 2015-10-09 V3.3.2  Fixed display failed error 3G.
@@ -169,7 +169,8 @@ History Versions:
 2016-09-09 V4.0.7  fixed retries connect ethernet
 2016-09-09 V4.0.8  added delay between retries Etherenet connect
 2016-09-14 V4.0.9  fixed in time sync provider
-
+2016-09-17 V4.1.0  fixed weekly restarts (was not correctly working)
+2016-09-17 V4.1.1  fixed Openlog startup detection (was broken in 4.0.9)
 
 contact rob@yr-design.biz
  */
@@ -274,7 +275,7 @@ char body3[512];
 
 
 //static
-    static char VERSION[] = "V4.0.9";
+    static char VERSION[] = "V4.1.1";
 
     #if ENABLE_3G
     static char path[LINE_SZ];
@@ -349,6 +350,7 @@ char body3[512];
     int S2peak;
     int failures;
     int left_mins_old = 1;
+    int ntpcount;
 
 
 //long
@@ -767,7 +769,7 @@ void Menu_startup(void){
                           #ifdef ENABLE_DEBUG
                               Serial.println ("Enter");
                           #endif
-                          joyCntE=!joyCntE;joyCntB=false;joyCntA=false;lcd.clear();lcd.print("Clearing Eeprom");eepromclear();return;}
+                          joyCntE=!joyCntE;joyCntB=false;joyCntA=false;lcd.clear();lcd.print("Clearing EEPROM");eepromclear();return;}
 
               // Print startup message to the LCD.
                      lcd.setCursor(0, 0);
@@ -890,6 +892,11 @@ void Menu_sdcard(void){
             if (!openlog_ready) {
                   lcd.setCursor(8, 0);
                   lcd.print("FAIL");
+                  // failure message to EEPROM
+                 String last_failure="FAILsdcard";
+                   last_failure.toCharArray(config.last_failure, 12);
+                   EEPROM_writeAnything(BMRDD_EEPROM_SETUP, config);
+                 //end test
                   #ifdef ENABLE_DEBUG
                     Serial.print(config.last_failure);
                   #endif
@@ -1028,21 +1035,29 @@ void Menu_network(void){
                        setSyncProvider(getNtpTime);
                        Teensy3Clock.set(now()); 
                        
-                                     // weekly restarts based on weeks
-                                     if (config.rst > 0){
-                                        unsigned long pointcast_reboot=config.rst*60*60*24;
-                                        Alarm.alarmRepeat(pointcast_reboot,WeeklyRestart);
-                                        #ifdef ENABLE_DEBUG
-                                            Serial.print("Reboots every ");                                             
-                                            Serial.print(config.rst);
-                                            Serial.println(" days");
-                                        #endif 
+                                    // weekly restarts based on days
+                                      if (config.rst > 0){
+                                       unsigned long pointcast_reboot=config.rst*60*60*24;
+                                       Alarm.alarmRepeat(pointcast_reboot,WeeklyRestart);
+                                       #ifdef ENABLE_DEBUG
+                                           Serial.print("Reboots every ");                                             
+                                           Serial.print(config.rst);
+                                           Serial.println(" days");
+                                       #endif 
+                                     }else{
+                                       //weekly restarts
+                                       Alarm.alarmRepeat(604800L,WeeklyRestart);
+                                       #ifdef ENABLE_DEBUG
+                                           Serial.print("Reboots every ");                                             
+                                           Serial.print("7");
+                                           Serial.println(" days");
+                                       #endif 
                                      }
                                      // Daily RTC
                                      if (config.rst > 0){
                                         Alarm.alarmRepeat(12,30,0,DailyRTC);
                                         #ifdef ENABLE_DEBUG
-                                            Serial.print("Daily RTC setup");                                             
+                                            Serial.println("Daily RTC setup");                                             
                                         #endif 
                                      }
             }
@@ -1203,7 +1218,11 @@ void Menu_network(void){
                                  }else{
                                     lcd.setCursor(0, 1);
                                     lcd.print("FAIL                ");
-                                    String last_failure="3G not starting";
+                                    String last_failure="3G no start";
+                                      // failure message to EEPROM
+                                       last_failure.toCharArray(config.last_failure, 12);
+                                       EEPROM_writeAnything(BMRDD_EEPROM_SETUP, config);
+                                     //end message
                                      //alarm peep
                                        digitalWrite(28, HIGH);
                                        pinMode(28, OUTPUT);
@@ -1218,20 +1237,28 @@ void Menu_network(void){
                                      adjustTime(-32400);
                                      Teensy3Clock.set(now());
                                      
-                                     // weekly restarts based on weeks
-                                     if (config.rst > 0){
-                                        unsigned long pointcast_reboot=config.rst*60*60*24;
-                                        Alarm.alarmRepeat(pointcast_reboot,WeeklyRestart);
-                                        #ifdef ENABLE_DEBUG
-                                            Serial.print("Reboots every ");                                             
-                                            Serial.print(config.rst);
-                                            Serial.println(" days");
-                                        #endif 
+                                     // weekly restarts based on days
+                                    if (config.rst > 0){
+                                       unsigned long pointcast_reboot=config.rst*60*60*24;
+                                       Alarm.alarmRepeat(pointcast_reboot,WeeklyRestart);
+                                       #ifdef ENABLE_DEBUG
+                                           Serial.print("Reboots every ");                                             
+                                           Serial.print(config.rst);
+                                           Serial.println(" days");
+                                       #endif 
+                                     }else{
+                                       //weekly restarts
+                                       Alarm.alarmRepeat(604800L,WeeklyRestart);
+                                       #ifdef ENABLE_DEBUG
+                                           Serial.print("Reboots every ");                                             
+                                           Serial.print("7");
+                                           Serial.println(" days");
+                                       #endif 
                                      }
                                      // Daily RTC
                                         Alarm.alarmRepeat(12,30,0,DailyRTC);
                                         #ifdef ENABLE_DEBUG
-                                            Serial.print("Daily RTC setup");                                             
+                                            Serial.println("Daily RTC setup");                                             
                                         #endif 
 
                                      #ifdef ENABLE_DEBUG
@@ -1242,7 +1269,11 @@ void Menu_network(void){
                                    else{
                                     #ifdef ENABLE_DEBUG
                                          Serial.println("Can't get seconds."); 
-                                         String last_failure="Can not get EPOCH";
+                                         String last_failure="no EPOCH";
+                                          // failure message to EEPROM
+                                           last_failure.toCharArray(config.last_failure, 12);
+                                           EEPROM_writeAnything(BMRDD_EEPROM_SETUP, config);
+                                         //end message
                                      #endif  
                                    }
                 
@@ -1603,7 +1634,7 @@ void Menu_Ping(void){
         sprintf_P(logfile_name, PSTR("%04d1234.TXT"),config.user_id% 10000);
       } else {
         #ifdef ENABLE_DEBUG      
-            Serial.println("RTC has set the system time for GMT");   
+            Serial.println("RTC has set the system time for UTC");   
         #endif                
         sprintf_P(logfile_name, PSTR("%04d%02d%02d.TXT"),year(), month(), day());
       }   
@@ -1635,7 +1666,7 @@ void Menu_Ping(void){
                         joyCntE=!joyCntE;joyCntB=false;joyCntA=false;display_interval=100000;}
 
                     lcd.setCursor(0, 0);
-                    lcd.print("TIME (GMT)");
+                    lcd.print("TIME (UTC)");
                     lcd.setCursor(0, 1);
                     lcd.print("Date:");
                     lcd.print(month());
@@ -1672,14 +1703,17 @@ void Menu_Ping(void){
             DEBUG_PRINTLN(strbuffer);
             OpenLog.print(strbuffer);
             //added extra info
-            sprintf_P(strbuffer, PSTR("# Logs=%d Fails=%d Restarts=%d \n"),  \
+            sprintf_P(strbuffer, PSTR("# Logs=%d Fails=%d Restarts=%d"),  \
               dose.logs, \
               dose.fails, \ 
               dose.restarts);
             OpenLog.print(strbuffer);
             DEBUG_PRINTLN(strbuffer);
+            sprintf_P(strbuffer, PSTR("# Last Failure=%s \n"), \
+            config.last_failure);
+            DEBUG_PRINTLN(strbuffer);
+            OpenLog.print(strbuffer);
 
-            
           }
         }
               
@@ -2171,7 +2205,7 @@ void Menu_sensors(void){
               printDigits(hour());
               lcd.print(":");
               printDigits(minute());
-              lcd.print("GMT");              
+              lcd.print("UTC");              
               lcd.setCursor(13, 2);
               lcd.print("STARTUP");
               lcd.setCursor(0,3);
@@ -2182,11 +2216,6 @@ void Menu_sensors(void){
               lcd.setCursor(10,3);
               lcd.print(battery_string);
               lcd.print("V");
-//                  #if ENABLE_3G
-//                      lcd.setCursor(13,3);
-//                      lcd.print(rssi);
-//                      lcd.print("dBm");
-//                  #endif
 
            }
      
@@ -2427,7 +2456,7 @@ int tempID=config.user_id + 8;
               
          
         //add second line for additional info
-           sprintf_P(buf2 + len2, PSTR("*%X%s$%s,%d,%s,%s,%d,%d,%d"), 
+           sprintf_P(buf2 + len2, PSTR("*%X%s$%s,%d,%s,%s,%d,%d,%d,%s,%d"), 
               (int)chk, \
               "\n", \
               HEADER_SENSOR,  \
@@ -2435,8 +2464,10 @@ int tempID=config.user_id + 8;
               temperature_string, \
               battery_string, \
               dose.fails, \
-              dose.restarts,
-              FreeRam());
+              dose.restarts, \
+              FreeRam(), \
+              config.last_failure, \
+              ntpcount);
               #ifdef ENABLE_DEBUG
                   Serial.println(buf2); 
               #endif 
@@ -2766,7 +2797,7 @@ sendEN:
                 printDigits(hour());
                 lcd.print(":");
                 printDigits(minute());
-                lcd.print("GMT");
+                lcd.print("UTC");
 
             lastConnectionTime = millis();
       return;
@@ -2952,26 +2983,25 @@ else
   sprintf_P(buf2 + len2, PSTR("*%X"), (int)chk2);
 
 
-//add second line for addtional info
-sprintf_P(buf2 + len2, PSTR("*%X%s$%s,%d,%s,%d,%s,%d,%d,%d"),
-          (int)chk, \
-          "\n", \
-          HEADER_SENSOR,  \
-          config.devid, \
-          temperature_string, \
-          rssi,  \
-          battery_string, \
-          dose.fails, \
-          dose.restarts,\
-          FreeRam());
+        //add second line for additional info
+           sprintf_P(buf2 + len2, PSTR("*%X%s$%s,%d,%s,%s,%d,%d,%d,%s,%d"), 
+              (int)chk, \
+              "\n", \
+              HEADER_SENSOR,  \
+              config.devid, \
+              temperature_string, \
+              battery_string, \
+              dose.fails, \
+              dose.restarts, \
+              FreeRam(), \
+              config.last_failure, \
+              ntpcount);
   
-  #ifdef ENABLE_DEBUG
-      Serial.println(buf2);
-  #endif 
+          #ifdef ENABLE_DEBUG
+              Serial.println(buf2);
+          #endif 
 
 if (openlog_ready) {
-//    sprintf_P(logfile_name, PSTR("%04d%02d%02d.TXT"),year(), month(), day());
-//    createFile(logfile_name);
   //write to sd card sensor 1 info
   OpenLog.println(buf);
   XbeeSerial.println(buf); 
@@ -3138,7 +3168,7 @@ lcd.setCursor(4, 2);
 printDigits(hour());
 lcd.print(":");
 printDigits(minute());
-lcd.print("GMT");
+lcd.print("UTC");
 
 }
 
@@ -3220,58 +3250,7 @@ void loop() {
                   shift_reg2[reg_index2] = cpb2;    // put the count in the correct bin
                   reg_index2 = (reg_index2+1) % NX; // increment register index
                   cpm2 = cpm_gen2();  // compute sum over all bins
-
-  
               }
-         
-        //  conversionCoefficient = 1/config.sensor1_cpm_factor; 
-        //  float uSv = cpm1 * conversionCoefficient;                   // convert CPM to Micro Sievers Per Hour
-        //  conversionCoefficient2 = 1/config.sensor2_cpm_factor; 
-        //  float uSv2 = cpm2 * conversionCoefficient2;                   // convert CPM to Micro Sievers Per Hour
-
-        //  // if (left_mins<left_mins_old){
-        //            lcd.setCursor(0, 0);
-        //            lcd.print("S1:");   
-        //             if(cpm1 >= 1000) {
-        //                   dtostrf((float)(cpm1/1000.0), 4, 2, strbuffer);
-        //                   strncpy (strbuffer1, strbuffer, 4);
-        //                   if (strbuffer1[strlen(strbuffer1)-1] == '.') {
-        //                     strbuffer1[strlen(strbuffer1)-1] = 0;
-        //                   }
-        //                   lcd.print(strbuffer1);
-        //                   sprintf_P(strbuffer, PSTR("kCPM "));
-        //                   lcd.print(strbuffer);
-        //                 } else {
-        //                   dtostrf((float)cpm1, 0, 0, strbuffer);
-        //                   lcd.print(strbuffer);
-        //                   sprintf_P(strbuffer, PSTR(" CPM "));
-        //                   lcd.print(strbuffer);
-        //                 }   
-        //           lcd.print(uSv);
-        //           lcd.print("uSh "); 
-        //           lcd.setCursor(0,1);    
-        //           lcd.print("S2:");
-        //             if(cpm2 >= 1000) {
-        //                   dtostrf((float)(cpm2/1000.0), 4, 2, strbuffer);
-        //                   strncpy (strbuffer1, strbuffer, 4);
-        //                   if (strbuffer1[strlen(strbuffer1)-1] == '.') {
-        //                     strbuffer1[strlen(strbuffer1)-1] = 0;
-        //                   }
-        //                   lcd.print(strbuffer1);
-        //                   sprintf_P(strbuffer, PSTR("kCPM "));
-        //                   lcd.print(strbuffer);
-        //                 } else {
-        //                   dtostrf((float)cpm2, 0, 0, strbuffer);
-        //                   lcd.print(strbuffer);
-        //                   sprintf_P(strbuffer, PSTR(" CPM "));
-        //                   lcd.print(strbuffer);
-        //                 }  
-        //           lcd.print(uSv2);
-        //           lcd.print("uSh ");
-        //           lcd.setCursor(0,2);
-        //           lcd.print(config.dev? "DEV:":"API:");
-        //           left_mins_old--;
-        // // }
         
           Alarm.delay(0);
           return;
@@ -3499,7 +3478,7 @@ void setupOpenLog() {
     digitalWrite(resetOpenLog, HIGH);
 
     if (!waitOpenLog(true)) {
-        openlog_ready = true;
+        logfile_ready = true;
     } else {
         openlog_ready = true;
     }
@@ -3822,6 +3801,7 @@ void eepromclear(){
 
 time_t getNtpTime()
 {
+  ntpcount++;
  if (getTimeStamp){ 
     while (Udp.parsePacket() > 0) ; // discard any previously received packets
        #ifdef ENABLE_DEBUG
@@ -3884,7 +3864,6 @@ unsigned long sendNTPpacket(char* address)
   
 }
 #endif
-
 
 
 

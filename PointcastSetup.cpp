@@ -344,6 +344,15 @@ else if(strcmp(key, "tel") == 0) {
   }
 }
 
+else if(strcmp(key, "last_failure") == 0) {
+ if (strcmp(mConfig.last_failure, value) != 0 ) {
+  strcpy(mConfig.last_failure, value);
+  config_changed = true;
+  DEBUG_PRINTLN("   - Update last_failure");
+  }
+}
+
+
 else if(strcmp(key, "ntp") == 0) {
  if (strcmp(mConfig.ntp, value) != 0 ) {
   strcpy(mConfig.ntp, value);
