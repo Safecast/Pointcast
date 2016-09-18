@@ -171,6 +171,8 @@ History Versions:
 2016-09-14 V4.0.9  fixed in time sync provider
 2016-09-17 V4.1.0  fixed weekly restarts (was not correctly working)
 2016-09-17 V4.1.1  fixed Openlog startup detection (was broken in 4.0.9)
+2016-09-19 V4.1.2  fixed compiler warnings
+
 
 contact rob@yr-design.biz
  */
@@ -266,7 +268,6 @@ char body3[512];
     bool logfile_ready = false;
 
     static void setupOpenLog();
-    static bool loadConfig(char *fileName);
     static void createFile(char *fileName);
 
     static ConfigType config;
@@ -275,7 +276,7 @@ char body3[512];
 
 
 //static
-    static char VERSION[] = "V4.1.1";
+    static char VERSION[] = "V4.1.2";
 
     #if ENABLE_3G
     static char path[LINE_SZ];
@@ -447,22 +448,6 @@ char body3[512];
     volatile boolean joyCntD = false;
     volatile boolean joyCntE = false;
 
-
-
-//WDT setup init
-
-    #define RCM_SRS0_WAKEUP                     0x01
-    #define RCM_SRS0_LVD                        0x02
-    #define RCM_SRS0_LOC                        0x04
-    #define RCM_SRS0_LOL                        0x08
-    #define RCM_SRS0_WDOG                       0x20
-    #define RCM_SRS0_PIN                        0x40
-    #define RCM_SRS0_POR                        0x80
-    #define RCM_SRS1_LOCKUP                     0x02
-    #define RCM_SRS1_SW                         0x04
-    #define RCM_SRS1_MDM_AP                     0x08
-    #define RCM_SRS1_SACKERR                    0x20
-    
 
 //WDT timer
     IntervalTimer wdTimer;
@@ -738,7 +723,6 @@ Menu_startup();
 void Menu_startup(void){
 
        displayTimeOn= false;
-       float battery =((read_voltage(VOLTAGE_PIN)));
 
     //setup failure message 
     #ifdef ENABLE_DEBUG
@@ -758,7 +742,7 @@ void Menu_startup(void){
      lcd.clear();
     // LED on delay (start speed display function by pressing down)
      previousMillis = millis();
-         while ((unsigned long)(millis() - previousMillis) <= display_interval) {
+         while ((unsigned long)(millis() - (unsigned long)previousMillis) <= (unsigned long)display_interval) {
                      
                      if (joyCntA){                           
                      #ifdef ENABLE_DEBUG
@@ -819,7 +803,7 @@ void Menu_startup(void){
     // Print system message to the LCD.
      lcd.clear();
            previousMillis=millis() ;
-           while ((unsigned long)(millis() - previousMillis) <= display_interval) {
+           while ((unsigned long)(millis() - (unsigned long)previousMillis) <= (unsigned long)display_interval) {
                      if (joyCntB){                           
                      #ifdef ENABLE_DEBUG
                                 Serial.println ("Up");
@@ -910,7 +894,7 @@ void Menu_sdcard(void){
             }
           if (openlog_ready) {
            previousMillis=millis() ;
-           while ((unsigned long)(millis() - previousMillis) <= display_interval) {
+           while ((unsigned long)(millis() - (unsigned long)previousMillis) <= (unsigned long)display_interval) {
                      
            if (joyCntB){                           
                #ifdef ENABLE_DEBUG
@@ -1012,7 +996,7 @@ void Menu_network(void){
                   #ifdef ENABLE_DEBUG
                     Serial.print("setting up Ethernet");
                   #endif    
-                 sscanf(config.macid,"%2x:%2x:%2x:%2x:%2x:%2x",&macAddress[0],&macAddress[1],&macAddress[2],&macAddress[3],&macAddress[4],&macAddress[5]);
+                 sscanf(config.macid,"%2hhx:%2hhx:%2hhx:%2hhx:%2hhx:%2hhx",&macAddress[0],&macAddress[1],&macAddress[2],&macAddress[3],&macAddress[4],&macAddress[5]);
                  #ifdef ENABLE_DEBUG
                     Serial.print("ID");
                         for (int i=0; i<6; ++i)
@@ -1146,7 +1130,7 @@ void Menu_network(void){
                  network_startup=true;
                  previousMillis=millis() ;
                  lcd.clear();
-                 while ((unsigned long)(millis() - previousMillis) <= display_interval) {
+                 while ((unsigned long)(millis() - (unsigned long)previousMillis) <= (unsigned long)display_interval) {
                     
                      if (joyCntB){                           
                      #ifdef ENABLE_DEBUG
@@ -1293,7 +1277,7 @@ void Menu_network(void){
                    
                  lcd.clear();
                  previousMillis=millis() ;
-                 while ((unsigned long)(millis() - previousMillis) <= display_interval) {
+                 while ((unsigned long)(millis() - (unsigned long)previousMillis) <= (unsigned long)display_interval) {
                      
                      if (joyCntB){                           
                      #ifdef ENABLE_DEBUG
@@ -1345,7 +1329,7 @@ void Menu_network_test(void){
       
       
                  previousMillis=millis() ;
-                 while ((unsigned long)(millis() - previousMillis) <= display_interval) {
+                 while ((unsigned long)(millis() - (unsigned long)previousMillis) <= (unsigned long)display_interval) {
                     
                      if (joyCntB){                           
                        #ifdef ENABLE_DEBUG
@@ -1440,7 +1424,7 @@ void Menu_network_test(void){
                               
                  lcd.clear();
                  previousMillis=millis() ;
-                 while ((unsigned long)(millis() - previousMillis) <= display_interval) {
+                 while ((unsigned long)(millis() - (unsigned long)previousMillis) <= (unsigned long)display_interval) {
                      
                      if (joyCntB){                           
                      #ifdef ENABLE_DEBUG
@@ -1587,7 +1571,7 @@ void Menu_Ping(void){
 
 
                  previousMillis=millis() ;
-                 while ((unsigned long)(millis() - previousMillis) <= display_interval) {
+                 while ((unsigned long)(millis() - (unsigned long)previousMillis) <= (unsigned long)display_interval) {
                      
                      if (joyCntB){                           
                      #ifdef ENABLE_DEBUG
@@ -1645,7 +1629,7 @@ void Menu_Ping(void){
 
            lcd.clear();
             previousMillis = millis();
-            while ((unsigned long)(millis() - previousMillis) <= display_interval) {
+            while ((unsigned long)(millis() - (unsigned long)previousMillis) <= (unsigned long)display_interval) {
                      
                      if (joyCntB){                           
                      #ifdef ENABLE_DEBUG
@@ -1703,9 +1687,9 @@ void Menu_Ping(void){
             DEBUG_PRINTLN(strbuffer);
             OpenLog.print(strbuffer);
             //added extra info
-            sprintf_P(strbuffer, PSTR("# Logs=%d Fails=%d Restarts=%d"),  \
+            sprintf_P(strbuffer, PSTR("# Logs=%ld Fails=%ld Restarts=%ld"),  \
               dose.logs, \
-              dose.fails, \ 
+              dose.fails, \
               dose.restarts);
             OpenLog.print(strbuffer);
             DEBUG_PRINTLN(strbuffer);
@@ -1740,7 +1724,7 @@ void Menu_Ping(void){
 
            lcd.clear();
             previousMillis = millis();
-            while ((unsigned long)(millis() - previousMillis) <= display_interval) {
+            while ((unsigned long)(millis() - (unsigned long)previousMillis) <= (unsigned long)display_interval) {
                      
                      if (joyCntB){                           
                      #ifdef ENABLE_DEBUG
@@ -1802,7 +1786,7 @@ void Menu_pointcast1(void){
            displayTimeOn= false;
            lcd.clear();
            previousMillis=millis() ;
-           while ((unsigned long)(millis() - previousMillis) <= display_interval) {
+           while ((unsigned long)(millis() - (unsigned long)previousMillis) <= (unsigned long)display_interval) {
                      
                      if (joyCntB){                           
                      #ifdef ENABLE_DEBUG
@@ -1848,7 +1832,7 @@ void Menu_pointcast1(void){
            displayTimeOn= false;  
            lcd.clear();
            previousMillis=millis() ;
-           while ((unsigned long)(millis() - previousMillis) <= display_interval) {
+           while ((unsigned long)(millis() - (unsigned long)previousMillis) <= (unsigned long)display_interval) {
                      
                      if (joyCntB){                           
                      #ifdef ENABLE_DEBUG
@@ -1888,7 +1872,7 @@ void Menu_pointcast1(void){
            displayTimeOn= false;
            lcd.clear();
            previousMillis=millis() ;
-           while ((unsigned long)(millis() - previousMillis) <= display_interval) {
+           while ((unsigned long)(millis() - (unsigned long)previousMillis) <= (unsigned long)display_interval) {
                      
                      if (joyCntB){                           
                      #ifdef ENABLE_DEBUG
@@ -1941,7 +1925,7 @@ void Menu_sensors(void){
         displayTimeOn= false;
         lcd.clear();
            previousMillis=millis() ;
-           while ((unsigned long)(millis() - previousMillis) <= display_interval) {
+           while ((unsigned long)(millis() - (unsigned long)previousMillis) <= (unsigned long)display_interval) {
                      
                      if (joyCntB){                           
                      #ifdef ENABLE_DEBUG
@@ -1992,7 +1976,7 @@ void Menu_sensors(void){
            displayTimeOn= false;
            lcd.clear();
            previousMillis=millis() ;
-           while ((unsigned long)(millis() - previousMillis) <= display_interval) {
+           while ((unsigned long)(millis() - (unsigned long)previousMillis) <= (unsigned long)display_interval) {
                      
                      if (joyCntB){                           
                      #ifdef ENABLE_DEBUG
@@ -2054,7 +2038,7 @@ void Menu_sensors(void){
            displayTimeOn= false;
            lcd.clear();
            previousMillis=millis() ;
-           while ((unsigned long)(millis() - previousMillis) <= display_interval) {
+           while ((unsigned long)(millis() - (unsigned long)previousMillis) <= (unsigned long)display_interval) {
                      
                      if (joyCntB){                           
                      #ifdef ENABLE_DEBUG
@@ -2105,7 +2089,7 @@ void Menu_sensors(void){
            displayTimeOn= false;
            lcd.clear();
            previousMillis=millis() ;
-           while ((unsigned long)(millis() - previousMillis) <= display_interval) {
+           while ((unsigned long)(millis() - (unsigned long)previousMillis) <= (unsigned long)display_interval) {
                      
                      if (joyCntB){                           
                      #ifdef ENABLE_DEBUG
@@ -2166,7 +2150,7 @@ void Menu_sensors(void){
            previousMillis=millis() ;
 
            display_interval= 1000;
-           while ((unsigned long)(millis() - previousMillis) <= display_interval) {
+           while ((unsigned long)(millis() - (unsigned long)previousMillis) <= (unsigned long)display_interval) {
                       unsigned long now1 = millis();
                       nextExecuteMillis = now1 + updateIntervalInMillis;
                      
@@ -2456,7 +2440,7 @@ int tempID=config.user_id + 8;
               
          
         //add second line for additional info
-           sprintf_P(buf2 + len2, PSTR("*%X%s$%s,%d,%s,%s,%d,%d,%d,%s,%d"), 
+           sprintf_P(buf2 + len2, PSTR("*%X%s$%s,%d,%s,%s,%ld,%ld,%ld,%s,%d"), 
               (int)chk, \
               "\n", \
               HEADER_SENSOR,  \
@@ -3202,7 +3186,7 @@ void loop() {
 
 
               
-         unsigned long cpm=0, cpb1=0, cpb2=0;
+         unsigned long cpb1=0, cpb2=0;
            
       if (elapsedTime(lastConnectionTime) < updateIntervalInMillis)
       {
@@ -3263,7 +3247,6 @@ void loop() {
      #endif  
      
       SendDataToServer(cpm1,cpm2);
-      unsigned long now1 = millis();
   }
 
 
@@ -3275,7 +3258,7 @@ void Menu_stat() {
            displayTimeOn= false;
           lcd.clear();
           previousMillis=millis() ;
-          while ((unsigned long)(millis() - previousMillis) <= display_interval) {
+          while ((unsigned long)(millis() - (unsigned long)previousMillis) <= (unsigned long)display_interval) {
                     
                      if (joyCntB){                           
                      #ifdef ENABLE_DEBUG
@@ -3329,7 +3312,7 @@ void Menu_stat2() {
  
           lcd.clear();
           previousMillis=millis() ;
-          while ((unsigned long)(millis() - previousMillis) <= display_interval) {
+          while ((unsigned long)(millis() - (unsigned long)previousMillis) <= (unsigned long)display_interval) {
                     
                      if (joyCntB){                           
                      #ifdef ENABLE_DEBUG
@@ -3372,7 +3355,7 @@ void Menu_term() {
            displayTimeOn= false;
           lcd.clear();
           previousMillis=millis() ;
-          while ((unsigned long)(millis() - previousMillis) <= display_interval) {
+          while ((unsigned long)(millis() - (unsigned long)previousMillis) <= (unsigned long)display_interval) {
                     if (joyCntB){                           
                            #ifdef ENABLE_DEBUG
                                 Serial.println ("Up");
@@ -3487,7 +3470,6 @@ void setupOpenLog() {
 /* create a new file */
 void createFile(char *fileName) {
     int result = 0;
-    int safeguard = 0;
     dose.logs++;
     EEPROM_writeAnything(BMRDD_EEPROM_DOSE, dose);
     OpenLog.listen();
@@ -3560,15 +3542,15 @@ void createFile(char *fileName) {
 
  // retrieve temperature
       float getTemp(){
-      byte i;
+
       byte data[12];
       byte addr[8];
       byte type_s;
       float celsius, fahrenheit;
-    
       ds.reset();
       ds.select(addr);
       ds.reset_search();
+
       
       if ( !ds.search(addr)) {
       //no more sensors on chain, reset search
@@ -3622,6 +3604,7 @@ void createFile(char *fileName) {
       byte present = ds.reset();
       ds.select(addr);
       ds.write(0xBE); // Read Scratchpad
+      present++;
       
       for (int i = 0; i < 9; i++) { // we need 9 bytes
       data[i] = ds.read();
@@ -3659,6 +3642,7 @@ void createFile(char *fileName) {
       #endif 
       return temperature;
   }
+  return (0);
 }
 
 
@@ -3666,7 +3650,7 @@ void createFile(char *fileName) {
 // Red blink routine
 void red_led_blink() {
       previousMillis=millis() ;
-     while ((unsigned long)(millis() - previousMillis) <= blinkinterval) {
+     while ((unsigned long)(millis() - (unsigned long)previousMillis) <= (unsigned long)blinkinterval) {
           digitalWrite(red_ledPin, HIGH);
     }
           digitalWrite(red_ledPin, LOW);
@@ -3676,7 +3660,7 @@ void red_led_blink() {
 // Green blink routine
 void green_led_blink() {
       previousMillis=millis() ;
-     while ((unsigned long)(millis() - previousMillis) <= blinkinterval) {
+     while ((unsigned long)(millis() - (unsigned long)previousMillis) <= (unsigned long)blinkinterval) {
           digitalWrite(green_ledPin, HIGH);
     }
           digitalWrite(green_ledPin, LOW);
@@ -3707,8 +3691,7 @@ void printDouble( double val, unsigned int precision){
        #ifdef ENABLE_DEBUG
           Serial.print("0");
           Serial.println(frac,DEC) ;
-       #endif ;
-
+       #endif 
 }
 
 
@@ -3799,72 +3782,71 @@ void eepromclear(){
 #if ENABLE_ETHERNET
 
 
-time_t getNtpTime()
-{
-  ntpcount++;
- if (getTimeStamp){ 
-    while (Udp.parsePacket() > 0) ; // discard any previously received packets
-       #ifdef ENABLE_DEBUG
-            Serial.println("Transmit NTP Request");
-            Serial.print("timeServer =");
-            Serial.println(timeServer);
-        #endif 
+        time_t getNtpTime()
+        {
+          ntpcount++;
+         if (getTimeStamp){ 
+            while (Udp.parsePacket() > 0) ; // discard any previously received packets
+               #ifdef ENABLE_DEBUG
+                    Serial.println("Transmit NTP Request");
+                    Serial.print("timeServer =");
+                    Serial.println(timeServer);
+                #endif 
 
-      
-  sendNTPpacket(timeServer);
-  uint32_t beginWait = millis();
-  while (millis() - beginWait < 1500) {
-    int size = Udp.parsePacket();
-    if (size >= NTP_PACKET_SIZE) {
-         #ifdef ENABLE_DEBUG
-            Serial.println("Receive NTP Response");
-        #endif 
-      Udp.read(packetBuffer, NTP_PACKET_SIZE);  // read packet into the buffer
-      unsigned long secsSince1900;
-      // convert four bytes starting at location 40 to a long integer
-      secsSince1900 =  (unsigned long)packetBuffer[40] << 24;
-      secsSince1900 |= (unsigned long)packetBuffer[41] << 16;
-      secsSince1900 |= (unsigned long)packetBuffer[42] << 8;
-      secsSince1900 |= (unsigned long)packetBuffer[43];
-      return secsSince1900 - 2208988800UL + timeZone * SECS_PER_HOUR;
-    }
-  }
-         #ifdef ENABLE_DEBUG
-              Serial.println("No NTP Response :-(");
-          #endif 
-  lcd.setCursor(0, 3);
-  lcd.print("Timeserver no reply");
-  return 0; // return 0 if unable to get the time
- }
- return 0;
-}
+              
+          sendNTPpacket(timeServer);
+          uint32_t beginWait = millis();
+          while (millis() - beginWait < 1500) {
+            int size = Udp.parsePacket();
+            if (size >= NTP_PACKET_SIZE) {
+                 #ifdef ENABLE_DEBUG
+                    Serial.println("Receive NTP Response");
+                #endif 
+              Udp.read(packetBuffer, NTP_PACKET_SIZE);  // read packet into the buffer
+              unsigned long secsSince1900;
+              // convert four bytes starting at location 40 to a long integer
+              secsSince1900 =  (unsigned long)packetBuffer[40] << 24;
+              secsSince1900 |= (unsigned long)packetBuffer[41] << 16;
+              secsSince1900 |= (unsigned long)packetBuffer[42] << 8;
+              secsSince1900 |= (unsigned long)packetBuffer[43];
+              return secsSince1900 - 2208988800UL + timeZone * SECS_PER_HOUR;
+            }
+          }
+                 #ifdef ENABLE_DEBUG
+                      Serial.println("No NTP Response :-(");
+                  #endif 
+          lcd.setCursor(0, 3);
+          lcd.print("Timeserver no reply");
+          return 0; // return 0 if unable to get the time
+         }
+         return 0;
+        }
 
-// send an NTP request to the time server at the given address
+        // send an NTP request to the time server at the given address
 
-unsigned long sendNTPpacket(char* address)
-{
-  // set all bytes in the buffer to 0
-  memset(packetBuffer, 0, NTP_PACKET_SIZE);
-  // Initialize values needed to form NTP request
-  // (see URL above for details on the packets)
-  packetBuffer[0] = 0b11100011;   // LI, Version, Mode
-  packetBuffer[1] = 0;     // Stratum, or type of clock
-  packetBuffer[2] = 6;     // Polling Interval
-  packetBuffer[3] = 0xEC;  // Peer Clock Precision
-  // 8 bytes of zero for Root Delay & Root Dispersion
-  packetBuffer[12]  = 49;
-  packetBuffer[13]  = 0x4E;
-  packetBuffer[14]  = 49;
-  packetBuffer[15]  = 52;
-  // all NTP fields have been given values, now
-  // you can send a packet requesting a timestamp:                 
-  Udp.beginPacket(address, 123); //NTP requests are to port 123
-  Udp.write(packetBuffer, NTP_PACKET_SIZE);
-  Udp.endPacket();
-  
-}
+        unsigned long sendNTPpacket(char* address)
+        {
+          // set all bytes in the buffer to 0
+          memset(packetBuffer, 0, NTP_PACKET_SIZE);
+          // Initialize values needed to form NTP request
+          // (see URL above for details on the packets)
+          packetBuffer[0] = 0b11100011;   // LI, Version, Mode
+          packetBuffer[1] = 0;     // Stratum, or type of clock
+          packetBuffer[2] = 6;     // Polling Interval
+          packetBuffer[3] = 0xEC;  // Peer Clock Precision
+          // 8 bytes of zero for Root Delay & Root Dispersion
+          packetBuffer[12]  = 49;
+          packetBuffer[13]  = 0x4E;
+          packetBuffer[14]  = 49;
+          packetBuffer[15]  = 52;
+          // all NTP fields have been given values, now
+          // you can send a packet requesting a timestamp:                 
+          Udp.beginPacket(address, 123); //NTP requests are to port 123
+          Udp.write(packetBuffer, NTP_PACKET_SIZE);
+          Udp.endPacket();
+          return (0);
+        }
 #endif
-
 
 
 

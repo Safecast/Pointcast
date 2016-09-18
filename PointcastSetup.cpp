@@ -29,7 +29,7 @@
 
 
 
-void PointcastSetup::loadFromFile(char * setupFile) {
+void PointcastSetup::loadFromFile(char const* setupFile) {
   bool config_changed = false;
   char *config_buffer, *key, *value;
   unsigned int pos, line_lenght;
