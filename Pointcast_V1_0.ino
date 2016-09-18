@@ -172,7 +172,7 @@ History Versions:
 2016-09-17 V4.1.0  fixed weekly restarts (was not correctly working)
 2016-09-17 V4.1.1  fixed Openlog startup detection (was broken in 4.0.9)
 2016-09-19 V4.1.2  fixed compiler warnings
-
+2016-09-19 V4.1.3  NTP server timeout retries at 5 minutes.
 
 contact rob@yr-design.biz
  */
@@ -276,7 +276,7 @@ char body3[512];
 
 
 //static
-    static char VERSION[] = "V4.1.2";
+    static char VERSION[] = "V4.1.3";
 
     #if ENABLE_3G
     static char path[LINE_SZ];
@@ -3784,7 +3784,7 @@ void eepromclear(){
 
         time_t getNtpTime()
         {
-          ntpcount++;
+         ntpcount++;
          if (getTimeStamp){ 
             while (Udp.parsePacket() > 0) ; // discard any previously received packets
                #ifdef ENABLE_DEBUG
@@ -3796,7 +3796,7 @@ void eepromclear(){
               
           sendNTPpacket(timeServer);
           uint32_t beginWait = millis();
-          while (millis() - beginWait < 1500) {
+          while (millis() - beginWait < 300000) {
             int size = Udp.parsePacket();
             if (size >= NTP_PACKET_SIZE) {
                  #ifdef ENABLE_DEBUG
