@@ -173,6 +173,7 @@ History Versions:
 2016-09-17 V4.1.1  fixed Openlog startup detection (was broken in 4.0.9)
 2016-09-19 V4.1.2  fixed compiler warnings
 2016-09-19 V4.1.3  NTP server timeout retries at 5 minutes.
+2016-09-19 V4.1.4  fixes freezes on timeupdate  
 
 contact rob@yr-design.biz
  */
@@ -276,7 +277,7 @@ char body3[512];
 
 
 //static
-    static char VERSION[] = "V4.1.3";
+    static char VERSION[] = "V4.1.4";
 
     #if ENABLE_3G
     static char path[LINE_SZ];
@@ -1037,13 +1038,8 @@ void Menu_network(void){
                                            Serial.println(" days");
                                        #endif 
                                      }
-                                     // Daily RTC
-                                     if (config.rst > 0){
-                                        Alarm.alarmRepeat(12,30,0,DailyRTC);
-                                        #ifdef ENABLE_DEBUG
-                                            Serial.println("Daily RTC setup");                                             
-                                        #endif 
-                                     }
+                                     // Daily RTC 60*60*24 seconds
+                                        setSyncInterval(86400L);
             }
 
                 
@@ -3542,15 +3538,15 @@ void createFile(char *fileName) {
 
  // retrieve temperature
       float getTemp(){
-
+      byte i;
       byte data[12];
       byte addr[8];
       byte type_s;
       float celsius, fahrenheit;
+    
       ds.reset();
       ds.select(addr);
       ds.reset_search();
-
       
       if ( !ds.search(addr)) {
       //no more sensors on chain, reset search
@@ -3604,7 +3600,6 @@ void createFile(char *fileName) {
       byte present = ds.reset();
       ds.select(addr);
       ds.write(0xBE); // Read Scratchpad
-      present++;
       
       for (int i = 0; i < 9; i++) { // we need 9 bytes
       data[i] = ds.read();
@@ -3634,7 +3629,7 @@ void createFile(char *fileName) {
       byte MSB = data[1];
       byte LSB = data[0];
       
-      float tempRead = ((MSB << 8) | LSB); //using two’s compliment
+      float tempRead = ((MSB << 8) | LSB); //using two's compliment
       float temperature = tempRead / 16;
        #ifdef ENABLE_DEBUG
           Serial.print("  Temperature = ");
@@ -3642,7 +3637,7 @@ void createFile(char *fileName) {
       #endif 
       return temperature;
   }
-  return (0);
+  return 0;
 }
 
 
@@ -3728,26 +3723,11 @@ void DailyRTC(){
                      delay(250);
                      i++;
                 }
-                delay(3000);
-
-          #if ENABLE_3G
               if (a3gs.getTime2(seconds) == 0) {
                    setTime(seconds);
                    adjustTime(-32400);
                    Teensy3Clock.set(now());
               }
-          #endif
-          
-          #if ENABLE_ETHERNET
-                    if (Ethernet.begin(macAddress) == 0) {
-                      {
-                        Ethernet.begin(macAddress, localIP);
-                      }
-                    }
-                   Udp.begin(localPort);
-                   setSyncProvider(getNtpTime);
-                   Teensy3Clock.set(now()); 
-          #endif
 
 }
 
@@ -3794,9 +3774,10 @@ void eepromclear(){
                 #endif 
 
               
-          sendNTPpacket(timeServer);
+
           uint32_t beginWait = millis();
           while (millis() - beginWait < 300000) {
+            sendNTPpacket(timeServer);
             int size = Udp.parsePacket();
             if (size >= NTP_PACKET_SIZE) {
                  #ifdef ENABLE_DEBUG
