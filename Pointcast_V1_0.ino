@@ -172,10 +172,10 @@ History Versions:
 2016-09-17 V4.1.0  fixed weekly restarts (was not correctly working)
 2016-09-17 V4.1.1  fixed Openlog startup detection (was broken in 4.0.9)
 2016-09-19 V4.1.2  fixed compiler warnings
-2016-09-19 V4.1.3  NTP server timeout retries at 5 minutes.
-2016-09-19 V4.1.4  fixes freezes on timeupdate
-2016-09-19 V4.1.5  Cleaned up formatting  
-
+2016-09-20 V4.1.3  NTP server timeout retries at 5 minutes.
+2016-09-21 V4.1.4  fixes freezes on timeupdate
+2016-09-22 V4.1.5  Cleaned up formatting
+2016-09-23 V4.1.6  setup NTP check for 15 seconds retries and 300 seconds timeout
 
 
 contact rob@yr-design.biz
@@ -284,7 +284,7 @@ PointcastSetup PointcastSetup(OpenLog, config, dose, obuf, OLINE_SZ);
 
 
 //static
-static char VERSION[] = "V4.1.5";
+static char VERSION[] = "V4.1.6";
 
 #if ENABLE_3G
 static char path[LINE_SZ];
@@ -3783,6 +3783,7 @@ void WeeklyRestart() {
   CPU_RESTART;
 }
 
+#if ENABLE_3G
 void DailyRTC() {
   Serial.println("Alarm: - Daily RTC");
   //alarm peep 2 times
@@ -3800,9 +3801,8 @@ void DailyRTC() {
     adjustTime(-32400);
     Teensy3Clock.set(now());
   }
-
 }
-
+#endif
 
 
 
@@ -3845,24 +3845,24 @@ time_t getNtpTime()
     Serial.println(timeServer);
 #endif
 
-
-
     uint32_t beginWait = millis();
     while (millis() - beginWait < 300000) {
       sendNTPpacket(timeServer);
-      int size = Udp.parsePacket();
-      if (size >= NTP_PACKET_SIZE) {
-#ifdef ENABLE_DEBUG
-        Serial.println("Receive NTP Response");
-#endif
-        Udp.read(packetBuffer, NTP_PACKET_SIZE);  // read packet into the buffer
-        unsigned long secsSince1900;
-        // convert four bytes starting at location 40 to a long integer
-        secsSince1900 =  (unsigned long)packetBuffer[40] << 24;
-        secsSince1900 |= (unsigned long)packetBuffer[41] << 16;
-        secsSince1900 |= (unsigned long)packetBuffer[42] << 8;
-        secsSince1900 |= (unsigned long)packetBuffer[43];
-        return secsSince1900 - 2208988800UL + timeZone * SECS_PER_HOUR;
+      while (millis() - beginWait < 15000) {
+        int size = Udp.parsePacket();
+        if (size >= NTP_PACKET_SIZE) {
+            #ifdef ENABLE_DEBUG
+                      Serial.println("Receive NTP Response");
+            #endif
+          Udp.read(packetBuffer, NTP_PACKET_SIZE);  // read packet into the buffer
+          unsigned long secsSince1900;
+          // convert four bytes starting at location 40 to a long integer
+          secsSince1900 =  (unsigned long)packetBuffer[40] << 24;
+          secsSince1900 |= (unsigned long)packetBuffer[41] << 16;
+          secsSince1900 |= (unsigned long)packetBuffer[42] << 8;
+          secsSince1900 |= (unsigned long)packetBuffer[43];
+          return secsSince1900 - 2208988800UL + timeZone * SECS_PER_HOUR;
+        }
       }
     }
 #ifdef ENABLE_DEBUG
