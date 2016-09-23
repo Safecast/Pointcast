@@ -176,7 +176,7 @@ History Versions:
 2016-09-21 V4.1.4  fixes freezes on timeupdate
 2016-09-22 V4.1.5  Cleaned up formatting
 2016-09-23 V4.1.6  setup NTP check for 15 seconds retries and 300 seconds timeout
-
+2016-09-23 V4.1.7  setup to renew a lease for DHCP every 5 minutes for networks that have short DHCP lease setup
 
 contact rob@yr-design.biz
  */
@@ -201,11 +201,7 @@ contact rob@yr-design.biz
 #include <LiquidCrystal_I2C.h>
 #include <OneWire.h>
 #include <limits.h>
-
-#if ENABLE_3G
 #include "a3gim.h"
-#endif
-
 #include "PointcastSetup.h"
 #include "PointcastDebug.h"
 
@@ -284,7 +280,7 @@ PointcastSetup PointcastSetup(OpenLog, config, dose, obuf, OLINE_SZ);
 
 
 //static
-static char VERSION[] = "V4.1.6";
+static char VERSION[] = "V4.1.7";
 
 #if ENABLE_3G
 static char path[LINE_SZ];
@@ -2541,6 +2537,8 @@ void SendDataToServer(float CPM, float CPM2) {
   }
 
 sendEN:
+//maintain DHCP assigned IP for networks that have short DHCP lease setup
+    Ethernet.maintain();
 
 //send  sensor  1
 
