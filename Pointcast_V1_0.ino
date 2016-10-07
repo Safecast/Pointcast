@@ -155,28 +155,30 @@ History Versions:
 2016-06-16 V3.9.3  Changed to 5 minutes count
 2016-06-17 V3.9.4  Added Ethernet.maintain() to renew lease before restart
 2016-07-04 V3.9.5  reset Wiz820IO modified at startup
-2016-07-08 V3.9.6  move weekourly reset in main loop and 3g gim restart first shutdown 3gim module.
+2016-07-08 V3.9.6  move week hourly reset in main loop and 3g gim restart first shutdown 3gim module.
 2016-07-16 V3.9.7  reset counter just before main loop to avoid wrong first count
 2016-07-21 V3.9.8  random minute restart weekly restart
 2016-07-27 V3.9.9  fix for DS18S20 to report correctly
-2016-07-27 V4.0.0  adjusted display for ethernet and 3G to display count down in 4 digits and get even spaces for the voltage and temperature.
+2016-07-27 V4.0.0  adjusted display for Ethernet and 3G to display count down in 4 digits and get even spaces for the voltage and temperature.
 2016-07-29 V4.0.1  3GIM and Wiz820IO modules reset at startup
 2016-07-31 V4.0.2  setup weekly restarts
 2016-08-01 V4.0.3  improved weekly restart based on rst value on sdcard
 2016-08-05 V4.0.4  daily RTC update
-2016-08-10 V4.0.5   moved 3Gpower down/up more sooner in startup. to allow 3GIM module to settle down before accesing it
-2016-08-30 V4.0.6  fixed bug with pin assingment of ethernet
-2016-09-09 V4.0.7  fixed retries connect ethernet
-2016-09-09 V4.0.8  added delay between retries Etherenet connect
+2016-08-10 V4.0.5  moved 3Gpower down/up more sooner in startup. to allow 3GIM module to settle down before accessing it
+2016-08-30 V4.0.6  fixed bug with pin assignment of Ethernet
+2016-09-09 V4.0.7  fixed retries connect Ethernet
+2016-09-09 V4.0.8  added delay between retries Ethernet connect
 2016-09-14 V4.0.9  fixed in time sync provider
 2016-09-17 V4.1.0  fixed weekly restarts (was not correctly working)
 2016-09-17 V4.1.1  fixed Openlog startup detection (was broken in 4.0.9)
 2016-09-19 V4.1.2  fixed compiler warnings
 2016-09-20 V4.1.3  NTP server timeout retries at 5 minutes.
-2016-09-21 V4.1.4  fixes freezes on timeupdate
+2016-09-21 V4.1.4  fixes freezes on time update
 2016-09-22 V4.1.5  Cleaned up formatting
 2016-09-23 V4.1.6  setup NTP check for 15 seconds retries and 300 seconds timeout
 2016-09-23 V4.1.7  setup to renew a lease for DHCP every 5 minutes for networks that have short DHCP lease setup
+2016-09-24 V4.1.8  conditional setup of the Ethernet.maintain() function to restart the Ethernet connection id a new lease or a rebind can not obtained.
+
 
 contact rob@yr-design.biz
  */
@@ -280,7 +282,7 @@ PointcastSetup PointcastSetup(OpenLog, config, dose, obuf, OLINE_SZ);
 
 
 //static
-static char VERSION[] = "V4.1.7";
+static char VERSION[] = "V4.1.8";
 
 #if ENABLE_3G
 static char path[LINE_SZ];
@@ -1107,7 +1109,7 @@ void Menu_network(void) {
       Serial.println("connection failed");
     }
 
-    while (client.connected() && !client.available()) delay(1); //waits for data
+    while (client.connected() && !client.available()) delay(10); //waits for data
     while (client.connected() || client.available()) { //connected or data available
       character = client.read();
       replyserver.concat(character);
@@ -1189,7 +1191,8 @@ void Menu_network(void) {
   Serial.println(getTimeStamp);
 #endif
 
-#endif
+
+#endif // endif of Ethernet setup
 
 
 #if ENABLE_3G
@@ -2537,8 +2540,11 @@ void SendDataToServer(float CPM, float CPM2) {
   }
 
 sendEN:
-//maintain DHCP assigned IP for networks that have short DHCP lease setup
-    Ethernet.maintain();
+//maintain DHCP assigned IP for networks that have short DHCP lease setup and restart Ethernet if renew or rebind is failed
+   
+if ( Ethernet.maintain()==1 || Ethernet.maintain()==3) {
+     Ethernet.begin(macAddress, localIP);
+}
 
 //send  sensor  1
 
@@ -2636,6 +2642,7 @@ sendEN:
 #ifdef ENABLE_DEBUG
   Serial.println("Disconnecting");
 #endif
+
 
 
   //send sensor 2
@@ -2780,7 +2787,6 @@ sendEN:
     Ethernet.maintain();
     delay (3000);
     CPU_RESTART;
-
     return;
   }
 
