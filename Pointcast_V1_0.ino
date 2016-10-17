@@ -178,7 +178,7 @@ History Versions:
 2016-09-23 V4.1.6  setup NTP check for 15 seconds retries and 300 seconds timeout
 2016-09-23 V4.1.7  setup to renew a lease for DHCP every 5 minutes for networks that have short DHCP lease setup
 2016-09-24 V4.1.8  conditional setup of the Ethernet.maintain() function to restart the Ethernet connection id a new lease or a rebind can not obtained.
-
+2016-10-16 V4.1.9  Added confirmation for measurement ID from API to be sure data is accepted in the Database.
 
 contact rob@yr-design.biz
  */
@@ -282,7 +282,7 @@ PointcastSetup PointcastSetup(OpenLog, config, dose, obuf, OLINE_SZ);
 
 
 //static
-static char VERSION[] = "V4.1.8";
+static char VERSION[] = "V4.1.9";
 
 #if ENABLE_3G
 static char path[LINE_SZ];
@@ -308,7 +308,6 @@ static devctrl_t ctrl;
 //Const
 const char *server = "107.161.164.163";
 const char serverName[] = "safecast-production.s3.amazonaws.com";
-String replyserver = "";
 char character;
 const int port = 80;
 const int interruptMode = FALLING;
@@ -344,6 +343,9 @@ boolean getTimeStamp = true;
 //Strings
 
 String last_failure = "";
+String replysub = "";
+String replyserver = "";
+String replyserver1 = "";
 
 //int
 int MAX_FAILED_CONNS = 5;
@@ -358,6 +360,8 @@ int S2peak;
 int failures;
 int left_mins_old = 1;
 int ntpcount;
+int fail_cnt = 0;
+
 
 
 //long
@@ -1417,7 +1421,7 @@ void Menu_network_test(void) {
   if (a3gs.httpGET(strbuffer, port, path, res, len) == 0) {
     replyserver.concat(res);
 
-    if (replyserver.indexOf("<?xml version") == 0) //checks for gateway for html message of gate way
+    if (replyserver.indexOf("<?xml version") == 0) //checks for gateway for html message of gateway
     {
 #ifdef ENABLE_DEBUG
       Serial.println("S3 amazon connect confirmed");
@@ -2541,10 +2545,10 @@ void SendDataToServer(float CPM, float CPM2) {
 
 sendEN:
 //maintain DHCP assigned IP for networks that have short DHCP lease setup and restart Ethernet if renew or rebind is failed
-   
-if ( Ethernet.maintain()==1 || Ethernet.maintain()==3) {
-     Ethernet.begin(macAddress, localIP);
-}
+
+  if ( Ethernet.maintain() == 1 || Ethernet.maintain() == 3) {
+    Ethernet.begin(macAddress, localIP);
+  }
 
 //send  sensor  1
 
@@ -2604,6 +2608,11 @@ if ( Ethernet.maintain()==1 || Ethernet.maintain()==3) {
     return;
   }
 
+// display sending for sensor 1
+  lcd.setCursor(0, 2);
+  lcd.print(config.dev ? "DEV:" : "API:");
+  lcd.print("sending S1    ");
+
   // prepare the log entry for sensor 1
   sprintf_P(json_buf, PSTR("{\"longitude\":\"%s\",\"latitude\":\"%s\",\"device_id\":\"%d\",\"value\":\"%s\",\"unit\":\"cpm\",\"height\":\"%d\",\"devicetype_id\":\"Pointcast V1\"}"),  \
             config.longitude, \
@@ -2639,6 +2648,33 @@ if ( Ethernet.maintain()==1 || Ethernet.maintain()==3) {
   client.println("Content-Type: application/json");
   client.println();
   client.println(json_buf);
+
+// get confirmation from API
+  int GetmeasurementReplyReturn = GetMeasurementReply(15000);
+
+  if (!GetmeasurementReplyReturn) {
+#ifdef ENABLE_DEBUG
+    Serial.println("Timed out");
+#endif
+    fail_cnt++;
+#ifdef ENABLE_DEBUG
+    Serial.print("Connections Failed = ");
+    Serial.println(fail_cnt);
+#endif
+    if (fail_cnt >= MAX_FAILED_CONNS)
+    {
+      //restart
+      delay (2000);
+      CPU_RESTART;
+    }
+  } else {
+#ifdef ENABLE_DEBUG
+    Serial.print("Measurement ID sensor 1= ");
+    Serial.println(GetmeasurementReplyReturn);
+#endif
+    fail_cnt = 0;
+  }
+
 #ifdef ENABLE_DEBUG
   Serial.println("Disconnecting");
 #endif
@@ -2702,6 +2738,11 @@ if ( Ethernet.maintain()==1 || Ethernet.maintain()==3) {
     return;
   }
 
+// display sending for sensor 1
+  lcd.setCursor(0, 2);
+  lcd.print(config.dev ? "DEV:" : "API:");
+  lcd.print("sending S2    ");
+
   // prepare the log entry for sensor 2
   sprintf_P(json_buf2, PSTR("{\"longitude\":\"%s\",\"latitude\":\"%s\",\"device_id\":\"%d\",\"value\":\"%s\",\"unit\":\"cpm\",\"height\":\"%d\",\"devicetype_id\":\"Pointcast V1\"}"),  \
             config.longitude, \
@@ -2738,8 +2779,36 @@ if ( Ethernet.maintain()==1 || Ethernet.maintain()==3) {
   client.println("Content-Type: application/json");
   client.println();
   client.println(json_buf2);
-  lcd.setCursor(13, 2);
-  lcd.print("PASS   ");
+
+// get confirmation from API
+unsigned long GetmeasurementReplyReturn1 = GetMeasurementReply(15000);
+
+  if (!GetmeasurementReplyReturn1) {
+#ifdef ENABLE_DEBUG
+    Serial.println("Timed out");
+#endif
+    fail_cnt++;
+#ifdef ENABLE_DEBUG
+    Serial.print("Connections Failed = ");
+    Serial.println(fail_cnt);
+#endif
+    if (fail_cnt >= MAX_FAILED_CONNS)
+    {
+      //restart
+      delay (2000);
+      CPU_RESTART;
+    }
+  } else {
+#ifdef ENABLE_DEBUG
+    Serial.print("Measurement ID sensor 2= ");
+    Serial.println(GetmeasurementReplyReturn1);
+#endif
+    fail_cnt = 0;
+  }
+
+
+  lcd.setCursor(11, 2);
+  lcd.print("  PASS   ");
 #ifdef ENABLE_DEBUG
   Serial.println("Disconnecting");
 #endif
@@ -2790,6 +2859,10 @@ if ( Ethernet.maintain()==1 || Ethernet.maintain()==3) {
     return;
   }
 
+// display sending for sensor 1
+  lcd.setCursor(0, 2);
+  lcd.print(config.dev ? "DEV:" : "API:");
+  lcd.print("sending TMP  ");
 
   // prepare the log entry for temperature
   memset(json_buf2, 0, SENT_SZ);
@@ -2822,8 +2895,35 @@ if ( Ethernet.maintain()==1 || Ethernet.maintain()==3) {
   client.println("Content-Type: application/json");
   client.println();
   client.println(json_buf2);
-  lcd.setCursor(13, 2);
-  lcd.print("PASS   ");
+
+// get confirmation from API
+unsigned long GetmeasurementReplyReturn2 = GetMeasurementReply(15000);
+
+  if (!GetmeasurementReplyReturn2) {
+#ifdef ENABLE_DEBUG
+    Serial.println("Timed out");
+#endif
+    fail_cnt++;
+#ifdef ENABLE_DEBUG
+    Serial.print("Connections Failed = ");
+    Serial.println(fail_cnt);
+#endif
+    if (fail_cnt >= MAX_FAILED_CONNS)
+    {
+      //restart
+      delay (2000);
+      CPU_RESTART;
+    }
+  } else {
+#ifdef ENABLE_DEBUG
+    Serial.print("Measurement Temperature= ");
+    Serial.println(GetmeasurementReplyReturn2);
+#endif
+    fail_cnt = 0;
+  }
+
+  lcd.setCursor(11, 2);
+  lcd.print("  PASS   ");
   Serial.println("Disconnecting");
 
 
@@ -3057,7 +3157,6 @@ if ( Ethernet.maintain()==1 || Ethernet.maintain()==3) {
   } else {
     lcd.setCursor(13, 2);
     lcd.print("SD FAIL");
-//                   char* last_failure="SD failed";
     //alarm peep
     digitalWrite(28, HIGH);
     pinMode(28, OUTPUT);
@@ -3855,9 +3954,9 @@ time_t getNtpTime()
       while (millis() - beginWait < 15000) {
         int size = Udp.parsePacket();
         if (size >= NTP_PACKET_SIZE) {
-            #ifdef ENABLE_DEBUG
-                      Serial.println("Receive NTP Response");
-            #endif
+#ifdef ENABLE_DEBUG
+          Serial.println("Receive NTP Response");
+#endif
           Udp.read(packetBuffer, NTP_PACKET_SIZE);  // read packet into the buffer
           unsigned long secsSince1900;
           // convert four bytes starting at location 40 to a long integer
@@ -3905,5 +4004,24 @@ unsigned long sendNTPpacket(char* address)
 }
 #endif
 
+unsigned long GetMeasurementReply(unsigned long Timeout) {
+  replysub = "";
+  replyserver1 = "";
+  unsigned long lastTime = millis();
+  while (client.available() == 0 && millis() - lastTime < Timeout) delay(10);
+  while (client.available() && millis() - lastTime < Timeout) {
+    character = client.read();
+    replyserver1.concat(character);
+    lastTime = millis();
+  }
+  if (replyserver1.indexOf("\"id\":") != -1) {
+    int val = replyserver1.indexOf("\"id\":");
+    int valend = val + 13;
+    replysub = replyserver1.substring((val + 5), valend);
+    return replysub.toInt();
+  } else {
+    return (0);
+  }
+}
 
 
