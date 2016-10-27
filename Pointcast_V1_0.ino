@@ -180,7 +180,7 @@ History Versions:
 2016-09-24 V4.1.8  conditional setup of the Ethernet.maintain() function to restart the Ethernet connection id a new lease or a rebind can not obtained.
 2016-10-16 V4.1.9  Added confirmation for measurement ID from API to be sure data is accepted in the Database.
 2016-10-28 V4.2.0  Status data to API.
-
+2016-10-28 V4.2.1  Status data to API with fix for Ethernet.
 
 contact rob@yr-design.biz
  */
@@ -250,7 +250,7 @@ boolean pingConnect = false;
 
 #define LINE_SZ 128
 // SENT_SZ is used for sending data for 3G
-#define SENT_SZ 120
+#define SENT_SZ 512
 //OLINE_SZ is used for OpenLog buffers
 #define OLINE_SZ 512
 //GATEWAY_sz is array for gateways
@@ -285,7 +285,7 @@ PointcastSetup PointcastSetup(OpenLog, config, dose, obuf, OLINE_SZ);
 
 
 //static
-static char VERSION[] = "V4.2.0";
+static char VERSION[] = "V4.2.1";
 
 #if ENABLE_3G
 static char path[LINE_SZ];
@@ -2819,7 +2819,10 @@ sendEN:
   digitalWrite(26, LOW);
   //client.stop();
 
-  //send temperature-----------------------------
+
+
+
+  //send Status----------------------------
 
   if (client.connected())
   {
@@ -2883,14 +2886,14 @@ sendEN:
   Serial.println(STATS);
 #endif
 
-  // prepare the log entry for temperature
+  // prepare the log entry for Status
   memset(json_buf2, 0, SENT_SZ);
   sprintf_P(json_buf2, PSTR("{\"longitude\":\"%s\",\"latitude\":\"%s\",\"device_id\":\"%d\",\"value\":\"%s\",\"unit\":\"status\",\"height\":\"%d\",\"devicetype_id\":\"%s\"}"),  \
             config.longitude, \
             config.latitude, \
             tempID,  \
             temperature_string, \
-            config.alt,
+            config.alt, \
             STATS);
 
   int len4 = strlen(json_buf2);
@@ -2936,7 +2939,7 @@ sendEN:
     }
   } else {
 #ifdef ENABLE_DEBUG
-    Serial.print("Measurement Temperature= ");
+    Serial.print("Measurement Status = ");
     Serial.println(GetmeasurementReplyReturn2);
 #endif
     fail_cnt = 0;
