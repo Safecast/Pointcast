@@ -179,6 +179,8 @@ History Versions:
 2016-09-23 V4.1.7  setup to renew a lease for DHCP every 5 minutes for networks that have short DHCP lease setup
 2016-09-24 V4.1.8  conditional setup of the Ethernet.maintain() function to restart the Ethernet connection id a new lease or a rebind can not obtained.
 2016-10-16 V4.1.9  Added confirmation for measurement ID from API to be sure data is accepted in the Database.
+2016-10-28 V4.2.0  Status data to API.
+
 
 contact rob@yr-design.biz
  */
@@ -263,6 +265,7 @@ static char strbuffer1[32];
 char body[512];
 char body2[512];
 char body3[512];
+char STATS[255];
 
 // OpenLog Settings --------------------------------------------------------------
 SoftwareSerial OpenLog =  SoftwareSerial(0, 1);
@@ -282,7 +285,7 @@ PointcastSetup PointcastSetup(OpenLog, config, dose, obuf, OLINE_SZ);
 
 
 //static
-static char VERSION[] = "V4.1.9";
+static char VERSION[] = "V4.2.0";
 
 #if ENABLE_3G
 static char path[LINE_SZ];
@@ -2781,7 +2784,7 @@ sendEN:
   client.println(json_buf2);
 
 // get confirmation from API
-unsigned long GetmeasurementReplyReturn1 = GetMeasurementReply(15000);
+  unsigned long GetmeasurementReplyReturn1 = GetMeasurementReply(15000);
 
   if (!GetmeasurementReplyReturn1) {
 #ifdef ENABLE_DEBUG
@@ -2862,16 +2865,33 @@ unsigned long GetmeasurementReplyReturn1 = GetMeasurementReply(15000);
 // display sending for sensor 1
   lcd.setCursor(0, 2);
   lcd.print(config.dev ? "DEV:" : "API:");
-  lcd.print("sending TMP  ");
+  lcd.print("sending Status ");
+
+  //put Statics of sensor into STATS
+  sprintf_P(STATS, PSTR("DeviceID:%d,Temperature:%s,Battery Voltage:%s,Fails:%ld,Restarts:%ld,FreeRam:%ld,Last failure:%s,NTP count:%d"),
+            config.devid, \
+            temperature_string, \
+            battery_string, \
+            dose.fails, \
+            dose.restarts, \
+            FreeRam(), \
+            config.last_failure, \
+            ntpcount);
+
+#ifdef ENABLE_DEBUG
+  Serial.print("STATS = ");
+  Serial.println(STATS);
+#endif
 
   // prepare the log entry for temperature
   memset(json_buf2, 0, SENT_SZ);
-  sprintf_P(json_buf2, PSTR("{\"longitude\":\"%s\",\"latitude\":\"%s\",\"device_id\":\"%d\",\"value\":\"%s\",\"unit\":\"celcius\",\"height\":\"%d\"}"),  \
+  sprintf_P(json_buf2, PSTR("{\"longitude\":\"%s\",\"latitude\":\"%s\",\"device_id\":\"%d\",\"value\":\"%s\",\"unit\":\"status\",\"height\":\"%d\",\"devicetype_id\":\"%s\"}"),  \
             config.longitude, \
             config.latitude, \
             tempID,  \
             temperature_string, \
-            config.alt);
+            config.alt,
+            STATS);
 
   int len4 = strlen(json_buf2);
   json_buf2[len4] = '\0';
@@ -2897,7 +2917,7 @@ unsigned long GetmeasurementReplyReturn1 = GetMeasurementReply(15000);
   client.println(json_buf2);
 
 // get confirmation from API
-unsigned long GetmeasurementReplyReturn2 = GetMeasurementReply(15000);
+  unsigned long GetmeasurementReplyReturn2 = GetMeasurementReply(15000);
 
   if (!GetmeasurementReplyReturn2) {
 #ifdef ENABLE_DEBUG
@@ -3181,7 +3201,10 @@ unsigned long GetmeasurementReplyReturn2 = GetMeasurementReply(15000);
               config.api_key);
   }
 
-//create body and body2  ....\$\"value\$\" : \$\"60\$\"
+
+
+
+//create body, body2, body3  ....\$\"value\$\" : \$\"60\$\"
   sprintf_P(body, PSTR("{\$\"longitude\$\":\$\"%s\$\",\$\"latitude\$\":\$\"%s\$\",\$\"device_id\$\":\$\"%d\$\",\$\"value\$\":\$\"%s\$\",\$\"unit\$\":\$\"cpm\$\",\$\"height\$\":\$\"%d\$\"}"),  \
             config.longitude, \
             config.latitude, \
@@ -3196,12 +3219,29 @@ unsigned long GetmeasurementReplyReturn2 = GetMeasurementReply(15000);
             CPM2_string, \
             config.alt);
 
-  sprintf_P(body3, PSTR("{\$\"longitude\$\":\$\"%s\$\",\$\"latitude\$\":\$\"%s\$\",\$\"device_id\$\":\$\"%d\$\",\$\"value\$\":\$\"%s\$\",\$\"unit\$\":\$\"celcius\$\",\$\"height\$\":\$\"%d\$\"}"),  \
+//put Statics of sensor into STATS
+  sprintf_P(STATS, PSTR("DeviceID:%d,Temperature:%s,Battery Voltage:%s,Fails%ld,Restarts:%ld,FreeRam:%ld,Last failure:%s,NTP count:%d"),
+            config.devid, \
+            temperature_string, \
+            battery_string, \
+            dose.fails, \
+            dose.restarts, \
+            FreeRam(), \
+            config.last_failure, \
+            ntpcount);
+
+#ifdef ENABLE_DEBUG
+  Serial.print("STATS = ");
+  Serial.println(STATS);
+#endif
+
+  sprintf_P(body3, PSTR("{\$\"longitude\$\":\$\"%s\$\",\$\"latitude\$\":\$\"%s\$\",\$\"device_id\$\":\$\"%d\$\",\$\"value\$\":\$\"%s\$\",\$\"unit\$\":\$\"status\$\",\$\"height\$\":\$\"%d\$\",\$\"devicetype_id\$\":\$\"%s\$\"}"),  \
             config.longitude, \
             config.latitude, \
             tempID,  \
             temperature_string, \
-            config.alt);
+            config.alt, \
+            STATS );
 
 
 send3G:
@@ -3209,6 +3249,46 @@ send3G:
   Serial.println(strbuffer);
 
   if (a3gs.httpPOST(strbuffer, port, path, header, body, res, &len, useHTTPS) == 0  ) {
+
+    String res_string(res);
+    int startChar = res_string.indexOf("\"id\":");
+    res_string.remove(0, startChar + 5);
+    int endComma = res_string.indexOf(",");
+    replysub = res_string.substring(0, endComma);
+    res_string="";
+
+    if (replysub.toInt() == 0) {
+#ifdef ENABLE_DEBUG
+      Serial.println("Timed out");
+#endif
+      fail_cnt++;
+      lcd.setCursor(11, 2);
+      lcd.print("  Fail   ");
+#ifdef ENABLE_DEBUG
+      Serial.print("Connections Failed = ");
+      Serial.println(fail_cnt);
+#endif
+      if (fail_cnt >= MAX_FAILED_CONNS)
+      {
+        //restart
+        delay (2000);
+        CPU_RESTART;
+      }
+    } else {
+#ifdef ENABLE_DEBUG
+      Serial.print("Measurement S1=");
+      Serial.println(replysub);
+#endif
+      fail_cnt = 0;
+      lcd.setCursor(11, 2);
+      lcd.print("  PASS   ");
+      replysub ="";
+#ifdef ENABLE_DEBUG
+      Serial.println("Disconnecting");
+#endif
+    }
+
+
 #ifdef ENABLE_DEBUG
     Serial.println("Sent sensor 1 info to server OK!");
     Serial.print(">Response=[");
@@ -3216,9 +3296,50 @@ send3G:
     Serial.println("]");
 #endif
 
-    delay (3000);
+    delay (5000);
+
 
     a3gs.httpPOST(strbuffer, port, path, header, body2, res2, &len2, useHTTPS);
+
+    String res_string2(res2);
+    startChar = res_string2.indexOf("\"id\":");
+    res_string2.remove(0, startChar + 5);
+    endComma = res_string2.indexOf(",");
+    replysub = res_string2.substring(0, endComma);
+    res_string2="";
+    if (replysub.toInt() == 0) {
+#ifdef ENABLE_DEBUG
+      Serial.println("Timed out");
+#endif
+      fail_cnt++;
+      lcd.setCursor(11, 2);
+      lcd.print("  Fail   ");
+#ifdef ENABLE_DEBUG
+      Serial.print("Connections Failed = ");
+      Serial.println(fail_cnt);
+#endif
+      if (fail_cnt >= MAX_FAILED_CONNS)
+      {
+        //restart
+        delay (2000);
+        CPU_RESTART;
+      }
+    } else {
+#ifdef ENABLE_DEBUG
+      Serial.print("Measurement S2=");
+      Serial.println(replysub);
+#endif
+      fail_cnt = 0;
+      lcd.setCursor(11, 2);
+      lcd.print("  PASS   ");
+      replysub="";
+
+#ifdef ENABLE_DEBUG
+      Serial.println("Disconnecting");
+#endif
+    }
+
+
 #ifdef ENABLE_DEBUG
     Serial.println("Sent sensor 2 info to server OK!");
     Serial.print(">Response=[");
@@ -3228,9 +3349,52 @@ send3G:
 
     delay (3000);
 
+
+
     a3gs.httpPOST(strbuffer, port, path, header, body3, res4, &len4, useHTTPS);
+
+    String res_string4(res4);
+    startChar = res_string4.indexOf("\"id\":");
+    res_string4.remove(0, startChar + 5);
+    endComma = res_string4.indexOf(",");
+    replysub = res_string4.substring(0, endComma);
+    res_string4 = "";
+
+    if (replysub.toInt() == 0) {
 #ifdef ENABLE_DEBUG
-    Serial.println("Sent temperature info to server OK!");
+      Serial.println("Timed out");
+#endif
+      fail_cnt++;
+      lcd.setCursor(11, 2);
+      lcd.print("  Fail   ");
+#ifdef ENABLE_DEBUG
+      Serial.print("Connections Failed = ");
+      Serial.println(fail_cnt);
+#endif
+      if (fail_cnt >= MAX_FAILED_CONNS)
+      {
+        //restart
+        delay (2000);
+        CPU_RESTART;
+      }
+    } else {
+#ifdef ENABLE_DEBUG
+      Serial.print("Measurement Status = ");
+      Serial.println(replysub);
+#endif
+      fail_cnt = 0;
+      lcd.setCursor(11, 2);
+      lcd.print("  PASS   ");
+      replysub ="";
+
+#ifdef ENABLE_DEBUG
+      Serial.println("Disconnecting");
+#endif
+    }
+
+
+#ifdef ENABLE_DEBUG
+    Serial.println("Sent Status info to server OK!");
     Serial.print(">Response=[");
     Serial.print(res4);
     Serial.println("]");
@@ -3251,11 +3415,6 @@ send3G:
     lcd.setCursor(10, 3);
     lcd.print(battery);
     lcd.print("V");
-//      #if ENABLE_3G
-//          lcd.setCursor(13,3);
-//          lcd.print(rssi);
-//          lcd.print("dBm");
-//      #endif
 
   }
   else {
@@ -3300,7 +3459,6 @@ send3G:
   }
 
 
-
 #endif
 //   end of 3G send
 
@@ -3316,6 +3474,7 @@ send3G:
   lcd.print("UTC");
 
 }
+//end SendDataToServer(
 
 
 /**************************************************************************/
@@ -3548,28 +3707,39 @@ void Menu_term() {
     int startChar2 = res2_string.indexOf("\"id\":");
     res2_string.remove(0, startChar2 + 5);
     int endComma2 = res2_string.indexOf(",");
+
+    String res4_string(res4);
+    int startChar4 = res4_string.indexOf("\"id\":");
+    res4_string.remove(0, startChar4 + 5);
+    int endComma4 = res4_string.indexOf(",");
 #endif
 
 #if ENABLE_ETHERNET
 
 
-
 #endif
 
     lcd.setCursor(0, 0);
-    lcd.print("Terminal ");
+    lcd.print("Terminal: API ID");
     lcd.setCursor(0, 1);
-    lcd.print("res=");
+    lcd.print("S1=");
 #if ENABLE_3G
     if (startChar != -1) {
       lcd.print(res_string.substring(0, endComma));
     }
 #endif
     lcd.setCursor(0, 2);
-    lcd.print("res2=");
+    lcd.print("S2=");
 #if ENABLE_3G
     if (startChar2 != -1) {
       lcd.print(res2_string.substring(0, endComma2));
+    }
+#endif
+    lcd.setCursor(0, 4);
+    lcd.print("TMP=");
+#if ENABLE_3G
+    if (startChar4 != -1) {
+      lcd.print(res4_string.substring(0, endComma4));
     }
 #endif
 
@@ -4004,6 +4174,7 @@ unsigned long sendNTPpacket(char* address)
 }
 #endif
 
+#if ENABLE_ETHERNET
 unsigned long GetMeasurementReply(unsigned long Timeout) {
   replysub = "";
   replyserver1 = "";
@@ -4023,5 +4194,6 @@ unsigned long GetMeasurementReply(unsigned long Timeout) {
     return (0);
   }
 }
+#endif
 
 
