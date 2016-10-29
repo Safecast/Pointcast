@@ -181,6 +181,7 @@ History Versions:
 2016-10-16 V4.1.9  Added confirmation for measurement ID from API to be sure data is accepted in the Database.
 2016-10-28 V4.2.0  Status data to API.
 2016-10-28 V4.2.1  Status data to API with fix for Ethernet.
+2016-10-28 V4.2.2  Ethernet reply message of measurement_id of for API setup for displaying on terminal 
 
 contact rob@yr-design.biz
  */
@@ -285,7 +286,7 @@ PointcastSetup PointcastSetup(OpenLog, config, dose, obuf, OLINE_SZ);
 
 
 //static
-static char VERSION[] = "V4.2.1";
+static char VERSION[] = "V4.2.2";
 
 #if ENABLE_3G
 static char path[LINE_SZ];
@@ -372,6 +373,10 @@ unsigned long elapsedTime(unsigned long startTime);
 unsigned long previousMillis = 0;
 unsigned long currentmillis = 0;
 unsigned long total_time = 0;
+unsigned long GetmeasurementReplyReturn;
+unsigned long GetmeasurementReplyReturn1;
+unsigned long GetmeasurementReplyReturn2;
+
 long display_days = 0;
 long display_hours = 0;
 long display_mins = 0;
@@ -2653,7 +2658,7 @@ sendEN:
   client.println(json_buf);
 
 // get confirmation from API
-  int GetmeasurementReplyReturn = GetMeasurementReply(15000);
+  GetmeasurementReplyReturn = GetMeasurementReply(15000);
 
   if (!GetmeasurementReplyReturn) {
 #ifdef ENABLE_DEBUG
@@ -2784,7 +2789,7 @@ sendEN:
   client.println(json_buf2);
 
 // get confirmation from API
-  unsigned long GetmeasurementReplyReturn1 = GetMeasurementReply(15000);
+  GetmeasurementReplyReturn1 = GetMeasurementReply(15000);
 
   if (!GetmeasurementReplyReturn1) {
 #ifdef ENABLE_DEBUG
@@ -2920,7 +2925,7 @@ sendEN:
   client.println(json_buf2);
 
 // get confirmation from API
-  unsigned long GetmeasurementReplyReturn2 = GetMeasurementReply(15000);
+  GetmeasurementReplyReturn2 = GetMeasurementReply(15000);
 
   if (!GetmeasurementReplyReturn2) {
 #ifdef ENABLE_DEBUG
@@ -2939,7 +2944,7 @@ sendEN:
     }
   } else {
 #ifdef ENABLE_DEBUG
-    Serial.print("Measurement Status = ");
+    Serial.print("Measurement ID status = ");
     Serial.println(GetmeasurementReplyReturn2);
 #endif
     fail_cnt = 0;
@@ -3223,7 +3228,7 @@ sendEN:
             config.alt);
 
 //put Statics of sensor into STATS
-  sprintf_P(STATS, PSTR("DeviceID:%d,Temperature:%s,Battery Voltage:%s,Fails%ld,Restarts:%ld,FreeRam:%ld,Last failure:%s,NTP count:%d"),
+  sprintf_P(STATS, PSTR("DeviceID:%d,Temperature:%s,Battery Voltage:%s,Fails:%ld,Restarts:%ld,FreeRam:%ld,Last failure:%s,NTP count:%d"),
             config.devid, \
             temperature_string, \
             battery_string, \
@@ -3250,6 +3255,10 @@ sendEN:
 send3G:
   sprintf_P(strbuffer, PSTR("%s"), server);
   Serial.println(strbuffer);
+  
+  lcd.setCursor(0, 2);
+  lcd.print(config.dev ? "DEV:" : "API:");
+  lcd.print("sending S1 ");
 
   if (a3gs.httpPOST(strbuffer, port, path, header, body, res, &len, useHTTPS) == 0  ) {
 
@@ -3301,6 +3310,9 @@ send3G:
 
     delay (5000);
 
+    lcd.setCursor(0, 2);
+    lcd.print(config.dev ? "DEV:" : "API:");
+    lcd.print("sending S2    ");
 
     a3gs.httpPOST(strbuffer, port, path, header, body2, res2, &len2, useHTTPS);
 
@@ -3352,7 +3364,9 @@ send3G:
 
     delay (3000);
 
-
+    lcd.setCursor(0, 2);
+    lcd.print(config.dev ? "DEV:" : "API:");
+    lcd.print("sending status ");
 
     a3gs.httpPOST(strbuffer, port, path, header, body3, res4, &len4, useHTTPS);
 
@@ -3731,6 +3745,11 @@ void Menu_term() {
       lcd.print(res_string.substring(0, endComma));
     }
 #endif
+
+#if ENABLE_ETHERNET
+    lcd.print(GetmeasurementReplyReturn);
+#endif
+
     lcd.setCursor(0, 2);
     lcd.print("S2=");
 #if ENABLE_3G
@@ -3738,12 +3757,20 @@ void Menu_term() {
       lcd.print(res2_string.substring(0, endComma2));
     }
 #endif
+
+#if ENABLE_ETHERNET
+    lcd.print(GetmeasurementReplyReturn1);
+#endif
     lcd.setCursor(0, 4);
     lcd.print("TMP=");
 #if ENABLE_3G
     if (startChar4 != -1) {
       lcd.print(res4_string.substring(0, endComma4));
     }
+#endif
+
+#if ENABLE_ETHERNET
+    lcd.print(GetmeasurementReplyReturn2);
 #endif
 
   }
