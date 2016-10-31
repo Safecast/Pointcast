@@ -182,6 +182,7 @@ History Versions:
 2016-10-28 V4.2.0  Status data to API.
 2016-10-28 V4.2.1  Status data to API with fix for Ethernet.
 2016-10-28 V4.2.2  Ethernet reply message of measurement_id of for API setup for displaying on terminal 
+2016-10-31 V4.2.3  3G cleanup code 
 
 contact rob@yr-design.biz
  */
@@ -286,7 +287,7 @@ PointcastSetup PointcastSetup(OpenLog, config, dose, obuf, OLINE_SZ);
 
 
 //static
-static char VERSION[] = "V4.2.2";
+static char VERSION[] = "V4.2.3";
 
 #if ENABLE_3G
 static char path[LINE_SZ];
@@ -3258,47 +3259,47 @@ send3G:
   
   lcd.setCursor(0, 2);
   lcd.print(config.dev ? "DEV:" : "API:");
-  lcd.print("sending S1 ");
+  lcd.print("Sending S1 ");
 
   if (a3gs.httpPOST(strbuffer, port, path, header, body, res, &len, useHTTPS) == 0  ) {
 
-    String res_string(res);
-    int startChar = res_string.indexOf("\"id\":");
-    res_string.remove(0, startChar + 5);
-    int endComma = res_string.indexOf(",");
-    replysub = res_string.substring(0, endComma);
-    res_string="";
+//     String res_string(res);
+//     int startChar = res_string.indexOf("\"id\":");
+//     res_string.remove(0, startChar + 5);
+//     int endComma = res_string.indexOf(",");
+//     replysub = res_string.substring(0, endComma);
+//     res_string="";
 
-    if (replysub.toInt() == 0) {
-#ifdef ENABLE_DEBUG
-      Serial.println("Timed out");
-#endif
-      fail_cnt++;
-      lcd.setCursor(11, 2);
-      lcd.print("  Fail   ");
-#ifdef ENABLE_DEBUG
-      Serial.print("Connections Failed = ");
-      Serial.println(fail_cnt);
-#endif
-      if (fail_cnt >= MAX_FAILED_CONNS)
-      {
-        //restart
-        delay (2000);
-        CPU_RESTART;
-      }
-    } else {
-#ifdef ENABLE_DEBUG
-      Serial.print("Measurement S1=");
-      Serial.println(replysub);
-#endif
-      fail_cnt = 0;
-      lcd.setCursor(11, 2);
-      lcd.print("  PASS   ");
-      replysub ="";
-#ifdef ENABLE_DEBUG
-      Serial.println("Disconnecting");
-#endif
-    }
+//     if (replysub.toInt() == 0) {
+// #ifdef ENABLE_DEBUG
+//       Serial.println("Timed out");
+// #endif
+//       fail_cnt++;
+//       lcd.setCursor(11, 2);
+//       lcd.print("  Fail   ");
+// #ifdef ENABLE_DEBUG
+//       Serial.print("Connections Failed = ");
+//       Serial.println(fail_cnt);
+// #endif
+//       if (fail_cnt >= MAX_FAILED_CONNS)
+//       {
+//         //restart
+//         delay (2000);
+//         CPU_RESTART;
+//       }
+//     } else {
+// #ifdef ENABLE_DEBUG
+//       Serial.print("Measurement S1=");
+//       Serial.println(replysub);
+// #endif
+//       fail_cnt = 0;
+//       lcd.setCursor(11, 2);
+//       lcd.print("  PASS   ");
+//       replysub ="";
+// #ifdef ENABLE_DEBUG
+//       Serial.println("Disconnecting");
+// #endif
+//     }
 
 
 #ifdef ENABLE_DEBUG
@@ -3312,47 +3313,47 @@ send3G:
 
     lcd.setCursor(0, 2);
     lcd.print(config.dev ? "DEV:" : "API:");
-    lcd.print("sending S2    ");
+    lcd.print("Sending S2    ");
 
     a3gs.httpPOST(strbuffer, port, path, header, body2, res2, &len2, useHTTPS);
 
-    String res_string2(res2);
-    startChar = res_string2.indexOf("\"id\":");
-    res_string2.remove(0, startChar + 5);
-    endComma = res_string2.indexOf(",");
-    replysub = res_string2.substring(0, endComma);
-    res_string2="";
-    if (replysub.toInt() == 0) {
-#ifdef ENABLE_DEBUG
-      Serial.println("Timed out");
-#endif
-      fail_cnt++;
-      lcd.setCursor(11, 2);
-      lcd.print("  Fail   ");
-#ifdef ENABLE_DEBUG
-      Serial.print("Connections Failed = ");
-      Serial.println(fail_cnt);
-#endif
-      if (fail_cnt >= MAX_FAILED_CONNS)
-      {
-        //restart
-        delay (2000);
-        CPU_RESTART;
-      }
-    } else {
-#ifdef ENABLE_DEBUG
-      Serial.print("Measurement S2=");
-      Serial.println(replysub);
-#endif
-      fail_cnt = 0;
-      lcd.setCursor(11, 2);
-      lcd.print("  PASS   ");
-      replysub="";
+//     String res_string2(res2);
+//     startChar = res_string2.indexOf("\"id\":");
+//     res_string2.remove(0, startChar + 5);
+//     endComma = res_string2.indexOf(",");
+//     replysub = res_string2.substring(0, endComma);
+//     res_string2="";
+//     if (replysub.toInt() == 0) {
+// #ifdef ENABLE_DEBUG
+//       Serial.println("Timed out");
+// #endif
+//       fail_cnt++;
+//       lcd.setCursor(11, 2);
+//       lcd.print("  Fail   ");
+// #ifdef ENABLE_DEBUG
+//       Serial.print("Connections Failed = ");
+//       Serial.println(fail_cnt);
+// #endif
+//       if (fail_cnt >= MAX_FAILED_CONNS)
+//       {
+//         //restart
+//         delay (2000);
+//         CPU_RESTART;
+//       }
+//     } else {
+// #ifdef ENABLE_DEBUG
+//       Serial.print("Measurement S2=");
+//       Serial.println(replysub);
+// #endif
+//       fail_cnt = 0;
+//       lcd.setCursor(11, 2);
+//       lcd.print("  PASS   ");
+//       replysub="";
 
-#ifdef ENABLE_DEBUG
-      Serial.println("Disconnecting");
-#endif
-    }
+// #ifdef ENABLE_DEBUG
+//       Serial.println("Disconnecting");
+// #endif
+//     }
 
 
 #ifdef ENABLE_DEBUG
@@ -3366,48 +3367,48 @@ send3G:
 
     lcd.setCursor(0, 2);
     lcd.print(config.dev ? "DEV:" : "API:");
-    lcd.print("sending status ");
+    lcd.print("Sending Status ");
 
     a3gs.httpPOST(strbuffer, port, path, header, body3, res4, &len4, useHTTPS);
 
-    String res_string4(res4);
-    startChar = res_string4.indexOf("\"id\":");
-    res_string4.remove(0, startChar + 5);
-    endComma = res_string4.indexOf(",");
-    replysub = res_string4.substring(0, endComma);
-    res_string4 = "";
+//     String res_string4(res4);
+//     startChar = res_string4.indexOf("\"id\":");
+//     res_string4.remove(0, startChar + 5);
+//     endComma = res_string4.indexOf(",");
+//     replysub = res_string4.substring(0, endComma);
+//     res_string4 = "";
 
-    if (replysub.toInt() == 0) {
-#ifdef ENABLE_DEBUG
-      Serial.println("Timed out");
-#endif
-      fail_cnt++;
-      lcd.setCursor(11, 2);
-      lcd.print("  Fail   ");
-#ifdef ENABLE_DEBUG
-      Serial.print("Connections Failed = ");
-      Serial.println(fail_cnt);
-#endif
-      if (fail_cnt >= MAX_FAILED_CONNS)
-      {
-        //restart
-        delay (2000);
-        CPU_RESTART;
-      }
-    } else {
-#ifdef ENABLE_DEBUG
-      Serial.print("Measurement Status = ");
-      Serial.println(replysub);
-#endif
-      fail_cnt = 0;
-      lcd.setCursor(11, 2);
-      lcd.print("  PASS   ");
-      replysub ="";
+//     if (replysub.toInt() == 0) {
+// #ifdef ENABLE_DEBUG
+//       Serial.println("Timed out");
+// #endif
+//       fail_cnt++;
+//       lcd.setCursor(11, 2);
+//       lcd.print("  Fail   ");
+// #ifdef ENABLE_DEBUG
+//       Serial.print("Connections Failed = ");
+//       Serial.println(fail_cnt);
+// #endif
+//       if (fail_cnt >= MAX_FAILED_CONNS)
+//       {
+//         //restart
+//         delay (2000);
+//         CPU_RESTART;
+//       }
+//     } else {
+// #ifdef ENABLE_DEBUG
+//       Serial.print("Measurement Status = ");
+//       Serial.println(replysub);
+// #endif
+//       fail_cnt = 0;
+//       lcd.setCursor(11, 2);
+//       lcd.print("  PASS   ");
+//       replysub ="";
 
-#ifdef ENABLE_DEBUG
-      Serial.println("Disconnecting");
-#endif
-    }
+// #ifdef ENABLE_DEBUG
+//       Serial.println("Disconnecting");
+// #endif
+//     }
 
 
 #ifdef ENABLE_DEBUG
@@ -3421,8 +3422,8 @@ send3G:
     digitalWrite(26, LOW);
 
     //Display information
-    lcd.setCursor(13, 2);
-    lcd.print("PASS   ");
+    lcd.setCursor(12, 2);
+    lcd.print(" PASS   ");
     lcd.setCursor(0, 3);
     lcd.setCursor(0, 3);
     lcd.print("STS:");
@@ -3436,7 +3437,7 @@ send3G:
   }
   else {
 
-    lcd.setCursor(13, 2);
+    lcd.setCursor(12, 2);
 #ifdef ENABLE_DEBUG
     Serial.println("No connection to API!");
     Serial.println("saving to SDcard only");
@@ -3450,7 +3451,7 @@ send3G:
       CPU_RESTART;
     }
 
-    lcd.print(" FAIL");
+    lcd.print(" FAIL  ");
     //add fail to EEProm
     dose.fails++;
     Serial.println("dos.fail++");
@@ -4225,5 +4226,4 @@ unsigned long GetMeasurementReply(unsigned long Timeout) {
   }
 }
 #endif
-
 
