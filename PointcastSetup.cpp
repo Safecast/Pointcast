@@ -74,7 +74,7 @@ while(pos < line_lenght){
   // Get a complete line
   i = 0;
   config_buffer = mBuffer + pos;
-  while(mBuffer[pos++] != '\n') {
+  while(mBuffer[pos++] != '\n' && mBuffer[pos++] != '\r') {
     i++;
     if(pos == mBufferSize) {
       break;
@@ -358,6 +358,14 @@ else if(strcmp(key, "ntp") == 0) {
   strcpy(mConfig.ntp, value);
   config_changed = true;
   DEBUG_PRINTLN("   - Update NTP");
+  }
+}
+
+else if(strcmp(key, "cfm") == 0) {
+ if (strcmp(mConfig.cfm, value) != 0 ) {
+  strcpy(mConfig.cfm, value);
+  config_changed = true;
+  DEBUG_PRINTLN("   - Update Confirm API timing");
   }
 }
 

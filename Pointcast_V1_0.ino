@@ -184,6 +184,8 @@ History Versions:
 2016-10-28 V4.2.2  Ethernet reply message of measurement_id of for API setup for displaying on terminal 
 2016-10-31 V4.2.3  3G cleanup code 
 2016-11-11 V4.2.4  3G send error message corrected.
+2017-02-14 V4.2.5  SD card can now be edited in Windows (ray fixed the import code)
+
 
 contact rob@yr-design.biz
  */
@@ -288,7 +290,7 @@ PointcastSetup PointcastSetup(OpenLog, config, dose, obuf, OLINE_SZ);
 
 
 //static
-static char VERSION[] = "V4.2.4";
+static char VERSION[] = "V4.2.5";
 
 #if ENABLE_3G
 static char path[LINE_SZ];
@@ -318,7 +320,7 @@ char character;
 const int port = 80;
 const int interruptMode = FALLING;
 int updateIntervalInMinutes = 1;
-const char *header = "Content-Type:application/json$r$n";
+const char *header = "Content-Type:application/httpPost$r$n";
 const boolean useHTTPS = false;  // Use https(true) or http(false)
 uint32_t seconds;
 
