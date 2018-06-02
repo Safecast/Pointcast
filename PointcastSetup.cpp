@@ -32,8 +32,8 @@
 void PointcastSetup::loadFromFile(char const* setupFile) {
   bool config_changed = false;
   char *config_buffer, *key, *value;
-  unsigned int pos, line_lenght;
-  byte i, buffer_lenght;
+  unsigned int pos, line_length;
+  byte i, buffer_length;
 
   mOpenlog.listen();
 
@@ -46,8 +46,10 @@ void PointcastSetup::loadFromFile(char const* setupFile) {
   mOpenlog.write(13); //This is \r
 
 while(1) {
-  if(mOpenlog.available())
-    if(mOpenlog.read() == '\r\n' || mOpenlog.read() == '\r' ) break;
+  if(mOpenlog.available()) {
+    char ch = mOpenlog.read();
+    if (ch == '\r' || ch == '\n') break;
+  }
 }
 
 // Read config file in memory
@@ -65,52 +67,52 @@ for(int timeOut = 0 ; timeOut < 1000 ; timeOut++) {
   }
 }
 
-line_lenght = pos;
+line_length = pos;
 pos = 0;
 
 // Process each config file lines
-while(pos < line_lenght){
+while(pos < line_length){
 
   // Get a complete line
   i = 0;
   config_buffer = mBuffer + pos;
-  while(mBuffer[pos++] != '\n' && mBuffer[pos++] != '\r') {
+  while(true) {
+    char ch = mBuffer[pos++];
+    if (ch == '\n' || ch == '\r') break;
+    if(pos == mBufferSize) break;
     i++;
-    if(pos == mBufferSize) {
-      break;
-    }
   }
-  buffer_lenght = i++;
-  config_buffer[--i] = '\0';
+  buffer_length = i;
+  config_buffer[i] = '\0';
 
   // Skip empty lines
-  if(config_buffer[0] == '\0' || config_buffer[0] == '#' || buffer_lenght < 3) continue;
+  if(config_buffer[0] == '\0' || config_buffer[0] == '#' || buffer_length < 3) continue;
 
   // Search for keys
   i = 0;
   while(config_buffer[i] == ' ' || config_buffer[i] == '\t') {
-    if(++i == buffer_lenght) break; // skip white spaces
+    if(++i == buffer_length) break; // skip white spaces
   }
-  if(i == buffer_lenght) continue;
+  if(i == buffer_length) continue;
   key = &config_buffer[i];
 
   // Search for '=' ignoring white spaces
   while(config_buffer[i] != '=') {
     if(config_buffer[i] == ' ' || config_buffer[i] == '\t'|| config_buffer[i] == '\r') config_buffer[i] = '\0';
-    if(++i == buffer_lenght) {
+    if(++i == buffer_length) {
       break;
     }
   }
-  if(i == buffer_lenght) continue;
+  if(i == buffer_length) continue;
   config_buffer[i++] = '\0';
 
   // Search for value ignoring white spaces
   while(config_buffer[i] == ' ' || config_buffer[i] == '\t') {
-    if(++i == buffer_lenght) {
+    if(++i == buffer_length) {
       break;
     }
   }
-  if(i == buffer_lenght) continue;
+  if(i == buffer_length) continue;
   value = &config_buffer[i];
   
   //
