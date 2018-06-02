@@ -185,6 +185,7 @@ History Versions:
 2016-10-31 V4.2.3  3G cleanup code 
 2016-11-11 V4.2.4  3G send error message corrected.
 2017-02-14 V4.2.5  SD card can now be edited in Windows (ray fixed the import code)
+2018-06-02 V4.2.7 .SD card can now be edited in Windows (ray new fix)
 
 
 contact rob@yr-design.biz
@@ -290,7 +291,7 @@ PointcastSetup PointcastSetup(OpenLog, config, dose, obuf, OLINE_SZ);
 
 
 //static
-static char VERSION[] = "V4.2.5";
+static char VERSION[] = "V4.2.7";
 
 #if ENABLE_3G
 static char path[LINE_SZ];
